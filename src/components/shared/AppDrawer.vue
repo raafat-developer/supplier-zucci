@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="drawer">
       <div v-if="modelValue" class="fixed inset-0 z-[200]">
-        <div class="absolute inset-0 bg-white/35 backdrop-blur-sm" @click="$emit('update:modelValue', false)" />
+        <div class="absolute inset-0 bg-white/35 backdrop-blur-sm dark:bg-black/60" @click="$emit('update:modelValue', false)" />
         <div class="absolute top-0 right-0 bottom-0 bg-background border-l border-border shadow-2xl flex flex-col overflow-hidden transition-transform duration-300" :style="{ width: width }">
           <div class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
             <h3 class="text-base font-semibold">{{ title }}</h3>

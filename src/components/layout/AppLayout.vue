@@ -1,21 +1,45 @@
 <template>
-  <div style="display:flex;min-height:100vh;background:hsl(var(--background));color:hsl(var(--foreground))">
+  <div
+    class="content-layout-wrapper flex min-h-screen text-foreground overflow-x-hidden w-full max-w-full"
+  >
     <AppSidebar />
-    <div style="flex:1;display:flex;flex-direction:column;transition:margin-left 200ms;overflow:hidden" :style="{ marginLeft: store.sidebarCollapsed ? '3rem' : '17rem' }">
+    <div
+      class="flex-1 flex flex-col min-h-screen transition-[margin-left] duration-200 ml-0 lg:ml-[var(--layout-ml)] overflow-x-hidden w-full max-w-full"
+      :style="{ '--layout-ml': store.sidebarCollapsed ? '3rem' : '17rem' }"
+    >
       <AppTopbar />
-      <main style="flex:1;padding:1.25rem;padding-top:4.5rem;overflow-y:auto">
-        <router-view />
+      <main
+        class="flex-1 p-3 sm:p-5 pt-16 flex flex-col justify-between overflow-x-hidden w-full max-w-full"
+      >
+        <div class="flex-1 flex flex-col overflow-x-hidden w-full max-w-full">
+          <router-view />
+        </div>
+        <ZucciFooter />
       </main>
     </div>
-    <ToastContainer />
     <ModalContainer />
+    <NotificationDrawer />
   </div>
 </template>
 <script setup>
-import { useAppStore } from '@/stores/app'
-import AppSidebar from './AppSidebar.vue'
-import AppTopbar from './AppTopbar.vue'
-import ToastContainer from '@/components/shared/ToastContainer.vue'
-import ModalContainer from '@/components/shared/ModalContainer.vue'
-const store = useAppStore()
+import { onMounted, onUnmounted } from "vue";
+import { useAppStore } from "@/stores/app";
+import { useNotificationStore } from "@/stores/notifications";
+import AppSidebar from "./AppSidebar.vue";
+import AppTopbar from "./AppTopbar.vue";
+import ModalContainer from "@/components/shared/ModalContainer.vue";
+import NotificationDrawer from "@/components/shared/NotificationDrawer.vue";
+import ZucciFooter from "@/components/shared/ZucciFooter.vue";
+
+const store = useAppStore();
+const notificationStore = useNotificationStore();
+
+onMounted(() => {
+  notificationStore.bootstrap();
+});
+
+onUnmounted(() => {
+  notificationStore.disconnect();
+});
 </script>
+

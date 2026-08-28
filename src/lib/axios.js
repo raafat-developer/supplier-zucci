@@ -24,6 +24,9 @@ api.interceptors.request.use(
 // ── Response Interceptor ──
 api.interceptors.response.use(
   (response) => {
+    if (response.config?.skipToast || response.config?.skipSuccessToast || response.config?.silent) {
+      return response
+    }
     const method = response.config.method?.toUpperCase()
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
       const msg = response.data?.message
@@ -34,6 +37,9 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
+    if (error.config?.skipToast || error.config?.skipErrorToast || error.config?.silent) {
+      return Promise.reject(error)
+    }
     const status = error.response?.status
     const message = error.response?.data?.message || error.message || 'Something went wrong'
 
@@ -53,11 +59,12 @@ api.interceptors.response.use(
       case 404:
         store?.toast('The requested resource was not found.', 'error')
         break
+      case 400:
       case 422: {
         const errors = error.response?.data?.errors
         if (errors) {
           const firstError = Object.values(errors).flat()[0]
-          store?.toast(firstError || 'Validation failed.', 'error')
+          store?.toast(firstError || message || 'Validation failed.', 'error')
         } else {
           store?.toast(message, 'error')
         }

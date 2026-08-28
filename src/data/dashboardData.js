@@ -3,6 +3,11 @@ export const BRAND_DASHBOARD_DATA = {
   zeyylan: {
     name: 'Zeyylan', currency: 'AED', tier: 'Gold', tierPct: 72, tierNext: 'Platinum', tierGap: 'AED 28,700 more GMV needed',
     kpis: { revenue: 'AED 184,320', orders: '847', aov: 'AED 218', returnRate: '1.8%', revDelta: '+22%', ordDelta: '+11%', aovDelta: '+8%', rrDelta: '-0.4pp' },
+    marketKpis: {
+      AE: { revenue: 'AED 123,456', orders: '450', aov: 'AED 274', returnRate: '1.5%' },
+      SA: { revenue: 'AED 41,200', orders: '300', aov: 'AED 137', returnRate: '2.1%' },
+      EG: { revenue: 'AED 19,664', orders: '97', aov: 'AED 202', returnRate: '2.5%' }
+    },
     revenueByMarket: { AE: [32400,28900,41200,53800,66200,27400], SA: [18200,16700,21500,28400,31800,13600], EG: [9100,8400,10200,12100,14600,6200], QA: [4200,3900,5100,6300,5820,2000] },
     products: { active: 18, pending: 3, outOfStock: 1, rejected: 0 },
     payout: { amount: 'AED 12,840', date: 'Jun 20, 2026' },
@@ -24,6 +29,10 @@ export const BRAND_DASHBOARD_DATA = {
   lemaillot: {
     name: 'Le Maillot', currency: 'AED', tier: 'Silver', tierPct: 41, tierNext: 'Gold', tierGap: 'AED 43,500 more GMV needed',
     kpis: { revenue: 'AED 68,490', orders: '312', aov: 'AED 220', returnRate: '3.1%', revDelta: '+9%', ordDelta: '+5%', aovDelta: '+4%', rrDelta: '+0.2pp' },
+    marketKpis: {
+      AE: { revenue: 'AED 46,200', orders: '210', aov: 'AED 220', returnRate: '2.8%' },
+      SA: { revenue: 'AED 22,290', orders: '102', aov: 'AED 218.5', returnRate: '3.7%' }
+    },
     revenueByMarket: { AE: [12100,11200,14800,18900,22400,9800], SA: [6200,5900,7100,9400,10200,4600], EG: [2800,2600,3100,3900,4200,1800], QA: [1100,1000,1300,1600,1620,700] },
     products: { active: 9, pending: 1, outOfStock: 2, rejected: 1 },
     payout: { amount: 'AED 4,920', date: 'Jun 20, 2026' },
@@ -41,6 +50,9 @@ export const BRAND_DASHBOARD_DATA = {
   taya: {
     name: 'Taya', currency: 'AED', tier: 'Bronze', tierPct: 18, tierNext: 'Silver', tierGap: 'AED 71,200 more GMV needed',
     kpis: { revenue: 'AED 22,140', orders: '88', aov: 'AED 252', returnRate: '2.2%', revDelta: '+41%', ordDelta: '+28%', aovDelta: '+10%', rrDelta: '-0.1pp' },
+    marketKpis: {
+      AE: { revenue: 'AED 22,140', orders: '88', aov: 'AED 252', returnRate: '2.2%' }
+    },
     revenueByMarket: { AE: [2100,2800,3400,4200,5100,2400], SA: [800,1100,1400,1700,1920,900], EG: [300,400,500,600,720,300], QA: [100,150,200,240,280,120] },
     products: { active: 4, pending: 2, outOfStock: 0, rejected: 0 },
     payout: { amount: 'AED 1,580', date: 'Jun 20, 2026' },

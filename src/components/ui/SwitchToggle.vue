@@ -1,10 +1,21 @@
 <template>
-  <button type="button" role="switch" :aria-checked="modelValue" class="sc-switch" :class="{ active: modelValue }" @click="$emit('update:modelValue', !modelValue)">
+  <button
+    type="button"
+    role="switch"
+    :aria-checked="modelValue"
+    :disabled="disabled"
+    class="sc-switch"
+    :class="{ active: modelValue, disabled: disabled }"
+    @click="disabled ? null : $emit('update:modelValue', !modelValue)"
+  >
     <span class="sc-switch-thumb" />
   </button>
 </template>
 <script setup>
-defineProps({ modelValue: Boolean })
+defineProps({
+  modelValue: Boolean,
+  disabled: Boolean,
+})
 defineEmits(['update:modelValue'])
 </script>
 <style scoped>
@@ -13,6 +24,10 @@ defineEmits(['update:modelValue'])
   cursor: pointer; align-items: center; border-radius: 9999px;
   border: 2px solid transparent; padding: 0;
   background: hsl(var(--input)); transition: background-color 200ms;
+}
+.sc-switch.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .sc-switch.active { background: #3dda84; }
 .sc-switch-thumb {

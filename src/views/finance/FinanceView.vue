@@ -1,194 +1,701 @@
 <template>
-  <div class="flex flex-col gap-5">
+  <div class="flex flex-col gap-4 p-4 flex-1">
     <!-- Transaction Detail view -->
     <template v-if="detail">
-      <button @click="detail = null" class="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-fit uppercase tracking-widest">
-        <ChevronLeft class="size-4" /> Back All Transactions
-      </button>
-      <div class="flex items-center justify-between gap-4 flex-wrap">
-        <h1 class="text-2xl font-bold">{{ detail.label }}</h1>
-        <div v-if="detail.status !== 'Pending'" class="flex gap-2">
-          <AppButton variant="outline" size="sm" @click="toast('Exporting CSV…')"><Download class="size-3.5" /> Export CSV</AppButton>
-          <AppButton variant="outline" size="sm" @click="toast('Exporting PDF…')"><FileText class="size-3.5" /> Export PDF</AppButton>
-        </div>
-      </div>
-      <!-- Summary card -->
-      <div class="rounded-xl border border-border bg-card p-5 flex items-start justify-between gap-4">
-        <div class="flex items-start gap-4">
-          <div class="size-10 rounded-full flex items-center justify-center bg-muted shrink-0">
-            <template v-if="detail.status === 'Pending'"><ArrowDownUp class="size-5 text-muted-foreground" /></template>
-            <template v-else-if="detail.type === 'wu'" v-html="wuSvg"></template>
-            <template v-else><Landmark class="size-5 text-muted-foreground" /></template>
-          </div>
-          <div>
-            <p class="text-3xl font-bold tracking-tight">{{ detail.payout }} <span class="text-base font-normal text-muted-foreground">USD, {{ detail.status === 'Pending' ? 'Estimated amount excluding taxes.' : 'Amount excluding taxes.' }}</span></p>
-            <p class="font-semibold mt-1">{{ detail.status === 'Pending' ? 'Pending payouts' : 'Total payout amount' }}</p>
-            <p class="text-sm text-muted-foreground">{{ detail.status === 'Pending' ? 'Estimated payout date ' : 'Payout date ' }}{{ detail.payDate }}</p>
-          </div>
-        </div>
-        <button v-if="detail.status !== 'Pending'" @click="toast('Downloading confirmation…')" class="rounded-lg px-5 py-2.5 text-sm font-semibold text-white shrink-0 hover:opacity-90 transition-opacity" style="background:#0f172a">
-          {{ detail.type === 'wu' ? 'Download WU Confirmation' : 'Download SWIFT Confirmation' }}
-        </button>
-      </div>
-      <!-- Orders table -->
-      <div class="rounded-xl border border-border overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="data-table w-full">
-            <thead><tr><th>Date</th><th>Order #</th><th>Brand</th><th class="text-right">Amount</th></tr></thead>
-            <tbody>
-              <tr v-for="o in ORDERS" :key="o.ord + o.date" @click="$router.push('/app/orders')" class="cursor-pointer hover:bg-muted/40 transition-colors">
-                <td class="text-sm text-muted-foreground">{{ o.date }}</td>
-                <td class="text-sm text-primary font-medium hover:underline">{{ o.ord }}</td>
-                <td class="text-sm text-muted-foreground">{{ o.brand }}</td>
-                <td class="font-mono font-semibold text-right">{{ o.amount }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border text-sm text-muted-foreground">
-          <span class="mr-auto text-xs">Rows per page <select class="ml-1 rounded border border-border bg-background px-1 py-0.5 text-xs focus:outline-none"><option>10</option><option>25</option></select></span>
-          <span class="text-xs">1–10 of 1,394</span>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronsLeft class="size-4" /></button>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronLeft class="size-4" /></button>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronRight class="size-4" /></button>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronsRight class="size-4" /></button>
-        </div>
-      </div>
-      <!-- Sara card in detail -->
-      <SaraCard @message="showMessage = true" @book="showBooking = true" />
+      <TransactionDetail
+        :detail="detail"
+        @back="detail = null"
+        @message="showMessage = true"
+        @book="showBooking = true"
+      />
     </template>
 
     <!-- Transaction List view -->
     <template v-else>
-      <!-- Row 1: Header + Sara card (35% width) -->
-      <div class="grid gap-6" style="grid-template-columns:1fr 35%;align-items:start">
-        <div class="flex-1 min-w-0">
-          <h2 class="text-xl font-bold mb-1">Transactions</h2>
-          <p class="text-sm text-muted-foreground leading-relaxed mb-4" style="max-width:46rem">Here you can view all your past and pending payout transactions. As well as download previous confirmations and export all your historical transactions as a csv.</p>
-          <div class="flex gap-2">
-            <AppButton variant="outline" size="sm" @click="toast('Exporting CSV…')"><Download class="size-3.5" /> Export CSV</AppButton>
-            <AppButton variant="outline" size="sm" @click="toast('Exporting PDF…')"><FileText class="size-3.5" /> Export PDF</AppButton>
-          </div>
-        </div>
-        <SaraCard @message="showMessage = true" @book="showBooking = true" />
-      </div>
-
-      <!-- Row 2: Pending payout summary card -->
-      <div @click="detail = TXNS[0]" class="rounded-xl border border-border bg-card p-5 flex items-start justify-between gap-4 cursor-pointer hover:shadow-sm transition-shadow">
-        <div class="flex items-start gap-4">
-          <div class="size-10 rounded-full flex items-center justify-center bg-muted shrink-0"><ArrowDownUp class="size-5 text-muted-foreground" /></div>
+      <!-- Row 1: Header + Sara card -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        <div class="lg:col-span-8 flex flex-col gap-4">
           <div>
-            <p class="text-3xl font-bold tracking-tight">$3,492.09 <span class="text-base font-normal text-muted-foreground">USD, Estimated amount excluding taxes.</span></p>
-            <p class="font-semibold mt-1">Pending payouts</p>
-            <p class="text-sm text-muted-foreground">Estimated payout date Jul 5, 2024 via wire account (***99)</p>
+            <h1 class="text-2xl font-bold tracking-tight">Finance & Payouts</h1>
+            <p
+              class="text-sm text-muted-foreground mt-1 leading-relaxed max-w-2xl"
+            >
+              Here you can view all your past and pending payout transactions,
+              track settlements, manage bank accounts, and export historical
+              financial statements.
+            </p>
           </div>
         </div>
-        <ChevronRight class="size-5 text-muted-foreground shrink-0 mt-1" />
+        <div class="lg:col-span-4 self-center lg:self-start">
+          <ContactCard
+            @message="showMessage = true"
+            @book="showBooking = true"
+          />
+        </div>
       </div>
 
-      <!-- Row 3: Transactions table -->
-      <div class="rounded-xl border border-border overflow-hidden">
+      <!-- ─── Stats Bar ─── -->
+      <div class="stats-bar bg-white-10">
+        <!-- Date range picker cell -->
+        <div class="stats-bar__picker">
+          <span class="text-xs font-semibold text-muted-foreground"
+            >Last 30 Days</span
+          >
+        </div>
+
+        <!-- Loading stats skeleton -->
+        <div
+          v-if="financeStore.loading.summary && !statsList.length"
+          class="stats-bar__cell flex items-center justify-center py-4"
+        >
+          <Loader2 class="size-4 animate-spin text-primary mr-2" />
+          <span class="text-xs text-muted-foreground">Updating metrics...</span>
+        </div>
+
+        <!-- Stat cells -->
+        <template v-else>
+          <div v-for="s in statsList" :key="s.label" class="stats-bar__cell">
+            <p class="stats-bar__label">{{ s.label }}</p>
+            <div class="stats-bar__value-row">
+              <span class="stats-bar__value">{{ s.val }}</span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Row 2: Pending payout summary card (if available) -->
+      <!-- <div
+        v-if="pendingPayout"
+        @click="openPendingDetail"
+        class="rounded-xl border bg-white-10 p-5 flex items-center justify-between gap-4 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+      >
+        <div class="flex items-center gap-4">
+          <div
+            class="size-10 rounded-full flex items-center justify-center bg-muted/40 border border-border/20 shrink-0"
+          >
+            <ArrowDownUp class="size-4.5 text-muted-foreground" />
+          </div>
+          <div>
+            <p class="text-2xl font-extrabold tracking-tight text-foreground">
+              {{ formatCurrency(pendingPayout.net_amount, pendingPayout.currency) }}
+              <span class="text-xs font-normal text-muted-foreground ml-1"
+                >{{ pendingPayout.currency || 'AED' }}, {{ pendingPayout.excluding_taxes_note !== false ? 'Estimated amount excluding taxes.' : 'Amount excluding taxes.' }}</span
+              >
+            </p>
+            <p
+              class="text-xs font-bold text-foreground mt-1 uppercase tracking-wider flex items-center gap-2"
+            >
+              Pending payout
+              <span v-if="pendingPayout.payout_number" class="font-mono text-muted-foreground font-normal">
+                ({{ pendingPayout.payout_number }})
+              </span>
+            </p>
+            <p class="text-xs text-muted-foreground mt-0.5">
+              {{ pendingPayout.pay_date_label || `Estimated payout date ${pendingPayout.due_date}` }}
+            </p>
+          </div>
+        </div>
+        <ChevronRight class="size-5 text-muted-foreground/80 shrink-0" />
+      </div> -->
+
+      <!-- Main Payouts Table Card -->
+      <div class="rounded-xl border bg-white-10 overflow-hidden shadow-sm">
+        <div class="order-card__toolbar">
+          <div class="order-card__tabs">
+            <button
+              v-for="t in tabs"
+              :key="t"
+              @click="handleTabChange(t)"
+              class="order-card__tab"
+              :class="{ 'order-card__tab--active': activeTab === t }"
+            >
+              {{ t === "all" ? "All" : t }}
+            </button>
+          </div>
+
+          <div class="order-card__actions">
+            <!-- Bank Accounts Button -->
+            <button
+              @click="showBankAccountsModal = true"
+              class="btn btn--outline"
+            >
+              <Landmark class="btn__icon" />
+              Bank Accounts
+            </button>
+
+            <!-- Export Payouts Button -->
+            <button
+              @click="handleExportPayouts"
+              :disabled="financeStore.loading.export"
+              class="btn btn--outline"
+            >
+              <Download class="btn__icon" />
+              Export CSV
+            </button>
+
+            <!-- Add Payout / Transaction Request -->
+            <button
+              @click="showAddTransactionPopup = true"
+              class="btn btn--solid"
+            >
+              <Plus class="btn__icon" />
+              Add Payout Request
+            </button>
+          </div>
+        </div>
+
+        <!-- Row 3: Transactions table -->
         <div class="overflow-x-auto">
-          <table class="data-table w-full">
-            <thead><tr><th>Period</th><th>Status</th><th>Method</th><th class="text-right">Amount</th></tr></thead>
-            <tbody>
-              <tr v-for="t in TXNS" :key="t.id" @click="detail = t" class="cursor-pointer hover:bg-muted/40 transition-colors">
-                <td class="text-sm text-primary font-medium hover:underline">{{ t.label }}</td>
-                <td><Badge :variant="t.status === 'Pending' ? 'badge-amber' : 'badge-green'">{{ t.status }}</Badge></td>
-                <td class="text-sm text-muted-foreground">{{ t.method }}</td>
-                <td class="font-mono font-semibold text-right">{{ t.amount }}</td>
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr
+                class="border-b border-border/40 text-muted-foreground text-xs font-semibold uppercase bg-muted/5"
+              >
+                <th class="py-3 px-6">Period</th>
+                <th class="py-3 px-6">Status</th>
+                <th class="py-3 px-6">Method</th>
+                <th class="py-3 px-6 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/30">
+              <!-- Loading State -->
+              <tr v-if="financeStore.loading.payouts">
+                <td colspan="4" class="py-12 text-center text-muted-foreground">
+                  <Loader2 class="size-6 animate-spin mx-auto text-primary" />
+                  <p class="text-xs mt-2 font-medium">
+                    Loading transactions...
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Empty State -->
+              <tr v-else-if="!payoutsList.length">
+                <td
+                  colspan="4"
+                  class="py-12 text-center text-xs text-muted-foreground"
+                >
+                  No payout transactions found for this tab.
+                </td>
+              </tr>
+
+              <!-- Data Rows -->
+              <tr
+                v-for="t in payoutsList"
+                :key="t.id"
+                @click="openDetail(t)"
+                class="cursor-pointer hover:bg-muted/10 transition-colors"
+              >
+                <td
+                  class="py-3.5 px-6 font-semibold text-foreground hover:text-black dark:hover:text-white"
+                >
+                  <div>
+                    <span>{{
+                      t.label || t.payout_number || t.cycle_label
+                    }}</span>
+                    <span
+                      v-if="t.payout_number && t.label"
+                      class="block text-xs font-mono font-normal text-muted-foreground"
+                    >
+                      {{ t.payout_number }}
+                    </span>
+                  </div>
+                </td>
+                <td class="py-3.5 px-6">
+                  <span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border capitalize"
+                    :class="statusBadgeClass(t.status)"
+                  >
+                    {{ t.status_label || t.status }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-6 text-muted-foreground text-xs">
+                  <span>{{
+                    t.method_label || t.method || "Bank transfer"
+                  }}</span>
+                  <span v-if="t.destination_masked" class="font-mono ml-1"
+                    >({{ t.destination_masked }})</span
+                  >
+                </td>
+                <td class="py-3.5 px-6 font-bold text-right text-foreground">
+                  {{
+                    t.amount_formatted ||
+                    (t.net_amount
+                      ? formatCurrency(t.net_amount, t.currency)
+                      : t.amount || "—")
+                  }}
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border text-sm text-muted-foreground">
-          <span class="mr-auto text-xs">Rows per page <select class="ml-1 rounded border border-border bg-background px-1 py-0.5 text-xs focus:outline-none"><option>10</option><option>25</option></select></span>
-          <span class="text-xs">1–10 of 1,394</span>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronsLeft class="size-4" /></button>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronLeft class="size-4" /></button>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronRight class="size-4" /></button>
-          <button class="size-7 flex items-center justify-center rounded-md hover:bg-accent"><ChevronsRight class="size-4" /></button>
+
+        <!-- Pagination controls -->
+        <div
+          class="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/40 text-xs text-muted-foreground bg-muted/5"
+        >
+          <span class="mr-auto inline-flex items-center gap-1.5 font-medium">
+            Rows per page
+            <AppSelect
+              v-model="perPage"
+              :options="[10, 25, 50]"
+              @change="handlePageChange(1)"
+              customClass="rounded-lg border border-border bg-white dark:bg-zinc-800 px-2 py-1 text-xs focus:outline-none focus:border-black/30"
+            />
+          </span>
+          <span class="font-medium mr-2">{{ paginationRangeText }}</span>
+          <button
+            @click="handlePageChange(1)"
+            :disabled="currentPage <= 1"
+            class="size-7 flex items-center justify-center rounded-lg border bg-white-10 hover:bg-muted/15 text-muted-foreground shadow-sm disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <ChevronsLeft class="size-4" />
+          </button>
+          <button
+            @click="handlePageChange(currentPage - 1)"
+            :disabled="currentPage <= 1"
+            class="size-7 flex items-center justify-center rounded-lg border bg-white-10 hover:bg-muted/15 text-muted-foreground shadow-sm disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <ChevronLeft class="size-4" />
+          </button>
+          <button
+            @click="handlePageChange(currentPage + 1)"
+            :disabled="currentPage >= lastPage"
+            class="size-7 flex items-center justify-center rounded-lg border bg-white-10 hover:bg-muted/15 text-muted-foreground shadow-sm disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <ChevronRight class="size-4" />
+          </button>
+          <button
+            @click="handlePageChange(lastPage)"
+            :disabled="currentPage >= lastPage"
+            class="size-7 flex items-center justify-center rounded-lg border bg-white-10 hover:bg-muted/15 text-muted-foreground shadow-sm disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <ChevronsRight class="size-4" />
+          </button>
         </div>
       </div>
     </template>
 
-    <ZucciFooter />
-
-    <MessagePopup :show="showMessage" @close="showMessage = false" @sent="showMessage = false; toast('Message sent!')" />
-    <BookingPopup :show="showBooking" @close="showBooking = false" @booked="d => toast('Call booked: ' + d.time)" />
+    <!-- Popups / Modals -->
+    <MessagePopup
+      :show="showMessage"
+      @close="showMessage = false"
+      @sent="
+        showMessage = false;
+        toast('Message sent!');
+      "
+    />
+    <BookingPopup
+      :show="showBooking"
+      @close="showBooking = false"
+      @booked="(d) => toast('Call booked: ' + d.time)"
+    />
+    <AddTransactionPopup
+      :show="showAddTransactionPopup"
+      @close="showAddTransactionPopup = false"
+      @submit="handleAddTransaction"
+    />
+    <BankAccountsModal
+      :show="showBankAccountsModal"
+      @close="showBankAccountsModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, h } from 'vue'
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowDownUp, Landmark, Download, FileText } from 'lucide-vue-next'
-import { useAppStore } from '@/stores/app'
-import AppButton from '@/components/ui/AppButton.vue'
-import Badge from '@/components/ui/Badge.vue'
-import MessagePopup from '@/components/shared/MessagePopup.vue'
-import BookingPopup from '@/components/shared/BookingPopup.vue'
-import ZucciFooter from '@/components/shared/ZucciFooter.vue'
-import { defineComponent } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useAppStore } from "@/stores/app";
+import { useFinanceStore } from "@/stores/finance";
+import { useBrandStore } from "@/stores/brand";
+import {
+  Download,
+  FileText,
+  ArrowDownUp,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronsRight,
+  Plus,
+  Landmark,
+  Loader2,
+  ChevronDown,
+} from "lucide-vue-next";
+import MessagePopup from "@/components/shared/MessagePopup.vue";
+import BookingPopup from "@/components/shared/BookingPopup.vue";
+import AddTransactionPopup from "./components/AddTransactionPopup.vue";
+import BankAccountsModal from "./components/BankAccountsModal.vue";
+import TransactionDetail from "./TransactionDetail.vue";
+import ContactCard from "./components/ContactCard.vue";
+import DateRangePicker from "@/components/ui/DateRangePicker.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 
-const { toast } = useAppStore()
-const detail = ref(null)
-const showMessage = ref(false)
-const showBooking = ref(false)
+const { toast } = useAppStore();
+const financeStore = useFinanceStore();
+const brandStore = useBrandStore();
 
-// Western Union inline SVG (same as source)
-const wuSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 123.3 70" width="28" height="16"><defs><mask id="wum" x="0" y="0" width="123.3" height="70" maskUnits="userSpaceOnUse"><path d="M0,0h123.3v70H0V0Z" fill="#fff"/></mask></defs><g style="mask:url(#wum)"><path fill-rule="evenodd" d="M35.6,61.7c6.4,11.1,16.9,11.1,23.3,0l3.6-6.2L30.4,0H0l35.6,61.7M103.1,38c-2.3,4-7.8,4-10.2,0L71,0h-30.4l35.6,61.7c6.4,11.1,16.8,11.1,23.2,0l23.9-41.3L111.5,0h-30.4l21.9,38"/></g></svg>`
+const detail = ref(null);
+const showMessage = ref(false);
+const showBooking = ref(false);
+const showAddTransactionPopup = ref(false);
+const showBankAccountsModal = ref(false);
 
-const TXNS = [
-  { id:'t1',  label:'June 16, 2024 – Sales',     status:'Pending', method:'Western Union',  amount:'$2,031.09 USD',  type:'wu',   payout:'$3,492.09',  payDate:'Jul 5, 2024 via wire account (***99)' },
-  { id:'t2',  label:'May 16, 2024 – Sales',      status:'Sent',    method:'Western Union',  amount:'$922.02 USD',   type:'wu',   payout:'$4,036.91',  payDate:'Jun 21, 2024 via western union' },
-  { id:'t3',  label:'April 16, 2024 – Sales',    status:'Sent',    method:'Western Union',  amount:'$1,923.00 USD', type:'wu',   payout:'$4,036.91',  payDate:'Jun 21, 2024 via western union' },
-  { id:'t4',  label:'March 16, 2024 – Sales',    status:'Sent',    method:'Western Union',  amount:'$42.05 USD',    type:'wu',   payout:'$4,036.91',  payDate:'Jun 21, 2024 via western union' },
-  { id:'t5',  label:'February 16, 2024 – Sales', status:'Sent',    method:'Bank transfer',  amount:'$10,031.02 USD',type:'bank', payout:'$10,780.18', payDate:'Jun 21, 2024 via wire transfer (***99)' },
-  { id:'t6',  label:'January 16, 2024 – Sales',  status:'Sent',    method:'Western Union',  amount:'$100.00 USD',   type:'wu',   payout:'$4,036.91',  payDate:'Jun 21, 2024 via western union' },
-  { id:'t7',  label:'December 16, 2023 – Sales', status:'Sent',    method:'Western Union',  amount:'$922.02 USD',   type:'wu',   payout:'$4,036.91',  payDate:'Jun 21, 2024 via western union' },
-  { id:'t8',  label:'November 16, 2023 – Sales', status:'Sent',    method:'Bank transfer',  amount:'$2,122.17 USD', type:'bank', payout:'$10,780.18', payDate:'Jun 21, 2024 via wire transfer (***99)' },
-  { id:'t9',  label:'October 16, 2023 – Sales',  status:'Sent',    method:'Bank transfer',  amount:'$922.02 USD',   type:'bank', payout:'$10,780.18', payDate:'Jun 21, 2024 via wire transfer (***99)' },
-  { id:'t10', label:'September 16, 2023 – Sales',status:'Sent',    method:'Bank transfer',  amount:'$922.02 USD',   type:'bank', payout:'$10,780.18', payDate:'Jun 21, 2024 via wire transfer (***99)' }
-]
+const dateRange = ref({ preset: "30d" });
+const activeTab = ref("all");
+const tabs = ["all", "pending", "late", "fulfilled", "returns", "cancelled"];
 
-const ORDERS = [
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Le Maillot', amount:'$2,031.09 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Le Maillot', amount:'$922.02 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Le Maillot', amount:'$1,923.00 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Zeyylan',    amount:'$42.05 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Zeyylan',    amount:'$10,031.02 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Le Maillot', amount:'$100.00 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Zeyylan',    amount:'$922.02 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Zeyylan',    amount:'$2,122.17 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Zeyylan',    amount:'$922.02 USD' },
-  { date:'Jun 12, 2024, 11:40 AM', ord:'#029992291', brand:'Zeyylan',    amount:'$922.02 USD' }
-]
+const currentPage = ref(1);
+const perPage = ref(25);
 
-// Inline Sara card component
-const SaraCard = defineComponent({
-  emits: ['message', 'book'],
-  setup(_, { emit }) {
-    return () => h('div', { class: 'flex items-center gap-4 p-4 rounded-xl border border-border bg-card' }, [
-      h('img', { src: 'https://i.pravatar.cc/150?img=38', class: 'size-12 rounded-full object-cover shrink-0', alt: 'Sara Medhat' }),
-      h('div', { class: 'flex-1 min-w-0' }, [
-        h('p', { class: 'font-semibold text-sm' }, 'Sara Medhat'),
-        h('p', { class: 'text-xs text-muted-foreground' }, 'Senior Partnership Manager')
-      ]),
-      h('div', { class: 'flex items-center gap-2' }, [
-        h('button', { onClick: () => emit('message'), class: 'size-9 flex items-center justify-center rounded-lg border border-border hover:bg-accent transition-colors', title: 'Message' },
-          h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, class: 'text-muted-foreground' }, [h('path', { d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z' })])
-        ),
-        h('a', { href: 'https://wa.me/971501234567', target: '_blank', class: 'size-9 flex items-center justify-center rounded-lg border border-border hover:bg-accent transition-colors', title: 'WhatsApp' },
-          h('svg', { width: 16, height: 16, viewBox: '0 0 32 32', fill: 'currentColor', class: 'text-muted-foreground' }, [h('path', { d: 'M25.873,6.069c-2.619-2.623-6.103-4.067-9.814-4.069C8.411,2,2.186,8.224,2.184,15.874c-.001,2.446,.638,4.833,1.852,6.936l-1.969,7.19,7.355-1.929c2.026,1.106,4.308,1.688,6.63,1.689h.006c7.647,0,13.872-6.224,13.874-13.874,.001-3.708-1.44-7.193-4.06-9.815Z', 'fill-rule': 'evenodd' })])
-        ),
-        h('a', { href: 'tel:+971501234567', class: 'size-9 flex items-center justify-center rounded-lg border border-border hover:bg-accent transition-colors', title: 'Call' },
-          h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, class: 'text-muted-foreground' }, [h('path', { d: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.38 2 2 0 0 1 3.6 1.16h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6 6l1.16-1.16a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z' })])
-        ),
-        h('button', { onClick: () => emit('book'), class: 'size-9 flex items-center justify-center rounded-lg border border-border hover:bg-accent transition-colors', title: 'Book a call' },
-          h('svg', { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, class: 'text-muted-foreground' }, [h('rect', { x: 3, y: 4, width: 18, height: 18, rx: 2 }), h('line', { x1: 16, y1: 2, x2: 16, y2: 6 }), h('line', { x1: 8, y1: 2, x2: 8, y2: 6 }), h('line', { x1: 3, y1: 10, x2: 21, y2: 10 })])
-        )
-      ])
-    ])
+// ── Summary & Stats ──
+const summaryData = computed(() => financeStore.summary || null);
+const pendingPayout = computed(() => summaryData.value?.pending_payout || null);
+
+const statsList = computed(() => {
+  if (summaryData.value?.stats?.items && summaryData.value.stats.items.length) {
+    return summaryData.value.stats.items;
   }
-})
+  if (summaryData.value?.stats) {
+    const s = summaryData.value.stats;
+    return [
+      {
+        label: "Completed Orders",
+        val: s.completed_orders_label || `${s.completed_orders || 0} Orders`,
+      },
+      {
+        label: "Total Sales",
+        val: s.total_sales_label || formatCurrency(s.total_sales, s.currency),
+      },
+      {
+        label: "Total Paid",
+        val: s.total_paid_label || formatCurrency(s.total_paid, s.currency),
+      },
+      {
+        label: "Outstanding Balance",
+        val:
+          s.outstanding_balance_label ||
+          formatCurrency(s.outstanding_balance, s.currency),
+      },
+      {
+        label: "Pending Payouts",
+        val:
+          s.pending_payouts_label ||
+          formatCurrency(s.pending_payouts, s.currency),
+      },
+    ];
+  }
+  return [
+    { label: "Completed Orders", val: "0 Orders" },
+    { label: "Total Sales", val: "AED 0" },
+    { label: "Total Paid", val: "AED 0" },
+    { label: "Outstanding Balance", val: "AED 0" },
+    { label: "Pending Payouts", val: "AED 0" },
+  ];
+});
+
+// ── Payouts list & Pagination ──
+const payoutsList = computed(() => financeStore.payouts || []);
+const meta = computed(
+  () => financeStore.meta || { page: 1, per_page: 25, total: 0, last_page: 1 },
+);
+const lastPage = computed(() => meta.value.last_page || 1);
+
+const paginationRangeText = computed(() => {
+  const total = meta.value.total || payoutsList.value.length;
+  if (!total) return "0 of 0";
+  const start = (currentPage.value - 1) * perPage.value + 1;
+  const end = Math.min(currentPage.value * perPage.value, total);
+  return `${start}–${end} of ${total}`;
+});
+
+function formatCurrency(val, currency = "AED") {
+  if (typeof val !== "number") val = parseFloat(val) || 0;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency || "AED",
+    maximumFractionDigits: 2,
+  }).format(val);
+}
+
+function statusBadgeClass(status) {
+  switch (status?.toLowerCase()) {
+    case "processed":
+    case "sent":
+    case "fulfilled":
+      return "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+    case "pending":
+      return "bg-amber-500/10 text-amber-600 border-amber-500/20";
+    case "late":
+      return "bg-rose-500/10 text-rose-600 border-rose-500/20";
+    case "failed":
+      return "bg-red-500/10 text-red-600 border-red-500/20";
+    case "on_hold":
+    case "hold":
+      return "bg-orange-500/10 text-orange-600 border-orange-500/20";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+}
+
+// ── Fetch Operations ──
+async function loadSummary() {
+  try {
+    const params = {};
+    if (dateRange.value?.preset) {
+      params.preset = dateRange.value.preset;
+    } else if (dateRange.value?.from && dateRange.value?.to) {
+      params.from = dateRange.value.from;
+      params.to = dateRange.value.to;
+    } else {
+      params.preset = "30d";
+    }
+    await financeStore.fetchSummary(params);
+  } catch (e) {
+    console.error("Error loading summary:", e);
+  }
+}
+
+async function loadPayouts() {
+  try {
+    await financeStore.fetchPayouts({
+      page: currentPage.value,
+      per_page: perPage.value,
+      tab: activeTab.value,
+    });
+  } catch (e) {
+    console.error("Error loading payouts:", e);
+  }
+}
+
+onMounted(() => {
+  loadSummary();
+  loadPayouts();
+});
+
+watch(
+  () => dateRange.value,
+  () => {
+    loadSummary();
+  },
+  { deep: true },
+);
+
+watch(
+  () => brandStore.currentBrandId,
+  () => {
+    loadSummary();
+    loadPayouts();
+  },
+);
+
+function handleTabChange(tab) {
+  activeTab.value = tab;
+  currentPage.value = 1;
+  loadPayouts();
+}
+
+function handlePageChange(page) {
+  if (page < 1 || page > lastPage.value) return;
+  currentPage.value = page;
+  loadPayouts();
+}
+
+function openDetail(t) {
+  detail.value = t;
+}
+
+function openPendingDetail() {
+  if (pendingPayout.value) {
+    detail.value = {
+      id: pendingPayout.value.payout_id,
+      payout_number: pendingPayout.value.payout_number,
+      status: pendingPayout.value.status || "pending",
+      amount: pendingPayout.value.net_amount,
+      currency: pendingPayout.value.currency,
+      payDate: pendingPayout.value.pay_date_label,
+      method: pendingPayout.value.method,
+    };
+  }
+}
+
+async function handleExportPayouts() {
+  try {
+    toast("Exporting payouts CSV...");
+    await financeStore.exportPayouts("csv");
+    toast("Payouts export downloaded!");
+  } catch (e) {
+    // Handled by axios
+  }
+}
+
+function handleAddTransaction() {
+  toast("Payout request created!");
+  showAddTransactionPopup.value = false;
+  loadPayouts();
+  loadSummary();
+}
 </script>
+
+<style scoped>
+/* ─── Stats Bar ─── */
+.stats-bar {
+  display: flex;
+  align-items: stretch;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border) / 0.4);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.stats-bar > * + * {
+  border-left: 1px solid hsl(var(--border) / 0.4);
+}
+
+.stats-bar__picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.stats-bar__cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 16px;
+  min-width: 0;
+}
+
+.stats-bar__label {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.stats-bar__value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-bar__value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+}
+
+/* ─── Toolbar (Tabs + Actions) ─── */
+.order-card__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+  flex-wrap: wrap;
+}
+
+.order-card__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+}
+
+.order-card__tab {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 150ms,
+    background 150ms;
+  text-transform: capitalize;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.order-card__tab:hover {
+  color: hsl(var(--foreground));
+}
+
+.order-card__tab--active {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  background: hsl(var(--muted) / 0.2);
+}
+
+.order-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ─── Buttons ─── */
+.btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    color 150ms;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.btn--outline {
+  background: white;
+  border: 1px solid hsl(var(--border) / 0.6);
+  color: hsl(var(--foreground));
+}
+
+:global(.dark) .btn--outline {
+  background: #1e1e1e;
+}
+
+.btn--outline:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+.btn--solid {
+  background: #0f0f0f;
+  border: 1px solid #0f0f0f;
+  color: white;
+  font-weight: 600;
+  padding: 0 16px;
+}
+
+:global(.dark) .btn--solid {
+  background: white;
+  border-color: white;
+  color: #0f0f0f;
+}
+
+.btn--solid:hover {
+  background: #1a1a1a;
+}
+
+:global(.dark) .btn--solid:hover {
+  background: #f0f0f0;
+}
+</style>

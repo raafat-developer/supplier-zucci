@@ -1,208 +1,2793 @@
 <template>
-  <div class="flex flex-col gap-5">
-    <div class="flex items-center gap-2 mb-1">
-      <button @click="$router.push('/app/products')" class="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent text-muted-foreground"><ChevronLeft class="size-4" /></button>
-      <h1 class="text-lg font-bold">{{ product.name }}</h1>
-      <Badge :status="product.status">{{ statusLabel(product.status) }}</Badge>
-      <span v-if="product.sync === 'shopify'" class="badge badge-blue ml-1">Synced · Shopify</span>
+  <div class="flex flex-col gap-4 p-4 bg-white-10">
+    <!-- Header Block -->
+    <div
+      class="flex items-center justify-between border-b border-border/40 pb-4 flex-wrap gap-4"
+    >
+      <div class="flex items-center gap-3">
+        <!-- Back Arrow Button -->
+        <button
+          @click="$router.push('/app/products')"
+          class="size-8 rounded-lg border border-border/60 flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors shrink-0"
+        >
+          <ChevronLeft class="size-4" />
+        </button>
+
+        <!-- Vertical Stack for Title & Statuses -->
+        <div class="flex flex-col gap-1">
+          <!-- Row 1: Title & Badges -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-sm font-bold text-foreground">
+              {{ product.name }}
+            </h1>
+            <!-- Synced Badge -->
+            <span
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-semibold text-[10px]"
+            >
+              <span class="size-1.5 rounded-full bg-emerald-500"></span>
+              Synced
+              {{
+                product.syncedAt ? "· " + formatSyncTime(product?.syncedAt) : ""
+              }}
+            </span>
+            <!-- Active Status Badge -->
+            <span
+              v-if="product.status === 'active'"
+              class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-semibold text-[10px]"
+            >
+              Active
+            </span>
+            <span
+              v-else-if="product.status === 'draft'"
+              class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20 font-semibold text-[10px]"
+            >
+              Draft
+            </span>
+            <span
+              v-else
+              class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 font-semibold text-[10px]"
+            >
+              {{ cap(product.status) }}
+            </span>
+            <!-- Approval Status Badge -->
+            <span
+              v-if="product.approvalStatus === 'approved'"
+              class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-semibold text-[10px]"
+            >
+              Approved
+            </span>
+            <span
+              v-else-if="product.approvalStatus === 'not_submitted'"
+              class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20 font-semibold text-[10px]"
+            >
+              Not Submitted
+            </span>
+            <span
+              v-else
+              class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 font-semibold text-[10px]"
+            >
+              Pending
+            </span>
+          </div>
+
+          <!-- Row 2: SKU, Progress Bar, completeness -->
+          <div
+            class="flex items-center gap-3 text-[11px] text-muted-foreground"
+          >
+            <span class="font-mono">{{ product.sku }}</span>
+            <div
+              class="w-24 h-1.5 bg-muted rounded-full overflow-hidden shrink-0"
+            >
+              <div
+                class="bg-emerald-500 h-full"
+                :style="{ width: (product.completenessScore || 88) + '%' }"
+              ></div>
+            </div>
+            <span>{{ product.completenessScore || 88 }}% complete</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side Actions -->
+      <div class="flex items-center gap-2">
+        <AppSelect
+          v-model="product.status"
+          :options="statusOptions"
+          label="label"
+          value="code"
+          customClass="rounded-lg border border-border/80 bg-white-10 px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-black/20"
+        />
+        <button
+          type="button"
+          class="size-8 rounded-lg border border-border/80 flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors shrink-0"
+        >
+          <Eye class="size-4" />
+        </button>
+        <button
+          v-can="'products.edit'"
+          v-if="
+            product.approvalStatus !== 'approved' &&
+            product.approvalStatus !== 'pending'
+          "
+          @click="submitToReview"
+          :disabled="submitting || saving"
+          class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-border bg-white-10 text-foreground hover:bg-muted shadow-sm transition-colors shrink-0"
+        >
+          {{ submitting ? "Submitting..." : "Submit to review" }}
+        </button>
+        <button
+          v-can="'products.edit'"
+          @click="saveChanges"
+          :disabled="saving || submitting"
+          class="px-5 py-1.5 text-xs font-bold rounded-lg bg-black text-white hover:bg-black/90 shadow-sm transition-colors shrink-0"
+        >
+          {{ saving ? "Saving..." : "Save" }}
+        </button>
+      </div>
     </div>
-    <!-- Images -->
-    <div class="rounded-xl border border-border bg-card p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold">Product Images</h3>
-        <button @click="showMediaLib = true" class="text-xs text-primary hover:underline flex items-center gap-1"><Plus class="size-3.5" /> Add Images</button>
+
+    <!-- Rejection Banner -->
+    <div
+      v-if="
+        product.status === 'rejected' || product.approvalStatus === 'rejected'
+      "
+      class="p-4 rounded-xl border border-red-200 bg-red-50 text-red-800 text-xs leading-relaxed flex flex-col gap-1.5 shadow-sm"
+    >
+      <div
+        class="flex items-center gap-1.5 font-bold uppercase tracking-wider text-red-900"
+      >
+        <span class="size-2 rounded-full bg-red-600"></span>
+        Product Rejected
       </div>
-      <div class="flex gap-3 flex-wrap">
-        <div v-for="(img, i) in product.images" :key="i" class="relative group">
-          <img :src="img" class="size-24 rounded-lg object-cover border border-border" />
-          <button @click="product.images.splice(i, 1)" class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">×</button>
-        </div>
-        <button @click="showMediaLib = true" class="size-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"><Upload class="size-5" /></button>
-      </div>
+      <p v-if="product.rejectionReason">
+        <strong class="font-semibold">Reason:</strong>
+        {{ product.rejectionReason }}
+      </p>
+      <p v-if="product.rejectionNote">
+        <strong class="font-semibold">Details:</strong>
+        {{ product.rejectionNote }}
+      </p>
     </div>
-    <!-- Product Details -->
-    <div class="rounded-xl border border-border bg-card p-5">
-      <h3 class="text-sm font-semibold mb-3">Product Details</h3>
-      <div class="flex flex-col gap-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Product Name</label>
-            <input v-model="product.name" class="rounded-lg border border-input bg-background px-3 py-2 text-sm" /></div>
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">SKU</label>
-            <input v-model="product.sku" class="rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono" /></div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Category</label>
-            <CategoryPicker v-model="product.category" /></div>
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Country of Origin</label>
-            <div class="rounded-lg border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground cursor-not-allowed">🇪🇬 Egypt</div></div>
-        </div>
-        <div class="grid grid-cols-3 gap-3">
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Price (AED)</label>
-            <input v-model="product.price" type="number" class="rounded-lg border border-input bg-background px-3 py-2 text-sm" /></div>
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Compare at Price</label>
-            <input v-model="product.comparePrice" type="number" class="rounded-lg border border-input bg-background px-3 py-2 text-sm" /></div>
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground font-medium uppercase tracking-wider">Weight (g)</label>
-            <input v-model="product.weight" type="number" placeholder="0" class="rounded-lg border border-input bg-background px-3 py-2 text-sm" /></div>
+
+    <!-- Comparative Columns -->
+    <div class="flex flex-col gap-4">
+      <!-- CONTENT SECTION -->
+      <div
+        class="rounded-xl border border-border/60 p-5 shadow-sm flex flex-col gap-4 bg-white-10"
+      >
+        <h3
+          class="text-xs text-muted-foreground uppercase font-bold tracking-wider border-b pb-3"
+        >
+          Content
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <!-- Synced Content Column -->
+          <div
+            class="lg:col-span-4 p-4 rounded-xl bg-white-10 border border-border/50 flex flex-col gap-3"
+          >
+            <div class="flex items-center justify-between border-b pb-2">
+              <span
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+                >Synced Content</span
+              >
+              <button
+                class="text-[10px] font-bold text-primary hover:underline"
+              >
+                Re-sync
+              </button>
+            </div>
+            <p class="text-sm font-bold text-foreground">{{ product.name }}</p>
+            <div
+              class="text-xs text-muted-foreground leading-relaxed whitespace-pre-line border-t pt-2"
+              v-html="product.description || '—'"
+            ></div>
+          </div>
+
+          <!-- English Content Column -->
+          <div class="lg:col-span-4 flex bg-white-10 flex-col gap-3 p-4">
+            <span
+              class="text-xs font-bold text-muted-foreground uppercase tracking-wider"
+              >Live Content — English</span
+            >
+            <input
+              v-model="product.name"
+              placeholder="Product Name"
+              class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <div
+              class="rounded-lg border border-input bg-white-10 overflow-hidden flex flex-col"
+            >
+              <div
+                class="flex items-center gap-1 p-1 border-b border-input bg-white-10"
+              >
+                <button
+                  v-for="btn in editorBtns"
+                  :key="btn.cmd"
+                  type="button"
+                  @click="execCmd(btn.cmd)"
+                  class="size-7 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <component :is="btn.icon" class="size-3.5" />
+                </button>
+              </div>
+              <div
+                ref="descEditor"
+                contenteditable="true"
+                class="min-h-[140px] p-3 text-sm focus:outline-none bg-white-10"
+                @input="product.description = $event.target.innerHTML"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Arabic Content Column -->
+          <div class="lg:col-span-4 bg-white-10 flex flex-col gap-3 p-4">
+            <div class="flex items-center justify-between">
+              <span
+                class="text-xs font-bold text-muted-foreground uppercase tracking-wider"
+                >Live Content — Arabic</span
+              >
+              <button
+                class="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              >
+                Translate
+              </button>
+            </div>
+            <input
+              v-model="product.nameAr"
+              placeholder="اسم المنتج (عربي)"
+              dir="rtl"
+              class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-right font-semibold"
+            />
+            <div
+              class="rounded-lg border border-input bg-white-10 overflow-hidden flex flex-col"
+            >
+              <div
+                class="flex items-center gap-1 p-1 border-b border-input bg-white-10"
+              >
+                <button
+                  v-for="btn in editorBtns"
+                  :key="btn.cmd"
+                  type="button"
+                  @click="execCmd(btn.cmd)"
+                  class="size-7 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <component :is="btn.icon" class="size-3.5" />
+                </button>
+              </div>
+              <div
+                ref="descEditorAr"
+                contenteditable="true"
+                class="min-h-[140px] p-3 text-sm focus:outline-none bg-white-10 text-right"
+                dir="rtl"
+                @input="product.descriptionAr = $event.target.innerHTML"
+              ></div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-    <!-- Description with toolbar -->
-    <div class="rounded-xl border border-border bg-card p-5">
-      <h3 class="text-sm font-semibold mb-3">Description</h3>
-      <div class="border border-border rounded-lg overflow-hidden">
-        <div class="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/30">
-          <button v-for="btn in editorBtns" :key="btn.cmd" @click="execCmd(btn.cmd)" class="size-7 rounded flex items-center justify-center hover:bg-accent text-muted-foreground transition-colors" :title="btn.label">
-            <component :is="btn.icon" class="size-3.5" />
-          </button>
+
+      <!-- MEDIA SECTION -->
+      <div
+        class="rounded-xl border border-border/60 bg-white-10 p-5 shadow-sm flex flex-col gap-4"
+      >
+        <h3
+          class="text-xs text-muted-foreground uppercase font-bold tracking-wider border-b pb-3"
+        >
+          Media
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Synced Images Column -->
+          <div
+            class="p-4 rounded-xl bg-white-10 border border-border/50 flex flex-col gap-3"
+          >
+            <div class="flex items-center justify-between border-b pb-2">
+              <span
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+                >Synced Images</span
+              >
+              <button
+                class="text-[10px] font-bold text-primary hover:underline"
+              >
+                Re-sync
+              </button>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <div
+                v-for="(img, idx) in syncedImages"
+                :key="'sync-img-' + idx"
+                class="relative"
+              >
+                <img
+                  :src="img.src"
+                  class="size-20 rounded-lg object-cover border border-border/60 shadow-sm"
+                />
+              </div>
+              <div
+                v-if="!syncedImages.length"
+                class="text-xs text-muted-foreground p-4"
+              >
+                No synced images.
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Images Column -->
+          <div
+            class="p-4 rounded-xl bg-white-10 border border-border/50 flex flex-col gap-3"
+          >
+            <div class="flex items-center justify-between border-b pb-2">
+              <span
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+                >Live Images</span
+              >
+              <button
+                type="button"
+                @click="showMediaLib = true"
+                class="px-2 py-0.5 text-[10px] font-semibold rounded border border-border bg-white-10 hover:bg-muted/10 inline-flex items-center gap-1 shadow-sm text-foreground"
+              >
+                + Add Images
+              </button>
+            </div>
+            <div class="flex gap-2.5 flex-wrap items-center">
+              <div
+                v-for="(img, idx) in product.images"
+                :key="'live-img-' + idx"
+                class="relative group"
+              >
+                <img
+                  :src="img.src"
+                  class="size-20 rounded-lg object-cover border border-border/60 shadow-sm"
+                />
+                <button
+                  @click="product.images.splice(idx, 1)"
+                  class="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                >
+                  ×
+                </button>
+              </div>
+              <div
+                @click="showMediaLib = true"
+                class="size-20 rounded-lg border-2 border-dashed border-border/60 flex flex-col items-center justify-center text-muted-foreground hover:border-black/30 hover:text-foreground transition-all cursor-pointer bg-muted/5 shadow-sm"
+              >
+                <span class="text-lg font-bold">+</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div ref="descEditor" contenteditable="true" @input="product.description = $event.target.innerHTML" class="min-h-[120px] px-3 py-2 text-sm focus:outline-none" v-html="product.description" />
       </div>
-    </div>
-    <!-- Variants & Pricing -->
-    <div class="rounded-xl border border-border bg-card overflow-hidden">
-      <div class="flex items-center justify-between px-5 py-3 border-b border-border">
-        <h3 class="text-sm font-semibold">Variants & Pricing</h3>
-        <div class="flex items-center gap-3">
-          <div class="flex items-center gap-2"><span class="text-xs text-muted-foreground">Variable product</span><SwitchToggle v-model="isVariable" /></div>
+
+      <!-- PRODUCT DETAILS -->
+      <div
+        class="rounded-xl border border-border/60 bg-white-10 p-5 shadow-sm flex flex-col gap-4"
+      >
+        <h3
+          class="text-xs text-muted-foreground uppercase font-bold tracking-wider border-b pb-3"
+        >
+          Product Details
+        </h3>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Synced Details Column -->
+          <div
+            class="p-4 rounded-xl bg-muted/5 border border-border/50 flex flex-col gap-3"
+          >
+            <div class="flex items-center justify-between border-b pb-2">
+              <span
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+                >Synced Details</span
+              >
+              <button
+                class="text-[10px] font-bold text-primary hover:underline"
+              >
+                Re-sync
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span class="text-muted-foreground uppercase font-medium"
+                  >UPC/SKU:</span
+                >
+                <p class="font-mono mt-0.5 text-foreground font-semibold">
+                  {{ product.sku || "—" }}
+                </p>
+              </div>
+              <div>
+                <span class="text-muted-foreground uppercase font-medium"
+                  >Size:</span
+                >
+                <p class="mt-0.5 text-foreground font-semibold">
+                  Custom Variant - Size
+                </p>
+              </div>
+              <div>
+                <span class="text-muted-foreground uppercase font-medium"
+                  >Shipping Weight:</span
+                >
+                <p class="mt-0.5 text-foreground font-semibold font-mono">
+                  {{ product.weight }} {{ weightUnit }}
+                </p>
+              </div>
+              <div>
+                <span class="text-muted-foreground uppercase font-medium"
+                  >Synced Category:</span
+                >
+                <p class="mt-0.5 text-foreground font-semibold">
+                  {{ product.category || "—" }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Details Column -->
+          <div
+            class="p-4 rounded-xl bg-white-10 border border-border/50 flex flex-col gap-3"
+          >
+            <span
+              class="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-2"
+              >Live Details</span
+            >
+            <div class="grid grid-cols-2 gap-3.5">
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Category</label
+                >
+                <CategoryPicker v-model="product.category" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Size Guide</label
+                >
+                <SearchableSelect
+                  v-model="product.sizeGuideId"
+                  :options="sizeGuidesList"
+                  placeholder="Select a size guide..."
+                  label="name"
+                  value="id"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Care Instructions</label
+                >
+                <AppSelect
+                  v-model="product.careInstructionId"
+                  :options="careInstructionOptions"
+                  label="name"
+                  value="id"
+                  customClass="rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Return Policy</label
+                >
+                <AppSelect
+                  v-model="product.returnPolicyId"
+                  :options="returnPolicyOptions"
+                  label="name"
+                  value="id"
+                  customClass="rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Shipping Weight</label
+                >
+                <div class="flex items-center gap-1.5">
+                  <input
+                    v-model="product.weight"
+                    type="number"
+                    min="0"
+                    @input="product.weight = Math.max(0, product.weight)"
+                    class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono flex-1 focus:outline-none focus:ring-1 focus:ring-black/30"
+                  />
+                  <AppSelect
+                    v-model="weightUnit"
+                    :options="weightUnits"
+                    label="label"
+                    value="id"
+                    customClass="rounded-lg border border-border bg-white-10 px-2 py-2 text-xs focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >HS Code (Customs)</label
+                >
+                <input
+                  v-model="product.hsCode"
+                  class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Country of Origin</label
+                >
+                <SearchableSelect
+                  v-model="product.countryOfOrigin"
+                  :options="countriesList"
+                  placeholder="Select Country of Origin"
+                  label="label"
+                  value="code"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Fulfillment</label
+                >
+                <AppSelect
+                  v-model="product.fulfillmentModeId"
+                  :options="fulfillmentModeOptions"
+                  label="name"
+                  value="id"
+                  customClass="rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none"
+                />
+              </div>
+              <div class="flex flex-col gap-1 col-span-2">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Tags</label
+                >
+                <input
+                  v-model="tagInput"
+                  placeholder="Type and press Enter..."
+                  class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs w-full focus:outline-none"
+                  @keydown.enter.prevent="addTag"
+                />
+                <div
+                  class="flex flex-wrap gap-1.5 mt-2"
+                  v-if="product.tags.length"
+                >
+                  <span
+                    v-for="t in product.tags"
+                    :key="t"
+                    class="px-2.5 py-0.5 bg-muted/40 text-foreground text-xs rounded-md flex items-center gap-1 border border-border/40 font-semibold"
+                  >
+                    {{ t }}
+                    <button
+                      @click="
+                        product.tags = product.tags.filter((x) => x !== t)
+                      "
+                      class="hover:text-destructive text-sm font-bold"
+                    >
+                      ×
+                    </button>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      <div v-if="isVariable" class="p-5">
-        <div class="flex gap-2 mb-3">
+
+      <!-- MARKET AVAILABILITY -->
+      <div
+        class="rounded-xl border border-border/60 bg-white-10 p-5 shadow-sm flex flex-col gap-4"
+      >
+        <h3
+          class="text-xs text-muted-foreground uppercase font-bold tracking-wider border-b pb-3"
+        >
+          Market Availability
+        </h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            v-for="m in allMarkets"
+            :key="m.code"
+            class="flex items-center justify-between rounded-xl border bg-white-10 p-4 shadow-sm"
+          >
+            <div class="flex items-center gap-2">
+              <img :src="m.flagUrl" :alt="m.code" class="w-6 h-6 rounded-sm" />
+              <div class="flex flex-col">
+                <span class="text-xs font-bold text-foreground">{{
+                  m.name
+                }}</span>
+              </div>
+            </div>
+            <SwitchToggle
+              :modelValue="product.markets?.includes(m.code)"
+              @update:modelValue="toggleMarket(m.code)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- VARIANTS & PRICING -->
+      <div
+        class="rounded-xl border border-border/60 bg-white-10 p-5 shadow-sm flex flex-col gap-4"
+      >
+        <div class="flex items-center justify-between border-b pb-3">
+          <h3
+            class="text-xs text-muted-foreground uppercase font-bold tracking-wider"
+          >
+            Variants & Pricing
+          </h3>
           <div class="flex items-center gap-2">
-            <button @click="showColorPicker = !showColorPicker" class="text-xs border border-border rounded-lg px-3 py-1.5 hover:bg-accent transition-colors flex items-center gap-1"><Plus class="size-3" /> Add Colors</button>
-            <div v-if="showColorPicker" class="absolute mt-8 z-50 rounded-lg border border-border bg-background shadow-lg p-2 max-h-48 overflow-y-auto w-48">
-              <input v-model="colorSearch" placeholder="Search colors…" class="w-full px-2 py-1 text-xs bg-muted/50 rounded mb-1 border-none focus:outline-none" />
-              <button v-for="c in filteredColors" :key="c" @click="addVariantOption('colors', c); showColorPicker = false" class="block w-full text-left px-2 py-1 text-xs rounded hover:bg-accent">{{ c }}</button>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 relative">
-            <div class="flex items-center gap-1">
-              <SearchableSelect v-model="sizeType" :options="sizeTypeOptions" placeholder="Size type" />
-              <button v-if="sizeType" @click="showSizePicker = !showSizePicker" class="text-xs border border-border rounded-lg px-3 py-1.5 hover:bg-accent transition-colors flex items-center gap-1"><Plus class="size-3" /> Add Sizes</button>
-            </div>
-            <div v-if="showSizePicker" class="absolute top-full mt-1 z-50 rounded-lg border border-border bg-background shadow-lg p-2 max-h-48 overflow-y-auto w-48">
-              <button v-for="s in availableSizes" :key="s" @click="addVariantOption('sizes', s); showSizePicker = false" class="block w-full text-left px-2 py-1 text-xs rounded hover:bg-accent" :class="{ 'opacity-40': variantSizes.includes(s) }">{{ s }}</button>
-            </div>
+            <span class="text-xs font-bold text-foreground"
+              >Variable product</span
+            >
+            <SwitchToggle v-model="isVariable" />
           </div>
         </div>
-        <!-- Selected options -->
-        <div class="flex flex-wrap gap-2 mb-3">
-          <span v-for="c in variantColors" :key="'c-'+c" class="badge badge-blue">{{ c }} <button @click="removeOption('colors', c)" class="ml-1">×</button></span>
-          <span v-for="s in variantSizes" :key="'s-'+s" class="badge badge-gray">{{ s }} <button @click="removeOption('sizes', s)" class="ml-1">×</button></span>
+
+        <div v-if="isVariable" class="flex flex-col gap-4">
+          <!-- Synced Variants (Full Width) -->
+          <div class="flex flex-col gap-3 p-4 rounded-xl bg-white-10 border">
+            <div class="flex items-center justify-between border-b pb-2">
+              <span
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+                >Synced Variants</span
+              >
+              <span
+                class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 bg-blue-500/10 border border-blue-500/20 rounded"
+                >From Store</span
+              >
+            </div>
+            <div class="overflow-x-auto" v-if="product.variants?.length">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b text-muted-foreground font-semibold">
+                    <th
+                      v-for="attr in variantAttributes.filter(
+                        (a) => a.isActive !== false,
+                      )"
+                      :key="attr.code"
+                      class="py-1 px-2"
+                    >
+                      {{ attr.label || cap(attr.code) }}
+                    </th>
+                    <!-- <th class="py-1 px-2">Source Price</th> -->
+                    <th class="py-1 px-2 text-right">Stock</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border/20">
+                  <tr
+                    v-for="v in product.variants"
+                    :key="'synced-v-' + v.id"
+                    class="text-[11px]"
+                  >
+                    <td
+                      v-for="attr in variantAttributes.filter(
+                        (a) => a.isActive !== false,
+                      )"
+                      :key="attr.code + '-synced-' + v.id"
+                      class="py-2 px-2"
+                    >
+                      {{ getVariantAttrDisplay(v, attr.code) }}
+                    </td>
+                    <td class="py-2 px-2 text-right font-bold">
+                      {{ v.inventory }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Live Variants (Full Width) -->
+          <div class="flex flex-col gap-3 p-4 rounded-xl bg-white-10 border">
+            <span
+              class="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-2"
+              >Live Variants</span
+            >
+
+            <div
+              v-if="variantAttributes.length"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+              <div
+                v-for="attr in variantAttributes"
+                :key="attr.id || attr.code"
+                class="flex flex-col gap-1.5 p-3 rounded-lg border border-border/40 bg-white-10"
+              >
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >{{ attr.label || attr.name || cap(attr.code) }}</label
+                >
+                <AttrSelect
+                  :attrCode="attr.code"
+                  :attrObj="attr"
+                  :values="selectedValuesMap[attr.code] || []"
+                  @update:values="(vals) => updAttr(attr.code, vals)"
+                />
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 mt-2">
+              <button
+                type="button"
+                @click="generateVariants"
+                class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-border bg-white-10 hover:bg-muted/15 shadow-sm"
+              >
+                Generate Variants from Attributes
+              </button>
+            </div>
+
+            <!-- Market Tabs -->
+            <div class="flex gap-4 border-b pb-1 mt-4">
+              <button
+                v-for="m in activeMarkets"
+                :key="m"
+                @click="activePriceMarket = m"
+                class="text-xs font-bold pb-2 transition-all border-b-2"
+                :class="
+                  activePriceMarket === m
+                    ? 'border-black text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                "
+              >
+                {{
+                  m === "SA"
+                    ? "SA · SAR"
+                    : m === "EG"
+                      ? "EG · EGP"
+                      : m === "QA"
+                        ? "QA · QAR"
+                        : m === "KW"
+                          ? "KW · KWD"
+                          : m === "BH"
+                            ? "BH · BHD"
+                            : m === "OM"
+                              ? "OM · OMR"
+                              : m + " · " + m
+                }}
+              </button>
+            </div>
+
+            <!-- Live Variants grid table -->
+            <div
+              class="overflow-x-auto border border-border/40 rounded-xl shadow-sm bg-white-10 mt-2"
+              v-if="product.variants?.length"
+            >
+              <table class="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr
+                    class="border-b border-border/40 text-muted-foreground uppercase font-bold bg-muted/5"
+                  >
+                    <th
+                      v-for="attr in variantAttributes.filter(
+                        (a) => a.isActive !== false,
+                      )"
+                      :key="attr.code"
+                      class="py-3 px-3"
+                    >
+                      {{ attr.label || cap(attr.code) }}
+                    </th>
+                    <!-- <th class="py-3 px-3 font-bold">Source Price</th> -->
+                    <th class="py-3 px-3 font-bold">Commission</th>
+                    <th class="py-3 px-3 font-bold">Net to Vendor</th>
+                    <th class="py-3 px-3 font-bold">
+                      {{
+                        activePriceMarket === "SA"
+                          ? "SA Selling Price"
+                          : activePriceMarket === "EG"
+                            ? "EG Selling Price"
+                            : activePriceMarket === "QA"
+                              ? "QA Selling Price"
+                              : activePriceMarket === "KW"
+                                ? "KW Selling Price"
+                                : activePriceMarket === "BH"
+                                  ? "BH Selling Price"
+                                  : activePriceMarket === "OM"
+                                    ? "OM Selling Price"
+                                    : "AE Selling Price"
+                      }}
+                    </th>
+                    <th class="py-3 px-3 font-bold">Recommended</th>
+                    <th class="py-3 px-3 font-bold">Stock</th>
+                    <th class="py-3 px-3 font-bold">SKU</th>
+                    <th class="py-3 px-3"></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border/30">
+                  <tr
+                    v-for="(v, vi) in product.variants"
+                    :key="'live-v-edit-' + vi"
+                    class="hover:bg-muted/5"
+                  >
+                    <td
+                      v-for="attr in variantAttributes.filter(
+                        (a) => a.isActive !== false,
+                      )"
+                      :key="attr.code + '-' + vi"
+                      class="py-2.5 px-3 font-semibold text-foreground"
+                    >
+                      <div class="flex items-center gap-1.5">
+                        <span
+                          v-if="
+                            attr.code === 'color' &&
+                            (COLOR_SWATCH[getVariantAttrValue(v, 'color')] ||
+                              swatchColor(getVariantAttrValue(v, 'color')))
+                          "
+                          class="size-2 rounded-full border border-border/20"
+                          :style="{
+                            backgroundColor:
+                              COLOR_SWATCH[getVariantAttrValue(v, 'color')] ||
+                              swatchColor(getVariantAttrValue(v, 'color')),
+                          }"
+                        ></span>
+                        <span>{{ getVariantAttrDisplay(v, attr.code) }}</span>
+                      </div>
+                    </td>
+                    <!-- <td class="py-2.5 px-3 font-mono text-muted-foreground">
+                      {{ activeMarketCurrency }} 289
+                    </td> -->
+                    <td class="py-2.5 px-3 text-muted-foreground">18%</td>
+                    <td class="py-2.5 px-3 font-mono font-bold text-foreground">
+                      {{ activeMarketCurrency }}
+                      {{
+                        (
+                          Number(
+                            v.marketPrices?.[activePriceMarket] ||
+                              v.price ||
+                              289,
+                          ) * 0.82
+                        ).toFixed(2)
+                      }}
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <input
+                        v-model.number="v.marketPrices[activePriceMarket]"
+                        type="number"
+                        class="w-16 bg-white-10 border rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black/20"
+                      />
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-muted-foreground">
+                      {{ activeMarketCurrency }} 280–320
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <input
+                        v-model.number="v.marketStocks[activePriceMarket]"
+                        type="number"
+                        class="w-16 bg-white-10 border rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black/20"
+                      />
+                    </td>
+                    <td class="py-2.5 px-3 font-mono text-muted-foreground">
+                      {{ v.sku }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                      <button
+                        @click="deleteVariant(vi)"
+                        class="size-6 rounded flex items-center justify-center hover:bg-destructive/10 text-destructive"
+                      >
+                        <Trash2 class="size-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <!-- Variant table -->
-        <table v-if="product.variants?.length" class="data-table">
-          <thead><tr><th>Color</th><th>Size</th><th>SKU</th><th>Price (AED)</th><th>Inventory</th><th></th></tr></thead>
-          <tbody>
-            <tr v-for="(v, vi) in product.variants" :key="vi">
-              <td>{{ v.color }}</td><td>{{ v.size }}</td>
-              <td><input v-model="v.sku" class="w-full bg-transparent border-none text-xs font-mono focus:outline-none" /></td>
-              <td><input v-model.number="v.price" type="number" class="w-20 bg-transparent border-none text-sm font-mono focus:outline-none" /></td>
-              <td><input v-model.number="v.inventory" type="number" class="w-16 bg-transparent border-none text-sm font-mono focus:outline-none" /></td>
-              <td><button @click="product.variants.splice(vi, 1)" class="size-6 rounded flex items-center justify-center hover:bg-destructive/10 text-destructive"><X class="size-3.5" /></button></td>
-            </tr>
-          </tbody>
-        </table>
-        <button v-if="variantColors.length || variantSizes.length" @click="generateVariants" class="mt-3 text-xs border border-border rounded-lg px-4 py-2 hover:bg-accent transition-colors font-medium">Generate Variants</button>
+
+        <!-- Simple Product Pricing -->
+        <div v-else class="flex flex-col gap-4">
+          <!-- Market Tabs for Simple Product -->
+          <div
+            v-if="activeMarkets.length > 1"
+            class="flex items-center gap-1.5 border-b border-border/30 pb-2"
+          >
+            <button
+              v-for="m in activeMarkets"
+              :key="m"
+              type="button"
+              @click="activePriceMarket = m"
+              class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5"
+              :class="
+                activePriceMarket === m
+                  ? 'bg-foreground text-background shadow-sm'
+                  : 'text-muted-foreground hover:bg-muted/10 hover:text-foreground'
+              "
+            >
+              {{ m }} ·
+              <span class="opacity-60">{{ getMarketCurrency(m) }}</span>
+            </button>
+          </div>
+
+          <div
+            v-if="!activePriceMarket"
+            class="text-xs text-amber-500 font-semibold p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl"
+          >
+            No active markets configuration found.
+          </div>
+
+          <div
+            v-else-if="product.marketPrices[activePriceMarket]"
+            class="grid grid-cols-3 gap-4"
+          >
+            <div class="flex flex-col gap-1.5">
+              <label
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+              >
+                Price ({{ getMarketCurrency(activePriceMarket) }})
+              </label>
+              <input
+                v-model="product.marketPrices[activePriceMarket].price"
+                type="number"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+              >
+                Compare Price ({{ getMarketCurrency(activePriceMarket) }})
+              </label>
+              <input
+                v-model="product.marketPrices[activePriceMarket].comparePrice"
+                type="number"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+              >
+                Inventory
+              </label>
+              <input
+                v-model="product.marketPrices[activePriceMarket].inventory"
+                type="number"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
       </div>
-      <div v-else class="p-5">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="flex flex-col gap-1"><label class="text-xs text-muted-foreground uppercase tracking-wider">Inventory</label>
-            <input v-model="product.inventory" type="number" class="rounded-lg border border-input bg-background px-3 py-2 text-sm" /></div>
+
+      <!-- SEARCH ENGINE LISTING -->
+      <div
+        class="rounded-xl border border-border/60 bg-white-10 p-5 shadow-sm flex flex-col gap-4"
+      >
+        <h3
+          class="text-xs text-muted-foreground uppercase font-bold tracking-wider border-b pb-3"
+        >
+          Search Engine Listing
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- English SEO -->
+          <div class="flex flex-col gap-4">
+            <p
+              class="text-xs text-muted-foreground uppercase font-bold tracking-wider"
+            >
+              English
+            </p>
+            <div class="flex flex-col gap-1">
+              <div
+                class="flex items-center justify-between text-xs font-bold text-foreground"
+              >
+                <span>Page Title</span>
+                <span class="text-muted-foreground font-normal">0 / 70</span>
+              </div>
+              <input
+                v-model="product.name"
+                placeholder="SEO page title"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <div
+                class="flex items-center justify-between text-xs font-bold text-foreground"
+              >
+                <span>Meta Description</span>
+                <span class="text-muted-foreground font-normal">0 / 320</span>
+              </div>
+              <textarea
+                v-model="product.description"
+                placeholder="SEO meta description"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs min-h-[80px] focus:outline-none focus:ring-1 focus:ring-black/30"
+              />
+            </div>
+          </div>
+
+          <!-- Arabic SEO -->
+          <div class="flex flex-col gap-4">
+            <p
+              class="text-xs text-muted-foreground uppercase font-bold tracking-wider text-right"
+            >
+              Arabic
+            </p>
+            <div class="flex flex-col gap-1">
+              <div
+                class="flex items-center justify-between text-xs font-bold text-foreground"
+                dir="rtl"
+              >
+                <span>Page Title</span>
+                <span class="text-muted-foreground font-normal">0 / 70</span>
+              </div>
+              <input
+                v-model="product.nameAr"
+                placeholder="SEO page title"
+                dir="rtl"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30 text-right"
+              />
+            </div>
+            <div class="flex flex-col gap-1">
+              <div
+                class="flex items-center justify-between text-xs font-bold text-foreground"
+                dir="rtl"
+              >
+                <span>Meta Description</span>
+                <span class="text-muted-foreground font-normal">0 / 320</span>
+              </div>
+              <textarea
+                v-model="product.descriptionAr"
+                placeholder="SEO meta description"
+                dir="rtl"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs min-h-[80px] focus:outline-none focus:ring-1 focus:ring-black/30 text-right"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY TIMELINE & COMMENTS -->
+      <div
+        class="rounded-xl border border-border/60 bg-white-10 p-5 shadow-sm flex flex-col gap-4"
+      >
+        <h3
+          class="text-xs text-muted-foreground uppercase font-bold tracking-wider border-b pb-3"
+        >
+          Activity
+        </h3>
+
+        <div class="flex flex-col gap-3 py-2">
+          <!-- Hand-styled Mock Timeline Activities matching Figma -->
+          <div
+            class="flex gap-3 items-start text-xs border-l-2 border-border/50 pl-4 ml-2 relative"
+          >
+            <span
+              class="size-2.5 rounded-full bg-emerald-500 absolute -left-[6px] top-1.5 border-2 border-white"
+            ></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-foreground"
+                  >Reem Aboughattas
+                  <span
+                    class="text-[10px] text-muted-foreground font-normal bg-muted/40 px-1.5 py-0.5 rounded ml-1"
+                    >VENDOR</span
+                  ></span
+                >
+                <span class="text-muted-foreground">Jun 1, 2026</span>
+              </div>
+              <p class="text-muted-foreground mt-0.5">Created product</p>
+            </div>
+          </div>
+
+          <div
+            class="flex gap-3 items-start text-xs border-l-2 border-border/50 pl-4 ml-2 relative"
+          >
+            <span
+              class="size-2.5 rounded-full bg-blue-500 absolute -left-[6px] top-1.5 border-2 border-white"
+            ></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-foreground"
+                  >Zucci Admin
+                  <span
+                    class="text-[10px] text-muted-foreground font-normal bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded ml-1"
+                    >ADMIN</span
+                  ></span
+                >
+                <span class="text-muted-foreground">Jul 2, 2026</span>
+              </div>
+              <p class="text-muted-foreground mt-0.5">Approved product</p>
+            </div>
+          </div>
+
+          <div class="flex gap-3 items-start text-xs pl-4 ml-2 relative">
+            <span
+              class="size-2.5 rounded-full bg-emerald-500 absolute -left-[4px] top-1.5 border-2 border-white"
+            ></span>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-foreground"
+                  >Reem Aboughattas
+                  <span
+                    class="text-[10px] text-muted-foreground font-normal bg-muted/40 px-1.5 py-0.5 rounded ml-1"
+                    >VENDOR</span
+                  ></span
+                >
+                <span class="text-muted-foreground">Jul 8, 2026</span>
+              </div>
+              <p class="text-muted-foreground mt-0.5">
+                updated description & images
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-border/40 pt-4 mt-2">
+          <CommentSection
+            :key="activityLogKey"
+            :initialComments="activityLog"
+            @preview="previewFile = $event"
+            @comment-added="postComment"
+          />
         </div>
       </div>
     </div>
-    <!-- Care Instructions -->
-    <div class="rounded-xl border border-border bg-card p-5">
-      <h3 class="text-sm font-semibold mb-3">Care Instructions</h3>
-      <div class="flex flex-wrap gap-2 mb-3">
-        <button v-for="tpl in careTemplates" :key="tpl" @click="toggleCare(tpl)" class="chip text-xs" :class="{ active: careInstructions.includes(tpl) }">{{ tpl }}</button>
-      </div>
-      <textarea v-model="careCustom" placeholder="Additional care instructions…" rows="2" class="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none" />
-    </div>
-    <!-- Market Availability -->
-    <div class="rounded-xl border border-border bg-card p-5">
-      <h3 class="text-sm font-semibold mb-3">Market Availability</h3>
-      <div class="grid grid-cols-4 gap-3">
-        <div v-for="m in allMarkets" :key="m.code" class="flex items-center justify-between rounded-lg border border-border p-3">
-          <div class="flex items-center gap-2"><span>{{ m.flag }}</span><span class="text-sm">{{ m.name }}</span></div>
-          <SwitchToggle :modelValue="product.markets?.includes(m.code)" @update:modelValue="toggleMarket(m.code)" />
+
+    <MediaLibrary
+      :show="showMediaLib"
+      title="Add Product Images"
+      insertLabel="Add images"
+      @close="showMediaLib = false"
+      @insert="onMediaInsert"
+    />
+
+    <!-- Propose New Attribute Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showProposeAttr"
+          class="fixed inset-0 z-[500] flex items-center justify-center"
+          @click.self="showProposeAttr = false"
+        >
+          <div
+            class="absolute inset-0 bg-white-10/50 backdrop-blur-md dark:bg-black/60"
+          />
+          <div
+            class="relative bg-white-10 dark:bg-zinc-900 rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col w-[450px]"
+          >
+            <div
+              class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0"
+            >
+              <h3 class="text-base font-semibold text-foreground">
+                Propose New Attribute
+              </h3>
+              <button
+                @click="showProposeAttr = false"
+                class="size-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground transition-colors"
+              >
+                <X class="size-4" />
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+              <div class="flex flex-col gap-1.5">
+                <label
+                  class="text-xs text-muted-foreground uppercase font-medium"
+                  >Attribute Name (English)</label
+                >
+                <input
+                  v-model="newAttrForm.nameEn"
+                  placeholder="e.g. Material"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label
+                  class="text-xs text-muted-foreground uppercase font-medium"
+                  >Attribute Name (Arabic)</label
+                >
+                <input
+                  v-model="newAttrForm.nameAr"
+                  placeholder="e.g. خامة"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label
+                  class="text-xs text-muted-foreground uppercase font-medium"
+                  >Initial Value (English)</label
+                >
+                <input
+                  v-model="newAttrForm.valueEn"
+                  placeholder="e.g. Silk"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label
+                  class="text-xs text-muted-foreground uppercase font-medium"
+                  >Initial Value (Arabic)</label
+                >
+                <input
+                  v-model="newAttrForm.valueAr"
+                  placeholder="e.g. حرير"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+            </div>
+            <div
+              class="px-5 py-3 border-t border-border flex items-center justify-end gap-2 shrink-0"
+            >
+              <AppButton
+                variant="outline"
+                size="sm"
+                type="button"
+                @click="showProposeAttr = false"
+                >Cancel</AppButton
+              >
+              <AppButton
+                size="sm"
+                type="button"
+                @click="submitProposeAttr"
+                :disabled="!newAttrForm.nameEn || !newAttrForm.valueEn"
+                >Submit Proposal</AppButton
+              >
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-    <!-- Tags -->
-    <div class="rounded-xl border border-border bg-card p-5">
-      <h3 class="text-sm font-semibold mb-3">Tags</h3>
-      <input v-model="tagInput" placeholder="Type and press Enter" class="rounded-lg border border-input bg-transparent px-3 py-2 text-sm w-full" @keydown.enter.prevent="addTag" />
-      <div class="flex flex-wrap gap-2 mt-2">
-        <span v-for="t in product.tags" :key="t" class="badge badge-gray">{{ t }} <button @click="product.tags = product.tags.filter(x=>x!==t)" class="ml-1">×</button></span>
-      </div>
-    </div>
-    <!-- Activity -->
-    <CommentSection :initialComments="activityLog" @preview="previewFile = $event" />
-    <!-- Actions -->
-    <div class="flex items-center justify-end gap-3">
-      <button @click="$router.push('/app/products')" class="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent transition-colors">Cancel</button>
-      <button @click="toast('Saved!')" class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors">Save Changes</button>
-    </div>
-    <ZucciFooter />
-    <MediaLibrary :show="showMediaLib" title="Add Product Images" insertLabel="Add images" @close="showMediaLib = false" @insert="onMediaInsert" />
+      </Transition>
+    </Teleport>
   </div>
 </template>
 <script setup>
-import { ref, computed, reactive } from 'vue'
-import { useRoute } from 'vue-router'
-import { ChevronLeft, Plus, Upload, X, Bold, Italic, List, ListOrdered } from 'lucide-vue-next'
-import { PRODUCTS, formatCurrency, statusLabel } from '@/data/mock'
-import { useAppStore } from '@/stores/app'
-import Badge from '@/components/ui/Badge.vue'
-import SwitchToggle from '@/components/ui/SwitchToggle.vue'
-import SearchableSelect from '@/components/ui/SearchableSelect.vue'
-import CategoryPicker from '@/components/ui/CategoryPicker.vue'
-import CommentSection from '@/components/shared/CommentSection.vue'
-import MediaLibrary from '@/components/shared/MediaLibrary.vue'
-import ZucciFooter from '@/components/shared/ZucciFooter.vue'
-const route = useRoute()
-const { toast } = useAppStore()
-const product = reactive({ ...(PRODUCTS.find(p => p.id === route.params.id) || PRODUCTS[0]), weight: 450 })
-const isVariable = ref(!!product.variants?.length)
-const showMediaLib = ref(false)
-const showColorPicker = ref(false), showSizePicker = ref(false)
-const colorSearch = ref('')
-const sizeType = ref('')
-const variantColors = ref(product.variants?.length ? [...new Set(product.variants.map(v => v.color))] : [])
-const variantSizes = ref(product.variants?.length ? [...new Set(product.variants.map(v => v.size))] : [])
-const tagInput = ref('')
-const careCustom = ref('')
-const careInstructions = ref(['Machine wash cold, gentle cycle', 'Iron on low heat — do not steam'])
-const descEditor = ref(null)
-const previewFile = ref(null)
-const careTemplates = ['Machine wash cold, gentle cycle', 'Hand wash only', 'Dry clean only', 'Do not wash — spot clean only', 'Machine wash warm, tumble dry low', 'Iron on low heat — do not steam', 'Lay flat to dry', 'No bleach']
-const editorBtns = [{ cmd: 'bold', label: 'Bold', icon: Bold }, { cmd: 'italic', label: 'Italic', icon: Italic }, { cmd: 'insertUnorderedList', label: 'Bullet list', icon: List }, { cmd: 'insertOrderedList', label: 'Numbered list', icon: ListOrdered }]
-const allColors = ['Black', 'White', 'Navy', 'Red', 'Burgundy', 'Camel', 'Olive', 'Charcoal', 'Blush', 'Ivory', 'Midnight Blue', 'Dusty Rose', 'Pearl White', 'Forest Green', 'Taupe', 'Champagne', 'Cobalt', 'Terracotta', 'Sand', 'Teal']
-const filteredColors = computed(() => { const q = colorSearch.value.toLowerCase(); return allColors.filter(c => c.toLowerCase().includes(q) && !variantColors.value.includes(c)) })
-const sizeTypeOptions = [{ value: 'clothing-intl', label: 'Clothing (International)' }, { value: 'clothing-us', label: 'Clothing (US)' }, { value: 'footwear-us-m', label: 'Footwear US (Men)' }, { value: 'footwear-us-w', label: 'Footwear US (Women)' }, { value: 'one-size', label: 'One Size' }]
-const sizeMap = { 'clothing-intl': ['XXS','XS','S','M','L','XL','XXL','3XL'], 'clothing-us': ['0','2','4','6','8','10','12','14','16'], 'footwear-us-m': ['6','6.5','7','7.5','8','8.5','9','9.5','10','10.5','11','11.5','12','13','14','15'], 'footwear-us-w': ['5','5.5','6','6.5','7','7.5','8','8.5','9','9.5','10','11'], 'one-size': ['One Size'] }
-const availableSizes = computed(() => sizeMap[sizeType.value] || [])
-const allMarkets = [{ code: 'AE', flag: '🇦🇪', name: 'UAE' }, { code: 'SA', flag: '🇸🇦', name: 'Saudi Arabia' }, { code: 'EG', flag: '🇪🇬', name: 'Egypt' }, { code: 'KW', flag: '🇰🇼', name: 'Kuwait' }, { code: 'BH', flag: '🇧🇭', name: 'Bahrain' }]
-const activityLog = [
-  { system: true, author: 'System', time: 'Jun 1, 2026', text: 'Product created via Shopify sync.', initials: 'SY' },
-  { system: true, author: 'System', time: 'Jun 2, 2026', text: 'Product approved by Zucci QC team.', initials: 'SY' },
-  { system: false, author: 'Reem Aboughattas', time: 'Jun 5, 2026', text: 'Updated pricing and added new product images.', initials: 'RA' }
-]
-function execCmd(cmd) { document.execCommand(cmd, false, null) }
-function addVariantOption(type, val) { if (type === 'colors' && !variantColors.value.includes(val)) variantColors.value.push(val); if (type === 'sizes' && !variantSizes.value.includes(val)) variantSizes.value.push(val) }
-function removeOption(type, val) { if (type === 'colors') variantColors.value = variantColors.value.filter(c => c !== val); else variantSizes.value = variantSizes.value.filter(s => s !== val) }
-function generateVariants() {
-  const variants = []
-  const colors = variantColors.value.length ? variantColors.value : ['Default']
-  const sizes = variantSizes.value.length ? variantSizes.value : ['One Size']
-  for (const c of colors) for (const s of sizes) variants.push({ color: c, size: s, sku: product.sku + '-' + c.slice(0,3).toUpperCase() + '-' + s, price: product.price, inventory: 0 })
-  product.variants = variants
-  toast('Generated ' + variants.length + ' variants')
+import { ref, computed, reactive, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import {
+  ChevronLeft,
+  Plus,
+  Upload,
+  X,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Trash2,
+  Eye,
+} from "lucide-vue-next";
+import { statusLabel, TEAM_MEMBERS } from "@/data/mock";
+import { SIZE_VALUES } from "@/data/sizeCharts";
+import { COLOR_SWATCH } from "@/data/productsMeta";
+import { useAppStore } from "@/stores/app";
+import { useApi } from "@/composables/useApi";
+import { useBrandStore } from "@/stores/brand";
+import { useAuthStore } from "@/stores/auth";
+import { useLookupStore } from "@/stores/lookup";
+import { marketInfo } from "@/utils/marketFlags";
+import Badge from "@/components/ui/Badge.vue";
+import SwitchToggle from "@/components/ui/SwitchToggle.vue";
+import SearchableSelect from "@/components/ui/SearchableSelect.vue";
+import CategoryPicker from "@/components/ui/CategoryPicker.vue";
+import CommentSection from "@/components/shared/CommentSection.vue";
+import MediaLibrary from "@/components/shared/MediaLibrary.vue";
+import ZucciFooter from "@/components/shared/ZucciFooter.vue";
+import AttrSelect from "@/views/products/AttrSelect.vue";
+import AppButton from "@/components/ui/AppButton.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
+
+const route = useRoute();
+const router = useRouter();
+const { toast } = useAppStore();
+const { get, patch, put, post, upload } = useApi();
+const brandStore = useBrandStore();
+const authStore = useAuthStore();
+const lookupStore = useLookupStore();
+
+const product = reactive({
+  id: "",
+  name: "",
+  nameAr: "",
+  sku: "",
+  category: "",
+  price: 0,
+  comparePrice: null,
+  weight: 0,
+  description: "",
+  descriptionAr: "",
+  isVariable: false,
+  colors: [],
+  sizes: [],
+  variants: [],
+  tags: [],
+  markets: [],
+  images: [],
+  inventory: 0,
+  barcode: "",
+  careInstructionId: null,
+  sizeGuideId: null,
+  completenessScore: 0,
+  approvalStatus: "",
+  marketPrices: {},
+  hsCode: "",
+  returnPolicyId: 1,
+  fulfillmentModeId: 1,
+  rejectionReason: "",
+  rejectionNote: "",
+  countryOfOrigin: "cd81a7e4-94b7-4df5-935d-aa9577289a93",
+});
+
+const variantAttributes = ref([]);
+const syncedImages = ref([]);
+const allAttributesList = ref([]);
+const attributeValueRequestsList = ref([]);
+const selectedValuesMap = ref({});
+
+const showProposeAttr = ref(false);
+const newAttrForm = reactive({
+  nameEn: "",
+  nameAr: "",
+  valueEn: "",
+  valueAr: "",
+});
+
+const sizeGuidesList = ref([]);
+const returnPolicies = ref([]);
+const fulfillmentModes = ref([]);
+const weightUnit = ref("kg");
+const weightUnits = ref([
+  { id: "kg", label: "kg" },
+  { id: "g", label: "g" },
+  { id: "lb", label: "lb" },
+  { id: "oz", label: "oz" },
+]);
+
+const careInstructionOptions = computed(() => {
+  const list = lookupStore.careInstructions || [];
+  return [
+    { id: null, name: "-- None --" },
+    ...list.map((c) => ({ id: c.id, name: c.label || c.name })),
+  ];
+});
+
+const returnPolicyOptions = computed(() => {
+  return (returnPolicies.value || []).map((p) => ({
+    id: p.id,
+    name: p.name || p.label,
+  }));
+});
+
+const fulfillmentModeOptions = computed(() => {
+  return (fulfillmentModes.value || []).map((f) => ({
+    id: f.id,
+    name: f.name || f.label,
+  }));
+});
+
+const cap = (str) =>
+  str ? str.charAt(0).toUpperCase() + str.slice(1).replace(/[-_]/g, " ") : "";
+
+const isVariable = computed({
+  get: () => product.isVariable,
+  set: (val) => {
+    product.isVariable = val;
+  },
+});
+const showMediaLib = ref(false);
+const showColorPicker = ref(false),
+  showSizePicker = ref(false);
+const colorSearch = ref("");
+const sizeType = ref("");
+const variantColors = ref([]);
+const variantSizes = ref([]);
+
+const activePriceMarket = ref("AE");
+const activeMarkets = computed(() => {
+  return product.markets?.length ? product.markets : ["AE", "SA"];
+});
+const currencies = {
+  AE: "AED",
+  SA: "SAR",
+  EG: "EGP",
+  QA: "QAR",
+  KW: "KWD",
+  BH: "BHD",
+  OM: "OMR",
+};
+const getMarketCurrency = (code) => currencies[code] || "AED";
+const activeMarketCurrency = computed(() => {
+  return getMarketCurrency(activePriceMarket.value);
+});
+function swatchColor(v) {
+  if (!v) return "";
+  const cleanKey = Object.keys(COLOR_SWATCH).find(
+    (key) => key.toLowerCase() === v.toLowerCase(),
+  );
+  if (cleanKey) return COLOR_SWATCH[cleanKey];
+  return "";
 }
-function toggleMarket(code) { const idx = product.markets.indexOf(code); if (idx >= 0) product.markets.splice(idx, 1); else product.markets.push(code) }
-function toggleCare(tpl) { const idx = careInstructions.value.indexOf(tpl); if (idx >= 0) careInstructions.value.splice(idx, 1); else careInstructions.value.push(tpl) }
-function addTag() { if (tagInput.value.trim()) { product.tags.push(tagInput.value.trim()); tagInput.value = '' } }
-function onMediaInsert(items) { items.forEach(item => { if (item.type === 'image' && item.src) product.images.push(item.src) }); toast(items.length + ' image(s) added') }
+
+function formatSyncTime(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return (
+      d.toLocaleDateString() +
+      " " +
+      d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    );
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+const tagInput = ref("");
+const careCustom = ref("");
+const careInstructions = ref([]);
+const selectedCareOption = ref("");
+const careOptions = computed(() => {
+  return (careInstructionsLookup.value || []).map((c) => ({
+    id: c.id,
+    name: c.label || c.name || c,
+    label: c.label || c.name || c,
+    value: c.id,
+  }));
+});
+
+watch(selectedCareOption, (newVal) => {
+  if (newVal) {
+    product.careInstructionId = newVal;
+    const instr = careOptions.value.find((c) => c.id === newVal);
+    if (instr) {
+      const label = instr.label || instr.name;
+      if (!careInstructions.value.includes(label)) {
+        careInstructions.value.push(label);
+      }
+    }
+    selectedCareOption.value = "";
+  }
+});
+
+watch(
+  () => product.category,
+  () => {
+    fetchAllAttributes();
+  },
+);
+
+watch(
+  () => product.description,
+  (newVal) => {
+    if (descEditor.value && descEditor.value.innerHTML !== newVal) {
+      descEditor.value.innerHTML = newVal || "";
+    }
+  },
+);
+
+watch(
+  () => product.descriptionAr,
+  (newVal) => {
+    if (descEditorAr.value && descEditorAr.value.innerHTML !== newVal) {
+      descEditorAr.value.innerHTML = newVal || "";
+    }
+  },
+);
+
+const descEditor = ref(null);
+const descEditorAr = ref(null);
+const previewFile = ref(null);
+const saving = ref(false);
+const submitting = ref(false);
+
+const careTemplates = ref([]);
+
+const editorBtns = [
+  { cmd: "bold", label: "Bold", icon: Bold },
+  { cmd: "italic", label: "Italic", icon: Italic },
+  { cmd: "insertUnorderedList", label: "Bullet list", icon: List },
+  { cmd: "insertOrderedList", label: "Numbered list", icon: ListOrdered },
+];
+
+const colorAttrId = ref(null);
+const sizeAttrId = ref(null);
+const allColors = ref([]);
+const colorValueIdMap = ref({});
+const sizeValueIdMap = ref({});
+
+function getFlagEmoji(countryCode) {
+  if (!countryCode) return "";
+  const codePoints = countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => 127397 + char.charCodeAt(0));
+  try {
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return "";
+  }
+}
+
+const marketsLookup = computed(() => lookupStore.markets);
+const categoriesList = computed(() => lookupStore.categories);
+const countriesList = computed(() => {
+  return lookupStore.countries.map((c) => ({
+    ...c,
+    flag: getFlagEmoji(c.code || c.iso2 || ""),
+  }));
+});
+const careInstructionsLookup = computed(() => lookupStore.careInstructions);
+
+const statusOptions = computed(() => {
+  if (lookupStore.lifecycleStatuses?.length) {
+    return lookupStore.lifecycleStatuses;
+  }
+  return [
+    { code: "active", label: "Active" },
+    { code: "draft", label: "Draft" },
+    { code: "pending", label: "Pending Review" },
+    { code: "rejected", label: "Rejected" },
+  ];
+});
+
+const activityLog = ref([]);
+const activityLogKey = ref(0);
+
+const currentBrandDbId = computed(() => {
+  const currentSlug = brandStore.currentBrandId;
+  const backendBrand = authStore.brands?.find((b) => b.slug === currentSlug);
+  return backendBrand?.id || currentSlug;
+});
+
+const filteredColors = computed(() => {
+  const q = colorSearch.value.toLowerCase();
+  return allColors.value.filter(
+    (c) =>
+      c.label.toLowerCase().includes(q) &&
+      !variantColors.value.includes(c.label),
+  );
+});
+
+const sizeMap = {
+  "clothing-intl": ["XXS", "XS", "S", "M", "L", "XL", "XXL", "3XL"],
+  "clothing-us": ["0", "2", "4", "6", "8", "10", "12", "14", "16"],
+  "footwear-us-m": [
+    "6",
+    "6.5",
+    "7",
+    "7.5",
+    "8",
+    "8.5",
+    "9",
+    "9.5",
+    "10",
+    "10.5",
+    "11",
+    "11.5",
+    "12",
+    "13",
+    "14",
+    "15",
+  ],
+  "footwear-us-w": [
+    "5",
+    "5.5",
+    "6",
+    "6.5",
+    "7",
+    "7.5",
+    "8",
+    "8.5",
+    "9",
+    "9.5",
+    "10",
+    "11",
+  ],
+  "one-size": ["One Size"],
+};
+
+const sizeTypeOptions = computed(() => {
+  if (lookupStore.sizeSystems?.length) {
+    return lookupStore.sizeSystems.map((sys) => ({
+      value: sys.code,
+      label: sys.label,
+      id: sys.id,
+    }));
+  }
+  return [
+    { value: "clothing-intl", label: "Clothing (International)" },
+    { value: "clothing-us", label: "Clothing (US)" },
+    { value: "footwear-us-m", label: "Footwear US (Men)" },
+    { value: "footwear-us-w", label: "Footwear US (Women)" },
+    { value: "one-size", label: "One Size" },
+  ];
+});
+
+const sizeOptionsForPicker = computed(() => {
+  const code = sizeType.value;
+  if (!code) return [];
+  const list = SIZE_VALUES[code] || sizeMap[code] || [];
+  return list.map((label) => ({
+    value: label,
+    label: label,
+  }));
+});
+
+const availableSizes = computed(() => {
+  const list = sizeMap[sizeType.value] || [];
+  return list.map((label) => {
+    const id = sizeValueIdMap.value[label.toLowerCase()] || label;
+    return { id, label };
+  });
+});
+
+const allMarkets = computed(() => {
+  return marketsLookup.value.map((item) => {
+    const info = marketInfo(item.code);
+    return {
+      code: item.code,
+      flag: info.flag,
+      flagUrl: info.flagUrl,
+      name: item.label,
+    };
+  });
+});
+
+function execCmd(cmd) {
+  document.execCommand(cmd, false, null);
+}
+
+function addVariantOption(type, val) {
+  if (type === "colors" && !variantColors.value.includes(val.label)) {
+    variantColors.value.push(val.label);
+  }
+  if (type === "sizes" && !variantSizes.value.includes(val.label)) {
+    variantSizes.value.push(val.label);
+  }
+}
+
+function removeOption(type, val) {
+  if (type === "colors") {
+    variantColors.value = variantColors.value.filter((c) => c !== val);
+  } else {
+    variantSizes.value = variantSizes.value.filter((s) => s !== val);
+  }
+}
+
+function syncVariantAttributes() {
+  const currentSelections = {};
+  variantAttributes.value.forEach((a) => {
+    currentSelections[a.code] = a.selectedValues;
+  });
+
+  variantAttributes.value = allAttributesList.value.map((attr) => {
+    fetchAttributeValues(attr);
+    return {
+      id: attr.id,
+      code: attr.code,
+      label: attr.label,
+      values: attr.values || [],
+      selectedValues: currentSelections[attr.code] || [],
+      tempSelectedValue: "",
+      isProposed: attr.isProposed,
+    };
+  });
+}
+
+async function fetchAllAttributes() {
+  try {
+    const categoryIds = resolveCategoryIdsPath(
+      product.category,
+      lookupStore.categories,
+    );
+    const categoryId = categoryIds.length
+      ? categoryIds[categoryIds.length - 1]
+      : null;
+
+    let url = "/catalog/attributes?page=1&perPage=25";
+    if (categoryId) {
+      url += `&categoryId=${categoryId}`;
+    }
+
+    const res = await get(url);
+    if (res && res.data) {
+      const systemAttrs = res.data
+        .filter((attr) => attr.isActive !== false)
+        .map((attr) => ({
+          id: attr.id,
+          code: attr.code,
+          label: attr.label || attr.name || attr.code,
+          values: (attr.values || attr.options || []).map((v) => ({
+            id: v.id,
+            code: v.code,
+            label: v.label || v.code,
+            hexColor: v.hexColor || null,
+          })),
+          inputSwatchKey: attr.inputSwatchKey,
+          inputType: attr.inputType,
+          isProposed: false,
+        }));
+      allAttributesList.value = systemAttrs;
+    }
+
+    const reqRes = await get(
+      "/supplier/catalog/attribute-value-requests?page=1&perPage=100",
+    );
+    if (reqRes && reqRes.data) {
+      attributeValueRequestsList.value = reqRes.data;
+    }
+    syncVariantAttributes();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function fetchAttributeValues(attr) {
+  if (attr.isProposed) {
+    try {
+      const res = await get(
+        `/supplier/catalog/attribute-value-requests/${attr.id}`,
+      );
+      if (res && res.data) {
+        const proposed = res.data.proposedAttributes?.[0];
+        if (proposed) {
+          attr.values = (proposed.values || []).map((v) => ({
+            id: v.attributeValueId,
+            code: v.code,
+            label: v.translations?.[0]?.label || v.label || v.code,
+          }));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
+
+function addValueToAttribute(vAttr, newVal) {
+  if (newVal) {
+    if (!vAttr.selectedValues.includes(newVal)) {
+      vAttr.selectedValues.push(newVal);
+    }
+    vAttr.tempSelectedValue = "";
+  }
+}
+
+function toggleSizeValue(vAttr, val) {
+  const index = vAttr.selectedValues.indexOf(val);
+  if (index > -1) {
+    vAttr.selectedValues.splice(index, 1);
+  } else {
+    vAttr.selectedValues.push(val);
+  }
+}
+
+function removeValueFromAttribute(vAttr, val) {
+  vAttr.selectedValues = vAttr.selectedValues.filter((v) => v !== val);
+}
+
+function removeVariantAttribute(code) {
+  variantAttributes.value = variantAttributes.value.filter(
+    (a) => a.code !== code,
+  );
+}
+
+function updAttr(code, vals) {
+  selectedValuesMap.value = { ...selectedValuesMap.value, [code]: vals };
+  const attr = variantAttributes.value.find((a) => a.code === code);
+  if (attr) {
+    attr.selectedValues = vals;
+  }
+}
+
+function openAddVariantDrawer() {
+  showProposeAttr.value = true;
+}
+
+async function submitProposeAttr() {
+  try {
+    const code = newAttrForm.nameEn.toLowerCase().replace(/\s+/g, "-");
+    const valCode = newAttrForm.valueEn.toLowerCase().replace(/\s+/g, "-");
+    const payload = {
+      proposedAttributes: [
+        {
+          code,
+          translations: [
+            { localeId: 1, label: newAttrForm.nameEn },
+            { localeId: 2, label: newAttrForm.nameAr || newAttrForm.nameEn },
+          ],
+          values: [
+            {
+              code: valCode,
+              translations: [
+                { localeId: 1, label: newAttrForm.valueEn },
+                {
+                  localeId: 2,
+                  label: newAttrForm.valueAr || newAttrForm.valueEn,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    await post("/supplier/catalog/attribute-value-requests", payload);
+    toast("Attribute proposal submitted successfully!");
+
+    showProposeAttr.value = false;
+    newAttrForm.nameEn = "";
+    newAttrForm.nameAr = "";
+    newAttrForm.valueEn = "";
+    newAttrForm.valueAr = "";
+    await fetchAllAttributes();
+  } catch (e) {
+    // handled
+  }
+}
+
+function getVariantAttrValue(v, code) {
+  const found = v.attributes?.find(
+    (a) =>
+      (a.code || a.attributeCode || "").toLowerCase() === code.toLowerCase(),
+  );
+  if (found)
+    return found.attributeValueLabel || found.label || found.value || "—";
+
+  if (code === "color") return v.color || "—";
+  if (code === "size") return v.size || "—";
+  return "—";
+}
+
+function getVariantAttrDisplay(v, code) {
+  const found = v.attributes?.find(
+    (a) =>
+      (a.code || a.attributeCode || "").toLowerCase() === code.toLowerCase(),
+  );
+  if (found) {
+    const valueCode = found.valueCode || found.attributeValueCode || "";
+    const valueLabel =
+      found.attributeValueLabel || found.label || found.value || "";
+    if (valueCode && valueLabel) {
+      if (valueCode.toLowerCase() === valueLabel.toLowerCase()) {
+        return valueLabel;
+      }
+      return `${valueCode} · ${valueLabel}`;
+    }
+    return valueLabel || valueCode || "—";
+  }
+
+  if (code === "color") return v.color || "—";
+  if (code === "size") return v.size || "—";
+  return "—";
+}
+
+function buildVariantSku(variant, idx) {
+  const catCode = product.category
+    ? String(product.category).slice(0, 3).toUpperCase()
+    : "GEN";
+  const brandCode = product.brand
+    ? String(product.brand).slice(0, 3).toUpperCase()
+    : "BRD";
+  const parts = [];
+
+  Object.entries(variant || {}).forEach(([key, value]) => {
+    if (
+      !value ||
+      [
+        "id",
+        "sku",
+        "prices",
+        "marketPrices",
+        "inventory",
+        "barcode",
+        "attributes",
+        "colorObj",
+        "sizeObj",
+      ].includes(key)
+    ) {
+      return;
+    }
+
+    const normalized = String(value)
+      .trim()
+      .replace(/[^a-zA-Z0-9]+/g, "")
+      .slice(0, 4)
+      .toUpperCase();
+
+    if (normalized) parts.push(normalized);
+  });
+
+  if (!parts.length) parts.push("VAR");
+
+  const attrSlug = parts.join("-").slice(0, 24);
+  const suffix = String(idx + 1).padStart(2, "0");
+  return `${catCode}-${brandCode}-SC25-${attrSlug}-${suffix}`
+    .replace(/-+/g, "-")
+    .toUpperCase();
+}
+
+async function generateVariants() {
+  const attrs = variantAttributes.value.filter(
+    (a) => a.selectedValues.length > 0,
+  );
+  if (!attrs.length) {
+    toast("Please select values for at least one attribute");
+    return;
+  }
+
+  // Build the payload
+  const payloadAttrs = attrs
+    .map((a) => {
+      const valueIds = a.selectedValues
+        .map((label) => {
+          const found = a.values.find(
+            (v) =>
+              (v.label || v.code || v.name || "").toLowerCase() ===
+              label.toLowerCase(),
+          );
+          return found ? found.id : null;
+        })
+        .filter((val) => val && !String(val).startsWith("tmp-"));
+      return {
+        attributeId: a.id,
+        valueIds,
+      };
+    })
+    .filter((attr) => attr.valueIds.length > 0);
+
+  try {
+    const res = await post(
+      `/supplier/catalog/products/${product.id}/variants/generate`,
+      {
+        attributes: payloadAttrs,
+      },
+    );
+    if (res && res.data) {
+      const marketsList = ["AE", "SA", "EG", "QA", "KW", "BH", "OM"];
+      const generated = (res.data?.variants || res.data || []).map((v, idx) => {
+        const colorAttr = v.attributes?.find(
+          (a) => a.attributeCode === "color" || a.code === "color",
+        );
+        const sizeAttr = v.attributes?.find(
+          (a) => a.attributeCode === "size" || a.code === "size",
+        );
+
+        const colorLabel =
+          v.color ||
+          colorAttr?.attributeValueLabel ||
+          colorAttr?.label ||
+          colorAttr?.value ||
+          "Default";
+        const sizeLabel =
+          v.size ||
+          sizeAttr?.attributeValueLabel ||
+          sizeAttr?.label ||
+          sizeAttr?.value ||
+          "One Size";
+
+        const marketPrices = {};
+        const marketStocks = {};
+        marketsList.forEach((code) => {
+          const m = lookupStore.markets?.find((market) => market.code === code);
+          const pObj = v.prices?.find(
+            (p) => p.marketId === m?.id || p.marketCode === code,
+          );
+          marketPrices[code] = pObj
+            ? pObj.price
+            : (v.prices?.[0]?.price ?? v.price ?? 289);
+          marketStocks[code] = pObj
+            ? (pObj.stock ?? pObj.inventory ?? 0)
+            : (v.stock ?? v.inventory ?? 0);
+        });
+
+        return {
+          ...v,
+          sku: buildVariantSku(
+            {
+              color:
+                v.color ||
+                v.attributes?.find((a) => a.code === "color")?.label ||
+                "Default",
+              size:
+                v.size ||
+                v.attributes?.find((a) => a.code === "size")?.label ||
+                "One Size",
+              ...Object.fromEntries(
+                (v.attributes || []).map((a) => [
+                  a.code || a.attributeCode,
+                  a.label || a.value || a.attributeValueLabel,
+                ]),
+              ),
+            },
+            idx,
+          ),
+          marketPrices,
+          marketStocks,
+        };
+      });
+
+      product.variants = generated;
+      toast("Variants generated successfully!");
+    }
+  } catch (e) {
+    // handled
+  }
+}
+
+function toggleMarket(code) {
+  const idx = product.markets.indexOf(code);
+  if (idx >= 0) product.markets.splice(idx, 1);
+  else product.markets.push(code);
+}
+
+function toggleCare(tpl) {
+  const idx = careInstructions.value.indexOf(tpl);
+  if (idx >= 0) careInstructions.value.splice(idx, 1);
+  else careInstructions.value.push(tpl);
+}
+
+function addTag() {
+  if (tagInput.value.trim()) {
+    if (!product.tags.includes(tagInput.value.trim())) {
+      product.tags.push(tagInput.value.trim());
+    }
+    tagInput.value = "";
+  }
+}
+
+function onMediaInsert(items) {
+  items.forEach((item) => {
+    if (item.src && !product.images.some((img) => img.fileId === item.id)) {
+      product.images.push({ fileId: item.id, src: item.src });
+    }
+  });
+  toast(items.length + " image(s) added");
+}
+
+function resolveCategoryId(pathStr, tree) {
+  if (!pathStr) return null;
+  const segments = pathStr.split(" › ");
+  const lastSegment = segments[segments.length - 1];
+  function findNode(nodes, label) {
+    for (const n of nodes) {
+      if (n.label === label || n.name === label) return n;
+      if (n.children?.length) {
+        const found = findNode(n.children, label);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  const node = findNode(tree, lastSegment);
+  return node ? node.id : null;
+}
+
+function resolveCategoryIdsPath(pathStr, tree) {
+  if (!pathStr) return [];
+  if (typeof pathStr === "number") return [pathStr];
+  if (
+    typeof pathStr === "string" &&
+    !pathStr.includes(" › ") &&
+    !isNaN(pathStr)
+  ) {
+    return [Number(pathStr)];
+  }
+  const segments = pathStr.split(" › ");
+  const ids = [];
+  let currentNodes = tree || [];
+  for (const seg of segments) {
+    const found = currentNodes.find((n) => (n.label || n.name) === seg);
+    if (found) {
+      ids.push(found.id);
+      currentNodes = found.children || [];
+    } else {
+      break;
+    }
+  }
+  if (ids.length === 0) {
+    const leafId = resolveCategoryId(pathStr, tree);
+    if (leafId) {
+      ids.push(leafId);
+    }
+  }
+  return ids;
+}
+
+function resolveCategoryPath(id, tree) {
+  if (!id) return "";
+  function findPath(nodes, targetId, currentPath = []) {
+    for (const n of nodes) {
+      const path = [...currentPath, n.label || n.name];
+      if (n.id === targetId) return path.join(" › ");
+      if (n.children?.length) {
+        const found = findPath(n.children, targetId, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return findPath(tree, id) || "";
+}
+
+async function fetchActivity() {
+  try {
+    const res = await get(
+      `/supplier/catalog/products/${route.params.id}/activity?page=1&perPage=100`,
+    );
+    if (res && res.data) {
+      activityLog.value = res.data.map((a) => {
+        return {
+          system: a.system,
+          author: a.author || "System",
+          time: new Date(a.time).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+          text: a.text,
+          initials: a.initials || "SY",
+          attachments:
+            a.attachments?.map((att) => {
+              const isImage =
+                att.type?.startsWith("image") ||
+                att.mimeType?.startsWith("image") ||
+                att.type === "image";
+              return {
+                fileId: att.fileId || att.id,
+                name: att.name || att.filename || "file",
+                type: isImage ? "image" : "file",
+                src: att.src || att.url,
+              };
+            }) || [],
+        };
+      });
+      activityLogKey.value++;
+    }
+  } catch (e) {
+    // fallback
+  }
+}
+
+async function postComment(comment) {
+  try {
+    const attachmentFileIds = [];
+    if (comment.attachments?.length) {
+      for (const att of comment.attachments) {
+        if (att.file) {
+          const formData = new FormData();
+          formData.append("file", att.file);
+          const res = await upload("/supplier/files", formData);
+          if (res && res.data) {
+            attachmentFileIds.push(res.data.id || res.data.fileId);
+          }
+        } else if (att.id || att.fileId) {
+          attachmentFileIds.push(att.id || att.fileId);
+        }
+      }
+    }
+
+    const mentionUserIds = [];
+    const text = comment.text || "";
+    for (const m of TEAM_MEMBERS) {
+      const tag = `@${m.name.toLowerCase()}`;
+      if (text.toLowerCase().includes(tag)) {
+        mentionUserIds.push(m.id);
+      }
+    }
+
+    const payload = {
+      text: text,
+      mentionUserIds,
+      attachmentFileIds,
+    };
+
+    await post(`/supplier/catalog/products/${product.id}/activity`, payload);
+    toast("Comment posted successfully!");
+    await fetchActivity();
+  } catch (e) {
+    // handled
+  }
+}
+
+async function fetchProductDetails() {
+  try {
+    const res = await get(`/supplier/catalog/products/${route.params.id}`);
+    if (res && res.data) {
+      const data = res.data;
+      product.id = data.id;
+      product.sku = data.sku;
+      product.name = data.translations?.[0]?.name || data.name || "";
+      product.description =
+        data.translations?.[0]?.description || data.description || "";
+      product.nameAr = data.translations?.[1]?.name || "";
+      product.descriptionAr = data.translations?.[1]?.description || "";
+      product.weight = data.shippingWeight || data.weight || 0;
+      weightUnit.value = data.shippingWeightUnit || data.weightUnit || "kg";
+      product.isVariable = !!(
+        data.isVariable ||
+        (data.variants &&
+          data.variants.some((v) => v.attributes && v.attributes.length > 0))
+      );
+      product.price = data.variants?.[0]?.prices?.[0]?.price ?? data.price ?? 0;
+      product.comparePrice =
+        data.variants?.[0]?.prices?.[0]?.compareAtPrice ??
+        data.comparePrice ??
+        null;
+      product.barcode = data.variants?.[0]?.barcode || data.barcode || "";
+      product.inventory =
+        data.variants?.[0]?.stock ??
+        data.variants?.[0]?.inventory ??
+        data.inventory ??
+        0;
+
+      const defaultVar = data.variants?.[0] || {};
+      const marketsList = ["AE", "SA", "EG", "QA", "KW", "BH", "OM"];
+      product.marketPrices = {};
+      marketsList.forEach((code) => {
+        const m = lookupStore.markets?.find((market) => market.code === code);
+        const pObj = defaultVar.prices?.find(
+          (p) => p.marketId === m?.id || p.marketCode === code,
+        );
+        product.marketPrices[code] = {
+          price: pObj ? pObj.price : (defaultVar.price ?? data.price ?? ""),
+          comparePrice: pObj
+            ? pObj.compareAtPrice
+            : (defaultVar.comparePrice ?? data.comparePrice ?? ""),
+          inventory: pObj
+            ? (pObj.stock ?? pObj.inventory ?? 0)
+            : (defaultVar.stock ?? defaultVar.inventory ?? data.inventory ?? 0),
+        };
+      });
+
+      product.sizeGuideId = data.sizeGuideId || null;
+      product.completenessScore = data.completenessScore || 88;
+      product.approvalStatus = data.approvalStatus || "not_submitted";
+      product.hsCode = data.hsCode || "";
+      product.countryOfOrigin =
+        data.countryOfOrigin || data.country_of_origin || "EG";
+      product.returnPolicyId = data.returnPolicyId || 1;
+      product.fulfillmentModeId = data.fulfillmentModeId || 1;
+      product.rejectionReason =
+        data.rejectionReason || data.rejection_reason || "";
+      product.rejectionNote = data.rejectionNote || data.rejection_note || "";
+      product.status = statusOptions.value.find(
+        (s) => s.label.toLowerCase() === data.productStatus.toLowerCase(),
+      )?.code;
+      if (descEditor.value) {
+        descEditor.value.innerHTML = product.description;
+      }
+      if (descEditorAr.value) {
+        descEditorAr.value.innerHTML = product.descriptionAr;
+      }
+
+      const catId =
+        data.primaryCategory?.id || data.categories?.[0]?.category?.id;
+      product.category = catId
+        ? resolveCategoryPath(catId, categoriesList.value)
+        : data.category || "";
+
+      const marketMap = {};
+      marketsLookup.value.forEach((m) => {
+        marketMap[m.id] = m.code;
+      });
+      product.markets = data.markets
+        ? data.markets.map((id) => marketMap[id] || id)
+        : [];
+      if (product.markets.length) {
+        activePriceMarket.value = product.markets[0];
+      }
+      product.tags = data.tags || [];
+      product.images = data.media
+        ? data.media.map((m) => {
+            const fileObj = m.file || m;
+            return {
+              fileId: m.fileId || fileObj.fileId || fileObj.id || m.id,
+              src: fileObj.url || fileObj.src || m.url || m.src,
+            };
+          })
+        : [];
+
+      const rawSynced =
+        data.syncedMedia ||
+        data.synced_media ||
+        data.shopifyMedia ||
+        data.shopify_media ||
+        data.shopifyProduct?.media ||
+        data.shopifyProduct?.images ||
+        data.media ||
+        [];
+      syncedImages.value = rawSynced
+        .map((m) => {
+          const fileObj = m.file || m;
+          return {
+            fileId: m.fileId || fileObj.fileId || fileObj.id || m.id,
+            src:
+              fileObj.url ||
+              fileObj.src ||
+              m.url ||
+              m.src ||
+              (typeof m === "string" ? m : ""),
+          };
+        })
+        .filter((img) => img.src);
+
+      careCustom.value = data.careCustom || "";
+      careInstructions.value = data.careInstructions
+        ? data.careInstructions.map((c) => c.label || c)
+        : [];
+
+      product.careInstructionId = data.careInstructionId || null;
+      if (product.careInstructionId && !careInstructions.value.length) {
+        const instr = careInstructionsLookup.value.find(
+          (c) => c.id === product.careInstructionId,
+        );
+        if (instr) {
+          careInstructions.value.push(instr.label || instr.name);
+        }
+      }
+
+      product.variants = data.variants
+        ? data.variants.map((v) => {
+            const colorAttr = v.attributes?.find(
+              (a) => a.attributeCode === "color" || a.code === "color",
+            );
+            const sizeAttr = v.attributes?.find(
+              (a) => a.attributeCode === "size" || a.code === "size",
+            );
+
+            const colorLabel =
+              colorAttr?.attributeValueLabel ||
+              colorAttr?.label ||
+              colorAttr?.value ||
+              "Default";
+            const sizeLabel =
+              sizeAttr?.attributeValueLabel ||
+              sizeAttr?.label ||
+              sizeAttr?.value ||
+              "One Size";
+
+            const marketPrices = {};
+            const marketStocks = {};
+            const marketsList = ["AE", "SA", "EG", "QA", "KW", "BH", "OM"];
+            marketsList.forEach((code) => {
+              const m = lookupStore.markets?.find(
+                (market) => market.code === code,
+              );
+              const pObj = v.prices?.find(
+                (p) => p.marketId === m?.id || p.marketCode === code,
+              );
+              marketPrices[code] = pObj
+                ? pObj.price
+                : (v.prices?.[0]?.price ?? v.price ?? 289);
+              marketStocks[code] = pObj
+                ? (pObj.stock ?? pObj.inventory ?? 0)
+                : (v.stock ?? v.inventory ?? 0);
+            });
+
+            return {
+              id: v.id,
+              color: colorLabel,
+              size: sizeLabel,
+              colorObj: colorAttr
+                ? {
+                    id: colorAttr.attributeValueId || colorAttr.valueId,
+                    label: colorLabel,
+                  }
+                : null,
+              sizeObj: sizeAttr
+                ? {
+                    id: sizeAttr.attributeValueId || sizeAttr.valueId,
+                    label: sizeLabel,
+                  }
+                : null,
+              sku: v.sku,
+              price: v.prices?.[0]?.price ?? 0,
+              inventory: v.stock ?? v.inventory ?? 0,
+              attributes: v.attributes || [],
+              marketPrices,
+              marketStocks,
+            };
+          })
+        : [];
+
+      // Filter variantAttributes based on data.configuredAttributes
+      if (data.configuredAttributes?.length) {
+        const configuredMap = new Map(
+          data.configuredAttributes.map((c) => [c.attributeId || c.code, c]),
+        );
+
+        // Find matched attributes
+        const matchedAttrs = allAttributesList.value
+          .filter(
+            (attr) =>
+              configuredMap.has(attr.id) || configuredMap.has(attr.code),
+          )
+          .map((attr) => {
+            const cAttr =
+              configuredMap.get(attr.id) || configuredMap.get(attr.code);
+            return {
+              id: attr.id,
+              code: attr.code,
+              label: attr.label || cAttr.code || attr.code,
+              values: attr.values || [],
+              selectedValues: [],
+              tempSelectedValue: "",
+              isProposed: attr.isProposed || false,
+              isActive: true,
+              sortOrder: cAttr.sortOrder || 0,
+            };
+          });
+
+        // Add fallbacks for custom/proposed attributes not found in allAttributesList
+        const matchedIds = new Set(matchedAttrs.map((a) => a.id));
+        const matchedCodes = new Set(matchedAttrs.map((a) => a.code));
+
+        data.configuredAttributes.forEach((cAttr) => {
+          if (
+            !matchedIds.has(cAttr.attributeId) &&
+            !matchedCodes.has(cAttr.code)
+          ) {
+            const reqInfo = attributeValueRequestsList.value.find(
+              (r) => r.id === cAttr.attributeId,
+            );
+            matchedAttrs.push({
+              id: cAttr.attributeId,
+              code:
+                cAttr.code ||
+                (reqInfo?.attributeName || "custom")
+                  .toLowerCase()
+                  .replace(/\s+/g, "-"),
+              label: reqInfo?.attributeName || cAttr.code || "Custom Attribute",
+              values: (reqInfo?.requestedValues || []).map((val) => ({
+                id: val,
+                code: val.toLowerCase().replace(/\s+/g, "-"),
+                label: val,
+              })),
+              selectedValues: [],
+              tempSelectedValue: "",
+              isProposed: true,
+              isActive: true,
+              sortOrder: cAttr.sortOrder || 0,
+            });
+          }
+        });
+
+        variantAttributes.value = matchedAttrs.sort(
+          (a, b) => a.sortOrder - b.sortOrder,
+        );
+
+        // Ensure any attributes present in the variants payload are included
+        // (some APIs return attributes without being present in configuredAttributes)
+        const existingIds = new Set(variantAttributes.value.map((a) => a.id));
+        const existingCodes = new Set(
+          variantAttributes.value.map((a) => a.code),
+        );
+        (data.variants || []).forEach((v) => {
+          (v.attributes || []).forEach((attr) => {
+            const attrId =
+              attr.attributeId || attr.attributeId || attr.id || null;
+            const code = (attr.code || attr.attributeCode || "").toLowerCase();
+            const label =
+              attr.attributeName ||
+              attr.label ||
+              attr.attributeValueLabel ||
+              attr.value ||
+              code;
+            if (!attrId && !code) return;
+            if (!existingIds.has(attrId) && !existingCodes.has(code)) {
+              variantAttributes.value.push({
+                id: attrId || `tmp-${code}`,
+                code: code || `attr-${attrId}`,
+                label: label || code,
+                values: [
+                  {
+                    id:
+                      attr.attributeValueId ||
+                      attr.valueId ||
+                      attr.value ||
+                      null,
+                    code: attr.valueCode || attr.valueCode || null,
+                    label:
+                      attr.attributeValueLabel ||
+                      attr.label ||
+                      attr.value ||
+                      null,
+                  },
+                ],
+                selectedValues: [],
+                tempSelectedValue: "",
+                isProposed: false,
+                isActive: true,
+              });
+              existingIds.add(attrId);
+              existingCodes.add(code);
+            }
+          });
+        });
+
+        // Fetch values for each attribute from `/catalog/attributes/${attributeId}`
+        for (const attr of variantAttributes.value) {
+          if (
+            attr.id &&
+            !attr.id.startsWith("tmp-") &&
+            (!attr.values || !attr.values.length)
+          ) {
+            try {
+              const attrRes = await get(`/catalog/attributes/${attr.id}`);
+              if (attrRes && attrRes.data) {
+                attr.values = (attrRes.data.values || []).map((v) => ({
+                  id: v.id,
+                  code: v.code,
+                  label: v.label || v.code,
+                  hexColor: v.hexColor || null,
+                }));
+                // Cache it inside allAttributesList
+                const cached = allAttributesList.value.find(
+                  (a) => a.id === attr.id,
+                );
+                if (cached) {
+                  cached.values = attr.values;
+                }
+              }
+            } catch (e) {
+              console.error(
+                `Error fetching values for attribute ${attr.id}:`,
+                e,
+              );
+            }
+          }
+        }
+      }
+
+      // Populate selectedValues from variants on the already synced variantAttributes
+      const activeValuesMap = {};
+      (data.variants || []).forEach((v) => {
+        (v.attributes || []).forEach((attr) => {
+          const code = attr.code || attr.attributeCode;
+          const valLabel = attr.value || attr.attributeValueLabel || "Default";
+          if (valLabel !== "Default" && valLabel !== "One Size") {
+            if (!activeValuesMap[code]) activeValuesMap[code] = new Set();
+            activeValuesMap[code].add(valLabel);
+          }
+        });
+      });
+
+      variantAttributes.value.forEach((a) => {
+        if (activeValuesMap[a.code]) {
+          const vals = Array.from(activeValuesMap[a.code]);
+          a.selectedValues = vals;
+          selectedValuesMap.value[a.code] = vals;
+        }
+      });
+    }
+  } catch (e) {
+    // handled
+  }
+}
+
+async function saveChanges(shouldRedirect = true) {
+  saving.value = true;
+  try {
+    const categoryId = resolveCategoryId(
+      product.category,
+      categoriesList.value,
+    );
+
+    const basicPayload = {
+      shippingWeight: Number(product.weight) || 0,
+      shippingWeightUnit: weightUnit.value,
+      categoryId: categoryId || product.category,
+      translations: [
+        {
+          localeId: 1,
+          name: product.name,
+          description: product.description,
+        },
+        {
+          localeId: 2,
+          name: product.nameAr || product.name,
+          description: product.descriptionAr || "",
+        },
+      ],
+      careInstructionId: product.careInstructionId || null,
+      careInstructions: careInstructions.value.map((label) => {
+        const instr = careInstructionsLookup.value.find(
+          (c) => c.label.toLowerCase() === label.toLowerCase(),
+        );
+        return instr ? instr.id : label;
+      }),
+      careCustom: careCustom.value,
+      sizeGuideId: product.sizeGuideId || null,
+      hsCode: product.hsCode || null,
+      countryOfOrigin: product.countryOfOrigin || null,
+      returnPolicyId: product.returnPolicyId,
+      fulfillmentModeId: product.fulfillmentModeId,
+    };
+
+    await patch(`/supplier/catalog/products/${product.id}`, basicPayload);
+
+    // 2. Save Variants
+    let items = [];
+    if (product.isVariable) {
+      items = product.variants.map((v, idx) => ({
+        id: v.id,
+        sortOrder: idx,
+        isActive: true,
+        stock: product.markets.reduce(
+          (sum, code) =>
+            sum + (Number(v.marketStocks?.[code] ?? v.inventory) || 0),
+          0,
+        ),
+        prices: product.markets.map((code) => {
+          const m = marketsLookup.value.find((market) => market.code === code);
+          const priceVal =
+            v.marketPrices && v.marketPrices[code] !== undefined
+              ? v.marketPrices[code]
+              : v.price;
+          const stockVal =
+            v.marketStocks && v.marketStocks[code] !== undefined
+              ? v.marketStocks[code]
+              : v.inventory;
+          return {
+            marketId: m?.id || code,
+            price: Number(priceVal) || 0,
+            compareAtPrice: product.comparePrice
+              ? Number(product.comparePrice)
+              : null,
+            currencyId: 1,
+            stock: Number(stockVal) || 0,
+          };
+        }),
+        sku: v.sku,
+        attributes:
+          v.attributes ||
+          [
+            colorAttrId.value && colorValueIdMap.value[v.color.toLowerCase()]
+              ? {
+                  attributeId: colorAttrId.value,
+                  attributeValueId:
+                    colorValueIdMap.value[v.color.toLowerCase()],
+                }
+              : null,
+            sizeAttrId.value && sizeValueIdMap.value[v.size.toLowerCase()]
+              ? {
+                  attributeId: sizeAttrId.value,
+                  attributeValueId: sizeValueIdMap.value[v.size.toLowerCase()],
+                }
+              : null,
+          ].filter(Boolean),
+      }));
+    } else {
+      const vId = product.variants?.[0]?.id;
+      items = [
+        {
+          id: vId,
+          sortOrder: 0,
+          isActive: true,
+          stock: product.markets.reduce(
+            (sum, code) =>
+              sum + (Number(product.marketPrices?.[code]?.inventory) || 0),
+            0,
+          ),
+          prices: product.markets.map((code) => {
+            const m = marketsLookup.value.find(
+              (market) => market.code === code,
+            );
+            const mp = product.marketPrices?.[code] || {};
+            return {
+              marketId: m?.id || code,
+              price: Number(mp.price) || 0,
+              compareAtPrice: mp.comparePrice ? Number(mp.comparePrice) : null,
+              currencyId: 1,
+              stock: Number(mp.inventory) || 0,
+            };
+          }),
+        },
+      ];
+    }
+    await patch(`/supplier/catalog/products/${product.id}/variants`, {
+      items,
+    });
+
+    // 3. Save Media
+    const mediaPayload = product.images
+      .map((img, i) => ({
+        fileId: img.fileId,
+        sortOrder: i,
+        isPrimary: i === 0,
+      }))
+      .filter((m) => m.fileId);
+
+    await put(`/supplier/catalog/products/${product.id}/media`, {
+      media: mediaPayload,
+    });
+
+    toast("Product updated successfully!");
+    if (shouldRedirect) {
+      router.push({ name: "products" });
+    }
+  } catch (e) {
+    // handled
+    throw e;
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function submitToReview() {
+  submitting.value = true;
+  try {
+    // Save current changes first
+    await saveChanges(false);
+
+    // Call catalog bulk action to submit to review
+    await post("/supplier/catalog/products/bulk", {
+      ids: [product.id],
+      action: "submit_for_review",
+    });
+    toast("Product submitted for review successfully!");
+    product.approvalStatus = "pending";
+  } catch (e) {
+    // Handled
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function deleteVariant(vi) {
+  product.variants.splice(vi, 1);
+  await saveChanges();
+}
+
+async function loadLookups() {
+  try {
+    await Promise.all([
+      lookupStore.fetchMarkets(),
+      lookupStore.fetchCategories(),
+      lookupStore.fetchProductConfigs(),
+      lookupStore.fetchCareInstructions(),
+      lookupStore.fetchSizeSystems(),
+      lookupStore.fetchLifecycleStatuses(),
+      lookupStore.fetchCountries(),
+    ]);
+
+    // Fetch enums
+    try {
+      const enumsRes = await get("/reference/enums", {
+        types: "fulfillment_mode,return_policy,weight_unit",
+      });
+      if (enumsRes && enumsRes.enums) {
+        if (enumsRes.enums.return_policy?.length) {
+          returnPolicies.value = enumsRes.enums.return_policy;
+        }
+        if (enumsRes.enums.fulfillment_mode?.length) {
+          fulfillmentModes.value = enumsRes.enums.fulfillment_mode;
+        }
+        if (enumsRes.enums.weight_unit?.length) {
+          weightUnits.value = enumsRes.enums.weight_unit;
+        }
+      }
+    } catch (_) {}
+
+    // Fetch size guides via API
+    try {
+      const sgRes = await get("/catalog/size-guides", {
+        page: 1,
+        perPage: 100,
+      });
+      if (sgRes && sgRes.data) {
+        sizeGuidesList.value = sgRes.data;
+      }
+    } catch (_) {
+      // size guides optional
+    }
+
+    const careRes = lookupStore.careInstructions;
+    if (careRes && careRes.length) {
+      careTemplates.value = careRes.map((c) => c.label);
+    }
+
+    const confRes = lookupStore.productConfigs;
+    const colorAttr = confRes.find((a) => a.code === "color");
+    const sizeAttr = confRes.find((a) => a.code === "size");
+
+    colorAttrId.value = colorAttr?.id;
+    sizeAttrId.value = sizeAttr?.id;
+    allColors.value = colorAttr?.values || [];
+
+    colorAttr?.values?.forEach((v) => {
+      colorValueIdMap.value[v.label.toLowerCase()] = v.id;
+    });
+    sizeAttr?.values?.forEach((v) => {
+      sizeValueIdMap.value[v.label.toLowerCase()] = v.id;
+    });
+  } catch (e) {
+    // fallback
+  }
+}
+
+onMounted(async () => {
+  await loadLookups();
+  await fetchAllAttributes();
+  await fetchProductDetails();
+  await fetchActivity();
+});
 </script>

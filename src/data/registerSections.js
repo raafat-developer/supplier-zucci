@@ -8,8 +8,8 @@ export const LEAD_QUESTIONS = [
 ]
 
 export function commercialIdLabel(cc) {
-  const m = { EG: 'Commercial Registration Number', AE: 'Trade License Number', SA: 'Commercial Registration (CR) Number', KW: 'Commercial License Number', QA: 'Commercial Registration (CR) Number', BH: 'Commercial Registration Number', OM: 'Commercial Registration (CR) Number', JO: 'Company Registration Number', LB: 'Commercial Register Number', MA: 'Registre de Commerce (RC)', TR: 'Trade Registry Number' }
-  return m[cc] || 'Commercial / Trade Registration ID'
+  const m = { EG: 'Commercial Registration Number', AE: 'Commercial Registry Number', SA: 'Commercial Registration Number', KW: 'Commercial License Number', QA: 'Commercial Registration Number', BH: 'Commercial Registration Number', OM: 'Commercial Registration Number', JO: 'Company Registration Number', LB: 'Commercial Register Number', MA: 'Registre de Commerce', TR: 'Trade Registry Number' }
+  return m[cc] || 'Commercial Registration Number'
 }
 
 export function baseCurrency(cc) {
@@ -25,34 +25,53 @@ export function kycSections(entityType, answers) {
   const upload = (label, key, hint) => ({ kind: 'upload', label, key, hint })
   const website = { kind: 'website-toggle', key: 'website' }
   const docType = { kind: 'doctype', key: 'doc-type' }
+  const nameGroup = { kind: 'name' }
   const addressGroup = prefix => ({ kind: 'address', prefix })
   const phoneOwner = { kind: 'phone-owner' }
   const bankExtra = (label) => ({ kind: 'bank-extra', label })
+  const uploadGroup = (fields) => ({ kind: 'upload-group', fields })
+  const ibanSwiftGroup = prefix => ({ kind: 'iban-swift', prefix })
 
   if (isInd) {
     return [
       { title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
-        fields: [ f('Brand name', 'brand-name', 'text'), f('Brand description', 'brand-desc', 'textarea'), website, f('Instagram URL', 'instagram', 'url') ] },
+        fields: [ f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand') ] },
       { title: 'Personal details', desc: 'Your identity for account verification — kept confidential.',
-        fields: [ f('First name', 'first-name'), f('Last name', 'last-name'), addressGroup('ind') ] },
+        fields: [ nameGroup, addressGroup('ind') ] },
       { title: 'Identity document', desc: 'Upload a clear copy of your National ID or Passport.',
-        fields: [ docType, upload('Front of document', 'doc-front'), upload('Back (ID only — skip for passport)', 'doc-back') ] },
+        fields: [ docType, uploadGroup([upload('Front of Document', 'doc-front'), upload('Back of Document', 'doc-back')]) ] },
       { title: 'Brand logo & assets', desc: 'Upload your logo in the highest quality available.',
         fields: [ upload('Brand logo', 'brand-logo', 'AI, PDF, PNG or SVG preferred'), upload('Additional brand assets (optional)', 'brand-assets', 'Brand guidelines, lookbook, campaign images…') ] },
       { title: 'Bank details', desc: 'Payout account details.',
-        fields: [ f('Bank name', 'bank-name', 'bank'), f('Account holder name', 'bank-holder'), f('IBAN / Account number', 'bank-iban'), f('SWIFT / BIC code', 'bank-swift', 'text', 'e.g. AAAABBBCCCC'), bankExtra('+ Add another currency account (optional)') ] }
+        fields: [ f('Payout Currency', 'currency_id', 'currency'), f('Bank name', 'bank-name', 'bank'), f('Account holder name', 'bank-holder', 'text', 'Name as it appears on bank statement'), ibanSwiftGroup('bank'), bankExtra('+ Add another currency account (optional)') ] }
     ]
   }
   return [
     { title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
-      fields: [ f('Brand name', 'brand-name'), f('Brand description', 'brand-desc', 'textarea'), website, f('Instagram URL', 'instagram', 'url') ] },
+      fields: [ f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand') ] },
     { title: 'Legal company details', desc: 'Your registered business information.',
-      fields: [ f('Legal company name', 'legal-name'), addressGroup('biz'), f('commercial-id-label', 'commercial-id'), f('Tax registration number', 'tax-id') ] },
+      fields: [
+        f('Legal company name', 'legal-name', 'text', 'e.g. Zucci FZ LLC'),
+        addressGroup('biz'),
+        uploadGroup([
+          f('commercial-id-label', 'commercial-id', 'text', 'Enter license or registration number'),
+          f('Tax Certificate Number', 'tax-id', 'text', 'Enter Tax Certificate Number')
+        ]),
+        uploadGroup([
+          upload('Upload Commercial Registry', 'commercial_registry'),
+          upload('Upload Tax Certificate', 'tax_certificate')
+        ])
+      ] },
     { title: 'Owner identity', desc: 'Identity of the owner or authorized representative.',
-      fields: [ f('First name', 'first-name'), f('Last name', 'last-name'), phoneOwner, docType, upload('Front of ID / Passport', 'doc-front'), upload('Back of ID (if applicable)', 'doc-back') ] },
+      fields: [
+        nameGroup,
+        phoneOwner,
+        docType,
+        uploadGroup([upload('Front of ID / Passport', 'doc-front'), upload('Back of ID (if applicable)', 'doc-back')])
+      ] },
     { title: 'Brand logo & assets', desc: 'Upload your logo in the highest quality available.',
       fields: [ upload('Brand logo', 'brand-logo', 'AI, PDF, PNG or SVG preferred'), upload('Additional brand assets (optional)', 'brand-assets') ] },
     { title: 'Bank accounts', desc: 'Primary payout account details.',
-      fields: [ f('Bank name', 'bank-egp-name', 'bank'), f('Account number / IBAN', 'bank-egp-iban'), f('SWIFT / BIC', 'bank-egp-swift'), bankExtra('+ Add an additional currency account (USD, EUR, GBP…)') ] }
+      fields: [ f('Payout Currency', 'currency_id', 'currency'), f('Bank name', 'bank-egp-name', 'bank'), ibanSwiftGroup('bank-egp'), bankExtra('+ Add an additional currency account (USD, EUR, GBP…)') ] }
   ]
 }

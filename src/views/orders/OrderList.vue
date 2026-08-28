@@ -1,177 +1,1220 @@
 <template>
-  <div class="flex flex-col gap-4">
-    <!-- Stats bar -->
-    <div class="rounded-xl border border-border bg-card flex items-stretch divide-x divide-border overflow-hidden">
-      <div class="flex items-center gap-2 px-4 py-3 shrink-0">
-        <Calendar class="size-4 text-muted-foreground" />
-        <DateRangePicker v-model="dateRange" defaultPreset="30d" />
+  <div class="order-list-page bg-white-10">
+    <!-- ─── Stats Bar ─── -->
+    <div v-if="stats" class="stats-bar bg-white-10">
+      <!-- Date range picker cell -->
+      <div class="stats-bar__picker">
+        <span class="text-xs font-semibold text-muted-foreground"
+          >Last 30 Days</span
+        >
       </div>
-      <div v-for="(s, i) in stats" :key="s.label" class="flex-1 flex flex-col justify-center px-3 py-3 min-w-0">
-        <p class="text-xs text-muted-foreground mb-1 whitespace-nowrap">{{ s.label }}</p>
-        <div class="flex items-center gap-2">
-          <span class="text-lg font-bold">{{ s.val }}</span>
-          <svg v-if="s.spark" width="80" height="28" viewBox="0 0 80 28" fill="none">
-            <defs><linearGradient :id="'sg'+i" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="hsl(220,70%,50%)" stop-opacity="0.3" /><stop offset="95%" stop-color="hsl(220,70%,50%)" stop-opacity="0" /></linearGradient></defs>
-            <path :d="sparkPaths[i] + ' L80,28 L0,28 Z'" :fill="'url(#sg'+i+')'" />
-            <path :d="sparkPaths[i]" stroke="hsl(220,70%,50%)" stroke-width="1.5" fill="none" stroke-linejoin="round" stroke-linecap="round" />
+
+      <!-- Stat cells -->
+      <div v-for="(s, i) in statsList" :key="s.label" class="stats-bar__cell">
+        <p class="stats-bar__label">{{ s.label }}</p>
+        <div class="stats-bar__value-row">
+          <span class="stats-bar__value">{{ s.val }}</span>
+          <svg
+            v-if="s.spark"
+            class="stats-bar__spark"
+            width="80"
+            height="28"
+            viewBox="0 0 80 28"
+            fill="none"
+          >
+            <defs>
+              <linearGradient :id="'sg' + i" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stop-color="hsl(220,70%,50%)"
+                  stop-opacity="0.3"
+                />
+                <stop
+                  offset="95%"
+                  stop-color="hsl(220,70%,50%)"
+                  stop-opacity="0"
+                />
+              </linearGradient>
+            </defs>
+            <path
+              :d="getSparkPath(s.spark) + ' L80,28 L0,28 Z'"
+              :fill="'url(#sg' + i + ')'"
+            />
+            <path
+              :d="getSparkPath(s.spark)"
+              stroke="hsl(220,70%,50%)"
+              stroke-width="1.5"
+              fill="none"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
           </svg>
         </div>
       </div>
     </div>
 
-    <!-- Tab filters + actions -->
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-0.5">
-        <button v-for="t in tabs" :key="t" @click="filter = t" class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors capitalize" :class="filter === t ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'">{{ t === 'all' ? 'All' : t }}</button>
+    <!-- ─── Main Card ─── -->
+    <div class="order-card bg-white-10 w-full max-w-full overflow-hidden">
+      <!-- Toolbar: Actions (sync, print, export) -->
+      <div
+        class="flex items-center justify-between px-6 py-4 border-b border-border/40 gap-4"
+      >
+        <h2 class="text-base font-semibold">Orders</h2>
+        <div class="flex items-center gap-2 actions-dropdown-container">
+          <!-- Desktop Action Buttons -->
+          <div class="hidden sm:flex items-center gap-2">
+            <button @click="handleSync" class="btn btn--outline">
+              <RefreshCw
+                class="btn__icon"
+                :class="{ 'animate-spin': loading.action }"
+              />
+              Sync
+            </button>
+            <button @click="handlePrintSlips" class="btn btn--outline">
+              <Printer class="btn__icon" />
+              Print Slips
+            </button>
+            <button @click="exportOrders" class="btn btn--solid">
+              <Download class="btn__icon" />
+              Export
+            </button>
+          </div>
+
+          <!-- Mobile Actions Dropdown -->
+          <div class="sm:hidden relative">
+            <button
+              @click="showActionsDropdown = !showActionsDropdown"
+              class="px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-semibold hover:bg-accent text-foreground transition-colors flex items-center gap-1.5"
+            >
+              <span>Actions</span>
+              <ChevronDown class="size-3.5" />
+            </button>
+            <div
+              v-if="showActionsDropdown"
+              class="absolute right-0 mt-1 w-40 rounded-lg border border-border bg-background shadow-lg overflow-hidden py-1 z-[150] anim-down"
+            >
+              <button
+                @click="handleSync(); showActionsDropdown = false"
+                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
+              >
+                <RefreshCw class="size-3.5" :class="{ 'animate-spin': loading.action }" />
+                <span>Sync</span>
+              </button>
+              <button
+                @click="handlePrintSlips(); showActionsDropdown = false"
+                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
+              >
+                <Printer class="size-3.5" />
+                <span>Print Slips</span>
+              </button>
+              <button
+                @click="exportOrders(); showActionsDropdown = false"
+                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
+              >
+                <Download class="size-3.5" />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button @click="syncOrders" :disabled="syncing" class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-accent transition-colors" :style="{ opacity: syncing ? 0.85 : 1 }">
-          <RefreshCw class="size-3.5" :class="{ 'sc-spinning': syncState === 'spinning' }" :style="{ color: syncState === 'done' ? '#3dda84' : '' }" v-if="syncState !== 'done'" />
-          <Check v-else class="size-3.5" style="color:#3dda84" />
-          {{ syncState === 'done' ? 'Synced!' : 'Sync' }}
+
+      <!-- Status Tabs (in their own separate full-width row) -->
+      <div
+        class="flex items-center gap-0.5 px-6 border-b border-border/40 overflow-x-auto"
+      >
+        <button
+          v-for="t in tabs"
+          :key="t.value"
+          @click="selectTab(t.value)"
+          class="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+          :class="
+            filter === t.value
+              ? 'border-primary text-foreground font-semibold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          "
+        >
+          <span>{{ t.label }}</span>
+          <span
+            v-if="t.count !== undefined"
+            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20"
+            :class="{
+              'bg-primary/10 text-primary border-primary/25':
+                filter === t.value,
+            }"
+          >
+            {{ t.count }}
+          </span>
         </button>
-        <button @click="printSlips" class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-accent transition-colors"><Printer class="size-3.5" />Print Slips</button>
-        <button @click="toast('Exporting…')" class="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:opacity-90 transition-opacity"><Download class="size-3.5" />Export</button>
       </div>
-    </div>
 
-    <!-- Sub-controls -->
-    <div class="flex items-center gap-3">
-      <select class="rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none"><option>Bulk edit</option><option>Mark fulfilled</option><option>Cancel selected</option></select>
-      <select class="rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none"><option>All dates</option><option>Last 7 days</option><option>Last 30 days</option></select>
-      <SearchField v-model="search" placeholder="Search" class="ml-auto" style="width:12rem" />
-    </div>
+      <!-- Sub-controls -->
+      <!-- Filters row -->
+      <div
+        class="flex items-center justify-between gap-3 px-6 py-3 flex-wrap border-b border-border bg-muted/20"
+      >
+        <div class="flex items-center gap-3 flex-wrap flex-1">
+          <SearchField
+            v-model="search"
+            placeholder="Search..."
+            style="width: 12rem"
+          />
 
-    <!-- Table -->
-    <div class="rounded-xl border border-border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="data-table w-full">
-          <thead><tr><th class="w-8"><input type="checkbox" :checked="allSelected" @change="toggleAll($event.target.checked)" /></th><th>Order</th><th>Date</th><th>Total</th><th>Fulfillment status</th><th>Items</th><th>Delivery status</th><th class="w-8"></th></tr></thead>
-          <tbody>
-            <tr v-for="o in pagedOrders" :key="o.id" @click="$router.push('/app/orders/' + o.id)" class="cursor-pointer hover:bg-muted/40 transition-colors">
-              <td @click.stop><input type="checkbox" :checked="selected.includes(o.id)" @change="toggleRow(o.id, $event.target.checked)" /></td>
-              <td><button @click.stop="$router.push('/app/orders/' + o.id)" class="text-sm text-primary font-medium hover:underline">{{ o.num }}</button></td>
-              <td class="text-sm text-muted-foreground">{{ o.date }}</td>
-              <td class="font-semibold text-sm">{{ o.total }}</td>
-              <td><Badge :variant="fBadgeClass(o.fulfillment)">{{ o.fulfillment.replace(/-/g,' ') }}</Badge></td>
-              <td class="text-sm text-muted-foreground">{{ o.items }} items</td>
-              <td><Badge :variant="dBadgeClass(o.delivery)">{{ o.delivery.replace(/-/g,' ') }}</Badge></td>
-              <td><button @click.stop="$router.push('/app/orders/' + o.id)" class="size-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground transition-colors"><Eye class="size-3.5" /></button></td>
+          <!-- All dates -->
+          <AppSelect
+            v-model="dateFilter"
+            :options="dateOptions"
+            placeholder="All dates"
+          />
+
+          <!-- Fulfillment Status Dropdown -->
+          <AppSelect
+            v-model="fulfillmentFilter"
+            :options="fulfillmentOptions"
+            placeholder="Fulfillment Status: All"
+          />
+
+          <!-- Completion Status Dropdown -->
+          <AppSelect
+            v-model="completionFilter"
+            :options="completionOptions"
+            placeholder="Completion Status: All"
+          />
+
+          <!-- Return Status Dropdown -->
+          <AppSelect
+            v-model="returnFilter"
+            :options="returnOptions"
+            placeholder="Return Status: All"
+          />
+        </div>
+        <!-- Bulk Action -->
+        <AppSelect
+          v-slot:default
+          v-model="bulkAction"
+          :options="bulkActionOptions"
+          placeholder="Bulk Action"
+          @change="handleBulkAction"
+          customClass="bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground font-medium outline-none hover:bg-accent transition-colors"
+        />
+      </div>
+
+      <!-- Data Table -->
+      <div class="order-table-wrap">
+        <!-- Loading overlay -->
+        <div v-if="loading.orders" class="order-table-wrap__loading">
+          <RefreshCw class="order-table-wrap__spinner" />
+        </div>
+
+        <table class="data-table min-w-[850px]">
+          <thead>
+            <tr>
+              <th class="data-table__th--check">
+                <input
+                  type="checkbox"
+                  v-model="isAllSelected"
+                  class="data-table__checkbox"
+                />
+              </th>
+              <th>ORDER CODE</th>
+              <th>DATE</th>
+              <th>PRICE</th>
+              <th class="text-center">ITEMS</th>
+              <th>FULFILLMENT</th>
+              <th>RETURN STATUS</th>
+              <th>COMPLETION STATUS</th>
+              <th class="data-table__th--action">ACTION</th>
             </tr>
-            <tr v-if="!pagedOrders.length"><td colspan="8" class="text-center py-8 text-muted-foreground text-sm">No orders found</td></tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="o in displayedOrders"
+              :key="o.id"
+              @click="$router.push('/app/orders/' + o.id)"
+              class="data-table__row"
+            >
+              <td @click.stop class="data-table__td--check">
+                <input
+                  type="checkbox"
+                  :value="o.id"
+                  v-model="selectedOrders"
+                  class="data-table__checkbox"
+                />
+              </td>
+              <td class="data-table__td--order">#{{ o.id }}</td>
+              <td class="data-table__td--date">
+                {{ formatDate(o.orderedAt || o.date) }}
+              </td>
+              <td class="data-table__td--total">
+                {{
+                  o.total?.formatted ||
+                  (o.gmv ? "AED " + formatNumber(o.gmv) : "—")
+                }}
+              </td>
+              <td class="data-table__td--items text-center">
+                {{ o.itemCount || o.items?.length || o.items || 0 }} items
+              </td>
+              <td>
+                <span
+                  class="status-badge"
+                  :class="
+                    statusBadgeClass(
+                      o.fulfillmentStatus || o.fulfillment || 'pending',
+                    )
+                  "
+                >
+                  {{
+                    statusLabel(o.fulfillmentStatus || o.fulfillment) ||
+                    "pending"
+                  }}
+                </span>
+              </td>
+              <td>
+                <span
+                  class="status-badge"
+                  :class="statusBadgeClass(o.returnStatus)"
+                >
+                  {{ o.returnStatus?.label || "No Returns" }}
+                </span>
+              </td>
+              <td>
+                <span
+                  class="status-badge"
+                  :class="statusBadgeClass(o.completionStatus)"
+                >
+                  {{ o.completionStatus?.label || "Open" }}
+                </span>
+              </td>
+              <td class="data-table__td--action" @click.stop>
+                <button
+                  @click="$router.push('/app/orders/' + o.id)"
+                  class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold border border-border rounded-md hover:bg-accent text-muted-foreground transition-colors"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!displayedOrders.length && !loading.orders">
+              <td colspan="8" class="data-table__empty">No orders found</td>
+            </tr>
           </tbody>
         </table>
       </div>
-      <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border text-sm text-muted-foreground">
-        <span>Showing {{ pagedOrders.length }} of {{ filteredOrders.length }} orders</span>
-        <span class="mx-2">·</span>
-        <span>Rows per page:</span>
-        <select v-model="perPage" class="bg-background border border-input rounded-md px-2 py-1 text-xs">
-          <option v-for="n in [25,50,100,200,300]" :key="n" :value="n">{{ n }}</option>
-        </select>
-        <div class="flex items-center gap-1 ml-3">
-          <button @click="page = Math.max(1, page - 1)" :disabled="page === 1" class="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent disabled:opacity-40"><ChevronLeft class="size-3.5" /></button>
-          <span class="px-2">{{ page }} / {{ totalPages }}</span>
-          <button @click="page = Math.min(totalPages, page + 1)" :disabled="page === totalPages" class="size-7 rounded-md border border-border flex items-center justify-center hover:bg-accent disabled:opacity-40"><ChevronRight class="size-3.5" /></button>
+
+      <!-- Pagination -->
+      <div class="pagination">
+        <span class="pagination__info">
+          Showing {{ paginationStart }}–{{ paginationEnd }} of {{ totalOrders }}
+        </span>
+        <span class="pagination__sep">·</span>
+        <span class="pagination__label">Rows per page</span>
+        <AppSelect
+          v-model="perPage"
+          :options="[25, 50, 100, 200, 300]"
+          customClass="pagination__select"
+        />
+        <div class="pagination__nav">
+          <button
+            @click="page = Math.max(1, page - 1)"
+            :disabled="page === 1"
+            class="pagination__btn"
+          >
+            <ChevronLeft class="size-3.5" />
+          </button>
+          <span class="pagination__page">{{ page }} / {{ totalPages }}</span>
+          <button
+            @click="page = Math.min(totalPages, page + 1)"
+            :disabled="page === totalPages"
+            class="pagination__btn"
+          >
+            <ChevronRight class="size-3.5" />
+          </button>
         </div>
       </div>
     </div>
+
+    <!-- Footer -->
     <ZucciFooter />
   </div>
 </template>
+
 <script setup>
-import { ref, computed } from 'vue'
-import { Calendar, RefreshCw, Check, Printer, Download, Eye, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { useAppStore } from '@/stores/app'
-import DateRangePicker from '@/components/ui/DateRangePicker.vue'
-import SearchField from '@/components/ui/SearchField.vue'
-import Badge from '@/components/ui/Badge.vue'
-import ZucciFooter from '@/components/shared/ZucciFooter.vue'
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { storeToRefs } from "pinia";
+import {
+  Calendar,
+  RefreshCw,
+  Check,
+  Printer,
+  Download,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-vue-next";
+import { useAppStore } from "@/stores/app";
+import { useOrdersStore } from "@/stores/orders";
+import { useBrandStore } from "@/stores/brand";
+import DateRangePicker from "@/components/ui/DateRangePicker.vue";
+import SearchField from "@/components/ui/SearchField.vue";
+import Badge from "@/components/ui/Badge.vue";
+import AppButton from "@/components/ui/AppButton.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
+import ZucciFooter from "@/components/shared/ZucciFooter.vue";
+import { useExportCsv } from "@/composables/useExportCsv";
 
-const { toast } = useAppStore()
-const dateRange = ref(null)
-const search = ref('')
-const filter = ref('all')
-const perPage = ref(25)
-const page = ref(1)
-const selected = ref([])
-const syncing = ref(false)
-const syncState = ref('idle') // idle | spinning | done
+const { toast } = useAppStore();
+const route = useRoute();
+const router = useRouter();
+const ordersStore = useOrdersStore();
+const brandStore = useBrandStore();
+const { exportCsv } = useExportCsv();
 
-const tabs = ['all', 'pending', 'late', 'fulfilled', 'returns', 'cancelled']
+const dateOptions = [
+  { value: "all", label: "All dates" },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "this_week", label: "This week" },
+  { value: "this_month", label: "This month" },
+];
+const fulfillmentOptions = [
+  { value: "", label: "Fulfillment Status: All" },
+  { value: "pending", label: "Pending" },
+  { value: "processing", label: "Processing" },
+  { value: "shipped", label: "Shipped" },
+  { value: "delivered", label: "Delivered" },
+];
+const completionOptions = [
+  { value: "", label: "Completion Status: All" },
+  { value: "open", label: "Open" },
+  { value: "completed", label: "Completed" },
+  { value: "closed", label: "Closed" },
+];
+const returnOptions = [
+  { value: "", label: "Return Status: All" },
+  { value: "no_returns", label: "No Returns" },
+  { value: "partially_returned", label: "Partially Returned" },
+  { value: "fully_returned", label: "Fully Returned" },
+];
+const bulkActionOptions = [
+  { value: "print", label: "Print slips" },
+  { value: "export", label: "Export selected" },
+];
+const {
+  orders,
+  stats,
+  tabs: tabsCount,
+  totalOrders,
+  loading,
+} = storeToRefs(ordersStore);
 
-const ORDERS_RAW = Array.from({ length: 24 }, (_, i) => {
-  const n = 8821 - i
-  const statuses = ['pending', 'pending', 'pending', 'pending', 'pending', 'late', 'cancelled', 'late', 'fulfilled', 'fulfilled', 'fulfilled', 'fulfilled', 'fulfilled', 'fulfilled', 'fulfilled', 'cancelled', 'cancelled', 'fulfilled', 'fulfilled', 'cancelled', 'fulfilled', 'fulfilled', 'returns', 'fulfilled']
-  const f = statuses[i] || 'fulfilled'
-  const deliveryMap = { pending: 'pending', late: 'pending', cancelled: 'cancelled', fulfilled: 'delivered', returns: 'delivered' }
-  return { id: 'ORD-2024-00' + n, num: '#299292' + (n % 10000), date: 'Thursday at 01:52 pm', total: '$80.30 USD', fulfillment: f, delivery: deliveryMap[f], items: 5 }
-})
-const orders = ref(ORDERS_RAW)
+const dateRange = ref({ preset: "30d" });
+const search = ref("");
+const filter = ref("all");
+const perPage = ref(25);
+const page = ref(1);
 
-const stats = [
-  { label: 'Total orders', val: '22', spark: true },
-  { label: 'Ordered over time', val: '100.3k', spark: true },
-  { label: 'Returns', val: '1', spark: true },
-  { label: 'Fulfilled over time', val: '22', spark: true },
-  { label: 'Delivered over time', val: '0', spark: true },
-  { label: 'Time to fulfill', val: '0 min', spark: false }
-]
-// Simple varied sparkline paths (visual approximation of source gradient sparklines)
-const sparkPaths = [
-  'M0,25 C10,20 20,22 30,15 C40,10 50,18 60,8 C70,4 75,10 80,3',
-  'M0,25 C10,22 20,20 30,15 C40,12 50,15 60,8 C70,5 75,8 80,3',
-  'M0,18 C10,10 20,18 30,3 C40,10 50,18 60,10 C70,25 75,18 80,25',
-  'M0,25 C10,17 20,21 30,14 C40,17 50,10 60,14 C70,7 75,10 80,3',
-  'M0,25 L10,25 L20,25 L25,3 L35,25 L45,25 L50,3 L60,25 L70,25 L80,25',
-  'M0,10 C10,25 20,3 30,17 C40,10 50,25 60,17 C70,10 75,17 80,17'
-]
+const bulkAction = ref("");
+const dateFilter = ref("all");
+const selectedOrders = ref([]);
 
-function fBadgeClass(s) { return { pending: 'badge-amber', late: 'badge-red-solid', fulfilled: 'badge-green', cancelled: 'badge-red', returns: 'badge-orange', 'qc-rejected': 'badge-red', processing: 'badge-blue', shipped: 'badge-purple' }[s] || 'badge-gray' }
-function dBadgeClass(s) { return { pending: 'badge-amber', shipped: 'badge-blue', delivered: 'badge-green', cancelled: 'badge-red', returned: 'badge-orange', late: 'badge-red-solid' }[s] || 'badge-gray' }
+const showActionsDropdown = ref(false);
+const onDocumentClick = (e) => {
+  if (!e.target.closest('.actions-dropdown-container')) {
+    showActionsDropdown.value = false;
+  }
+};
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick);
+});
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick);
+});
 
-const filteredOrders = computed(() => {
-  let list = orders.value
-  if (filter.value !== 'all') list = list.filter(o => o.fulfillment === filter.value)
-  if (search.value) { const q = search.value.toLowerCase(); list = list.filter(o => o.num.toLowerCase().includes(q) || o.id.toLowerCase().includes(q)) }
-  return list
-})
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredOrders.value.length / perPage.value)))
-const pagedOrders = computed(() => filteredOrders.value.slice((page.value - 1) * perPage.value, page.value * perPage.value))
-const allSelected = computed(() => pagedOrders.value.length > 0 && pagedOrders.value.every(o => selected.value.includes(o.id)))
+const fulfillmentFilter = ref("");
+const completionFilter = ref("");
+const returnFilter = ref("");
 
-function toggleAll(checked) { selected.value = checked ? pagedOrders.value.map(o => o.id) : [] }
-function toggleRow(id, checked) { if (checked) selected.value.push(id); else selected.value = selected.value.filter(x => x !== id) }
+const displayedOrders = computed(() => {
+  let list = orders.value || [];
+  if (route.query.missing_tracking === "true") {
+    list = list.filter(
+      (o) =>
+        (o.status === "processing" ||
+          o.status === "pending" ||
+          o.status?.fulfillmentStatus?.code === "PROCESSING" ||
+          o.fulfillment?.code === "PROCESSING") &&
+        !o.tracking,
+    );
+  }
+  return list;
+});
 
-function syncOrders() {
-  if (syncing.value) return
-  syncing.value = true
-  syncState.value = 'spinning'
-  setTimeout(() => {
-    syncState.value = 'done'
-    setTimeout(() => { syncState.value = 'idle'; syncing.value = false }, 3000)
-  }, 2200)
+const isAllSelected = computed({
+  get: () =>
+    displayedOrders.value.length > 0 &&
+    selectedOrders.value.length === displayedOrders.value.length,
+  set: (val) => {
+    if (val) {
+      selectedOrders.value = displayedOrders.value.map((o) => o.id);
+    } else {
+      selectedOrders.value = [];
+    }
+  },
+});
+
+const tabs = computed(() => {
+  const storeTabs = ordersStore.tabs || {};
+  const orderedKeys = [
+    "all",
+    "new",
+    "processing",
+    "issues-return",
+    "shipped",
+    "delivered",
+    "canceled",
+    "completed",
+    "closed",
+  ];
+
+  return orderedKeys.map((k) => {
+    let countKey = k;
+    if (k === "new" && storeTabs.new === undefined) countKey = "pending";
+    if (k === "issues-return" && storeTabs["issues-return"] === undefined)
+      countKey = "returns";
+    if (k === "canceled" && storeTabs.canceled === undefined)
+      countKey = "cancelled";
+    if (k === "delivered" && storeTabs.delivered === undefined)
+      countKey = "fulfilled";
+
+    const label =
+      k === "issues-return"
+        ? "Issues & Return"
+        : k.charAt(0).toUpperCase() + k.slice(1);
+    return {
+      value: k,
+      label,
+      count: storeTabs[countKey] !== undefined ? storeTabs[countKey] : 0,
+    };
+  });
+});
+
+// Sync route status query parameter with active tab filter
+watch(
+  () => route.query.status,
+  (newStatus) => {
+    filter.value = newStatus || "all";
+  },
+  { immediate: true },
+);
+
+function selectTab(t) {
+  const query = { ...route.query };
+  if (t === "all") {
+    delete query.status;
+  } else {
+    query.status = t;
+  }
+  router.push({ query });
 }
 
-function printSlips() {
-  const list = filteredOrders.value
-  const slips = list.map((o, i) => `
-    <div style="page-break-after:${i < list.length - 1 ? 'always' : 'auto'};padding:20px;font-family:sans-serif;max-width:400px;margin:0 auto">
-      <div style="border:2px solid #0f172a;border-radius:8px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div><p style="font-size:18px;font-weight:700;margin:0">Zucci</p><p style="font-size:11px;color:#64748b;margin:4px 0 0">Packing Slip</p></div>
-          <div style="text-align:right"><p style="font-size:11px;font-weight:700;margin:0">${o.num}</p><p style="font-size:10px;color:#64748b;margin:2px 0 0">${o.date}</p></div>
-        </div>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0"/>
-        <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;margin:0 0 6px">Items (${o.items})</p>
-        <p style="font-size:12px;margin:0 0 4px">5x Swim Leggings - Black</p>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0"/>
-        <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#64748b">Total</span><span style="font-size:13px;font-weight:700">${o.total}</span></div>
-        <p style="font-size:10px;color:#94a3b8;text-align:center;margin:12px 0 0">Fulfillment: ${o.fulfillment.toUpperCase()}</p>
-      </div>
-    </div>`).join('')
-  const w = window.open('', '_blank', 'width=500,height=700')
-  w.document.write('<!DOCTYPE html><html><head><title>Order Slips</title><style>@media print{body{margin:0}}</style></head><body>' + slips + '<script>window.onload=function(){window.print();}<\/script></body></html>')
-  w.document.close()
+const fetchParams = computed(() => {
+  const params = {
+    page: page.value,
+    perPage: perPage.value,
+    status: filter.value !== "all" ? filter.value : undefined,
+    brand_id: brandStore.currentBrandId || undefined,
+  };
+
+  if (fulfillmentFilter.value)
+    params.fulfillmentStatus = fulfillmentFilter.value;
+  if (completionFilter.value) params.completionStatus = completionFilter.value;
+  if (returnFilter.value) params.returnStatus = returnFilter.value;
+
+  if (dateRange.value?.preset && dateRange.value.preset !== "all") {
+    params.datePreset = dateRange.value.preset;
+  } else if (dateRange.value?.from && dateRange.value?.to) {
+    params.from = dateRange.value.from;
+    params.to = dateRange.value.to;
+  }
+
+  if (search.value) {
+    params.q = search.value;
+  }
+  return params;
+});
+
+watch(dateFilter, (val) => {
+  if (val && val !== "all") {
+    dateRange.value = { preset: val };
+  } else if (val === "all") {
+    dateRange.value = null;
+  }
+});
+
+onMounted(async () => {
+  await Promise.all([
+    ordersStore.fetchOrders(fetchParams.value),
+    ordersStore.fetchStats({ preset: dateRange.value?.preset || "30d" }),
+  ]);
+});
+
+// Watch parameters to fetch orders
+watch(
+  fetchParams,
+  (newParams) => {
+    ordersStore.fetchOrders(newParams);
+  },
+  { deep: true },
+);
+
+// Watch dateRange to fetch stats
+watch(
+  () => dateRange.value?.preset,
+  (preset) => {
+    if (preset) {
+      ordersStore.fetchStats({ preset, brand_id: brandStore.currentBrandId });
+    }
+  },
+);
+
+watch(
+  () => brandStore.currentBrandId,
+  () => {
+    ordersStore.fetchOrders(fetchParams.value);
+    ordersStore.fetchStats({ preset: dateRange.value?.preset || "30d", brand_id: brandStore.currentBrandId });
+  },
+);
+
+const statsList = computed(() => {
+  if (!stats.value) return [];
+  return [
+    {
+      label: "Total orders",
+      val: stats.value.totalOrders?.toString() || "0",
+      spark: stats.value.sparklines?.totalOrders,
+    },
+    {
+      label: "Ordered over time",
+      val: stats.value.orderedOverTime
+        ? `${formatNumber(stats.value.orderedOverTime)}`
+        : "0",
+      spark: stats.value.sparklines?.orderedOverTime,
+    },
+    {
+      label: "Returns",
+      val: stats.value.returns?.toString() || "0",
+      spark: stats.value.sparklines?.returns,
+    },
+    {
+      label: "Fulfilled over time",
+      val: stats.value.fulfilledOverTime?.toString() || "0",
+      spark: stats.value.sparklines?.fulfilledOverTime,
+    },
+    {
+      label: "Delivered over time",
+      val: stats.value.deliveredOverTime?.toString() || "0",
+      spark: stats.value.sparklines?.deliveredOverTime,
+    },
+    {
+      label: "Time to fulfill",
+      val: stats.value.timeToFulfill || "0 min",
+      spark: null,
+    },
+  ];
+});
+
+function getSparkPath(values) {
+  if (!values || !values.length) return "";
+  const max = Math.max(...values) || 1;
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const width = 80;
+  const height = 28;
+  return values
+    .map((val, idx) => {
+      const x = (idx / (values.length - 1)) * width;
+      const y = height - ((val - min) / range) * (height - 6) - 3;
+      return `${idx === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  const options = { weekday: "long" };
+  const weekday = date.toLocaleDateString("en-US", options);
+  const time = date
+    .toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })
+    .toLowerCase();
+  return `${weekday} at ${time}`;
+}
+
+function formatNumber(num) {
+  return Number(num).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+function statusLabel(status) {
+  if (typeof status === "string") return status;
+  if (status && typeof status === "object") {
+    return status.label || status.name || status.code || "";
+  }
+  return "";
+}
+
+function statusBadgeClass(status) {
+  let val = "";
+  if (typeof status === "string") {
+    val = status;
+  } else if (status && typeof status === "object") {
+    val = status.code || status.value || status.label || "";
+  }
+  const s = val.toLowerCase();
+  if (s === "delivered" || s === "fulfilled" || s === "completed")
+    return "status-badge--green";
+  if (s === "shipped" || s === "in_transit") return "status-badge--blue";
+  if (s === "processing" || s === "pending" || s === "open")
+    return "status-badge--amber";
+  if (
+    s === "returned" ||
+    s === "returns" ||
+    s === "partially_returned" ||
+    s === "fully_returned"
+  )
+    return "status-badge--orange";
+  if (s === "cancelled" || s === "closed") return "status-badge--red";
+  if (s === "late") return "status-badge--red-solid";
+  return "status-badge--muted";
+}
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(totalOrders.value / perPage.value)),
+);
+
+const paginationStart = computed(() => {
+  if (!orders.value.length) return 0;
+  return (page.value - 1) * perPage.value + 1;
+});
+
+const paginationEnd = computed(() => {
+  return Math.min(page.value * perPage.value, totalOrders.value);
+});
+
+async function exportOrders() {
+  try {
+    await exportCsv("/supplier/orders/export?format=csv", {
+      defaultFilename: `orders-export-${Date.now()}.csv`,
+    });
+    toast("Orders exported successfully!");
+  } catch (e) {
+    toast("Failed to export orders", "error");
+  }
+}
+
+async function handleSync() {
+  try {
+    await ordersStore.syncOrders();
+    toast("Orders synced successfully!");
+    await ordersStore.fetchOrders(fetchParams.value);
+  } catch (e) {
+    toast("Failed to sync orders", "error");
+  }
+}
+
+async function handlePrintSlips() {
+  if (selectedOrders.value.length === 0) {
+    toast("Please select at least one order to print slips.", "warning");
+    return;
+  }
+  toast(`Printing slips for ${selectedOrders.value.length} order(s)...`);
+  for (const orderId of selectedOrders.value) {
+    try {
+      await ordersStore.printOrderSlip(orderId);
+    } catch (e) {
+      toast(`Failed to print slip for order ${orderId}`, "error");
+    }
+  }
+}
+
+async function handleBulkAction() {
+  if (selectedOrders.value.length === 0) {
+    toast(
+      "Please select at least one order to perform bulk actions.",
+      "warning",
+    );
+    bulkAction.value = "";
+    return;
+  }
+
+  if (bulkAction.value === "print") {
+    handlePrintSlips();
+  } else if (bulkAction.value === "export") {
+    try {
+      await ordersStore.exportOrders("csv", selectedOrders.value.join(","));
+      toast("Selected orders exported successfully!");
+    } catch (e) {
+      toast("Failed to export selected orders", "error");
+    }
+  }
+  bulkAction.value = "";
 }
 </script>
+
+<style scoped>
+/* ─── Page Layout ─── */
+.order-list-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+
+/* ─── Stats Bar ─── */
+.stats-bar {
+  display: flex;
+  align-items: stretch;
+  border-radius: 12px;
+  border: 1px solid;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.stats-bar > * + * {
+  border-left: 1px solid hsl(var(--border) / 0.4);
+}
+
+.stats-bar__picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.stats-bar__cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 16px;
+  min-width: 0;
+}
+
+.stats-bar__label {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 4px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.stats-bar__value-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-bar__value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+}
+
+.stats-bar__spark {
+  flex-shrink: 0;
+}
+
+/* ─── Main Card ─── */
+.order-card {
+  border-radius: 12px;
+  border: 1px solid;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+/* ─── Toolbar (Tabs + Actions) ─── */
+.order-card__toolbar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px;
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+}
+
+.order-card__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.order-card__tab {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 150ms,
+    background 150ms;
+  text-transform: capitalize;
+  line-height: 1.4;
+}
+
+.order-card__tab:hover {
+  color: hsl(var(--foreground));
+}
+
+.order-card__tab--active {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.order-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+/* ─── Buttons ─── */
+.btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    color 150ms;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.btn__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.btn--outline {
+  background: white;
+  border: 1px solid hsl(var(--border) / 0.6);
+  color: hsl(var(--foreground));
+}
+
+.btn--outline:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+.btn--solid {
+  background: #0f0f0f;
+  border: 1px solid #0f0f0f;
+  color: white;
+  font-weight: 600;
+  padding: 0 16px;
+}
+
+.btn--solid:hover {
+  background: #1a1a1a;
+}
+
+/* ─── Sub-controls ─── */
+.order-card__subcontrols {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid hsl(var(--border) / 0.4);
+}
+
+.order-card__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-card__search {
+  max-width: 240px;
+  width: 100%;
+}
+
+/* ─── Select Wrap ─── */
+.select-wrap {
+  position: relative;
+}
+
+.select-wrap__select {
+  background: white;
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 8px;
+  padding: 6px 32px 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  appearance: none;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.select-wrap__select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.15);
+}
+
+.select-wrap__chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+/* ─── Table ─── */
+.order-table-wrap {
+  overflow-x: auto;
+  position: relative;
+}
+
+.order-table-wrap__loading {
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.order-table-wrap__spinner {
+  width: 24px;
+  height: 24px;
+  color: hsl(var(--primary));
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.data-table__checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid hsl(var(--input));
+  cursor: pointer;
+  accent-color: hsl(var(--primary));
+}
+
+.data-table__th--check,
+.data-table__td--check {
+  width: 40px;
+  padding-left: 16px !important;
+  padding-right: 4px !important;
+}
+
+.data-table__th--action {
+  width: 48px;
+}
+
+.data-table__td--order {
+  font-weight: 700;
+  font-size: 13px;
+  color: hsl(var(--foreground)) !important;
+}
+
+.data-table__td--date {
+  font-size: 13px;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.data-table__td--total {
+  font-size: 13px;
+  font-weight: 700;
+  color: hsl(var(--foreground)) !important;
+}
+
+.data-table__td--items {
+  font-size: 13px;
+  text-align: center;
+  color: hsl(var(--muted-foreground)) !important;
+  font-weight: 400;
+}
+
+.data-table__td--action {
+  text-align: right;
+  padding-right: 16px !important;
+}
+
+.data-table__eye-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+
+.data-table__eye-btn:hover {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.data-table__empty {
+  text-align: center;
+  padding: 32px 16px !important;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+/* ─── Status Badges ─── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  border: 1px solid transparent;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.status-badge--green {
+  background: rgb(16 185 129 / 0.1);
+  color: #10b981;
+  border-color: rgb(16 185 129 / 0.2);
+}
+
+.status-badge--amber {
+  background: rgb(245 158 11 / 0.1);
+  color: #f59e0b;
+  border-color: rgb(245 158 11 / 0.2);
+}
+
+.status-badge--red {
+  background: rgb(244 63 94 / 0.1);
+  color: #f43f5e;
+  border-color: rgb(244 63 94 / 0.2);
+}
+
+.status-badge--red-solid {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.status-badge--blue {
+  background: rgb(59 130 246 / 0.1);
+  color: #3b82f6;
+  border-color: rgb(59 130 246 / 0.2);
+}
+
+.status-badge--orange {
+  background: rgb(249 115 22 / 0.1);
+  color: #f97316;
+  border-color: rgb(249 115 22 / 0.2);
+}
+
+.status-badge--muted {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-color: hsl(var(--border));
+}
+
+/* ─── Pagination ─── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid hsl(var(--border) / 0.4);
+  font-size: 13px;
+  color: hsl(var(--muted-foreground));
+}
+
+.pagination__sep {
+  margin: 0 4px;
+}
+
+.pagination__label {
+  white-space: nowrap;
+}
+
+.pagination__select {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--input));
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: hsl(var(--foreground));
+}
+
+.pagination__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 12px;
+}
+
+.pagination__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: hsl(var(--foreground));
+  transition: background 150ms;
+}
+
+.pagination__btn:hover:not(:disabled) {
+  background: hsl(var(--accent));
+}
+
+.pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination__page {
+  padding: 0 8px;
+  white-space: nowrap;
+}
+</style>
