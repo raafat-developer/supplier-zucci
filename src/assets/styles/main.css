@@ -850,3 +850,14 @@ body {
   }
 }
 
+/* ── Auth Page Responsive Layout ── */
+@media (max-width: 480px) {
+  .auth-wrap {
+    padding: 1rem !important;
+  }
+  .auth-card {
+    padding: 1.5rem !important;
+    border-radius: 1rem !important;
+  }
+}
+

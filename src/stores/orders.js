@@ -197,12 +197,15 @@ export const useOrdersStore = defineStore('orders', () => {
       const res = await api.get(`/supplier/orders/${orderId}/print`, { responseType: 'blob' })
       const blob = new Blob([res.data], { type: 'application/pdf' })
       const url = window.URL.createObjectURL(blob)
-      const printWindow = window.open(url, '_blank')
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          printWindow.print()
-        })
-      }
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `packing-slip-${orderId}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
       return url
     } catch (e) {
       console.error('Error printing order slip:', e)

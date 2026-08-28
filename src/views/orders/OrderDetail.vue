@@ -1441,39 +1441,13 @@ async function submitCancel() {
   }
 }
 
-function printOrder() {
-  const itemsHtml = (currentOrder.value.items || [])
-    .map(
-      (i) => `<p style="font-size:12px;margin:0 0 4px">${i.qty}x ${i.name}</p>`,
-    )
-    .join("");
-
-  const itemsLen = currentOrder.value.items ? currentOrder.value.items.length : 0;
-  const formattedTotal = currentOrder.value.invoice && currentOrder.value.invoice.total ? currentOrder.value.invoice.total.formatted : "";
-
-  const slips = `
-    <div style="padding:20px;font-family:sans-serif;max-width:400px;margin:0 auto">
-      <div style="border:2px solid #0f172a;border-radius:8px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div><p style="font-size:18px;font-weight:700;margin:0">Zucci</p><p style="font-size:11px;color:#64748b;margin:4px 0 0">Packing Slip</p></div>
-          <div style="text-align:right"><p style="font-size:11px;font-weight:700;margin:0">${currentOrder.value.id}</p><p style="font-size:10px;color:#64748b;margin:2px 0 0">${currentOrder.value.orderedAtDisplay}</p></div>
-        </div>
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0"/>
-        <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#64748b;margin:0 0 6px">Items (${itemsLen})</p>
-        ${itemsHtml}
-        <hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0"/>
-        <div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:#64748b">Total</span><span style="font-size:13px;font-weight:700">${formattedTotal}</span></div>
-      </div>
-    </div>`;
-
-  const w = window.open("", "_blank", "width=500,height=700");
-  w.document.write(
-    "<!DOCTYPE html><html><head><title>Order Slip</title></head><body>",
-  );
-  w.document.write(slips);
-  w.document.write("<script>window.onload=function(){window.print();}</");
-  w.document.write("script></body></html>");
-  w.document.close();
+async function printOrder() {
+  try {
+    toast("Generating print preview...", "info");
+    await ordersStore.printOrderSlip(currentOrder.value.id);
+  } catch (e) {
+    toast("Failed to generate print slip", "error");
+  }
 }
 
 // Comments logic

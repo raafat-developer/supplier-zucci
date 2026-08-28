@@ -23,7 +23,7 @@
               type="text"
               inputmode="numeric"
               maxlength="1"
-              class="w-10 h-12 text-center text-lg font-bold rounded-lg border border-input bg-background focus:border-ring focus:ring-1 focus:ring-ring/15"
+              class="otp-field w-10 h-12 text-center text-lg font-bold rounded-lg border border-input bg-background focus:border-ring focus:ring-1 focus:ring-ring/15"
               @input="onOtpInput($event, i - 1)"
               @keydown="onOtpKey($event, i - 1)"
             />
@@ -91,6 +91,18 @@ watch(
 );
 </script>
 <style scoped>
+.otp-field {
+  width: 100% !important;
+  max-width: 2.5rem !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+@media (max-width: 480px) {
+  .otp-field {
+    height: 2.5rem !important;
+    font-size: 1rem !important;
+  }
+}
 .otp-enter-active {
   transition: opacity 250ms ease;
 }

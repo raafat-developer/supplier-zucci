@@ -1,5 +1,5 @@
 <template>
-  <div style="display: flex; gap: 0.5rem; justify-content: space-between">
+  <div class="otp-container">
     <input
       v-for="i in length"
       :key="i"
@@ -9,27 +9,8 @@
       maxlength="1"
       autocomplete="one-time-code"
       :value="digits[i - 1]"
+      class="otp-input-field"
       :class="{ 'otp-input-error': hasError }"
-      :style="{
-        width: '3.2rem',
-        height: '3.5rem',
-        textAlign: 'center',
-        fontSize: '1.25rem',
-        fontWeight: '700',
-        borderRadius: '0.75rem',
-        border: hasError
-          ? '1.5px solid #ef4444'
-          : '1.5px solid rgba(255,255,255,0.2)',
-        background: hasError
-          ? 'rgba(239, 68, 68, 0.15)'
-          : 'rgba(255,255,255,0.1)',
-        boxShadow: hasError ? '0 0 0 2px rgba(239, 68, 68, 0.25)' : 'none',
-        color: hasError ? '#ef4444' : '#fff',
-        outline: 'none',
-        flexShrink: 0,
-        transition: 'all 150ms ease',
-        fontFamily: 'inherit',
-      }"
       @input="onInput($event, i - 1)"
       @keydown="onKey($event, i - 1)"
       @paste="onPaste"
@@ -118,10 +99,62 @@ defineExpose({
 });
 </script>
 <style scoped>
-.otp-input-error {
+.otp-container {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.otp-input-field {
+  flex: 1;
+  min-width: 0;
+  max-width: 3.2rem;
+  height: 3.5rem;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  border-radius: 0.75rem;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  outline: none;
+  transition: all 150ms ease;
+  font-family: inherit;
+}
+
+.otp-input-field:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.otp-input-field.otp-input-error {
   color: #ef4444 !important;
   border-color: #ef4444 !important;
   background-color: rgba(239, 68, 68, 0.15) !important;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25) !important;
+}
+
+@media (max-width: 639px) {
+  .otp-container {
+    gap: 0.35rem;
+  }
+  .otp-input-field {
+    height: 3.2rem;
+    font-size: 1.125rem;
+    border-radius: 0.6rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .otp-container {
+    gap: 0.25rem;
+  }
+  .otp-input-field {
+    height: 2.8rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+  }
 }
 </style>
