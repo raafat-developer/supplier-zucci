@@ -4,7 +4,7 @@
     <div class="flex flex-col gap-1.5">
       <label
         for="kyc-input-first-name"
-        class="text-xs font-semibold uppercase tracking-wider text-white/50"
+        class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
         >First name <span class="text-red-500 ml-0.5">*</span></label
       >
       <input
@@ -20,7 +20,7 @@
     <div class="flex flex-col gap-1.5">
       <label
         for="kyc-input-last-name"
-        class="text-xs font-semibold uppercase tracking-wider text-white/50"
+        class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
         >Last name <span class="text-red-500 ml-0.5">*</span></label
       >
       <input
@@ -52,7 +52,7 @@
     <div class="flex flex-col gap-1.5 w-[70%]">
       <label
         :for="'kyc-input-' + field.prefix + '-iban'"
-        class="text-xs font-semibold uppercase tracking-wider text-white/50"
+        class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
         >{{
           field.prefix === "bank"
             ? "IBAN / Account number"
@@ -73,7 +73,7 @@
     <div class="flex flex-col gap-1.5 w-[30%]">
       <label
         :for="'kyc-input-' + field.prefix + '-swift'"
-        class="text-xs font-semibold uppercase tracking-wider text-white/50"
+        class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
         >{{
           field.prefix === "bank" ? "SWIFT / BIC code" : "SWIFT / BIC"
         }} <span class="text-red-500 ml-0.5">*</span></label
@@ -102,7 +102,7 @@
   >
     <label
       :for="'kyc-input-' + field.key"
-      class="text-xs font-semibold uppercase tracking-wider text-white/50"
+      class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
       >{{ resolvedLabel }}<span v-if="isFieldRequired(field.key)" class="text-red-500 ml-0.5">*</span></label
     >
     <input
@@ -123,7 +123,7 @@
   >
     <label
       :for="'kyc-textarea-' + field.key"
-      class="text-xs font-semibold uppercase tracking-wider text-white/50"
+      class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
       >{{ resolvedLabel }}<span v-if="isFieldRequired(field.key)" class="text-red-500 ml-0.5">*</span></label
     >
     <textarea
@@ -144,7 +144,7 @@
   >
     <label
       :for="'kyc-select-' + field.key"
-      class="text-xs font-semibold uppercase tracking-wider text-white/50"
+      class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
       >{{ resolvedLabel }}<span v-if="isFieldRequired(field.key)" class="text-red-500 ml-0.5">*</span></label
     >
     <SearchableSelect
@@ -165,7 +165,7 @@
   >
     <label
       :for="'kyc-select-' + field.key"
-      class="text-xs font-semibold uppercase tracking-wider text-white/50"
+      class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
       >{{ resolvedLabel }}<span v-if="isFieldRequired(field.key)" class="text-red-500 ml-0.5">*</span></label
     >
     <SearchableSelect
@@ -183,7 +183,7 @@
   <div v-else-if="field.kind === 'upload'" class="flex flex-col gap-1.5">
     <label
       :for="'kyc-file-' + field.key"
-      class="text-xs font-semibold uppercase tracking-wider text-white/50"
+      class="text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
       >{{ field.label }}<span v-if="isFieldRequired(field.key)" class="text-red-500 ml-0.5">*</span></label
     >
     <p v-if="field.hint" class="text-xs text-white/35 -mt-0.5">
@@ -878,10 +878,6 @@ function isFieldRequired(key) {
     "bank-extra-currency",
     "bank-extra-iban",
     "bank-extra-swift",
-    "commercial-id",
-    "commercial-doc",
-    "tax-id",
-    "tax-doc"
   ];
   return !optionalKeys.includes(key);
 }

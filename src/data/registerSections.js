@@ -34,22 +34,35 @@ export function kycSections(entityType, answers) {
 
   if (isInd) {
     return [
-      { title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
-        fields: [ f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand') ] },
-      { title: 'Personal details', desc: 'Your identity for account verification — kept confidential.',
-        fields: [ nameGroup, addressGroup('ind') ] },
-      { title: 'Identity document', desc: 'Upload a clear copy of your National ID or Passport.',
-        fields: [ docType, uploadGroup([upload('Front of Document', 'doc-front'), upload('Back of Document', 'doc-back')]) ] },
-      { title: 'Brand logo & assets', desc: 'Upload your logo in the highest quality available.',
-        fields: [ upload('Brand logo', 'brand-logo', 'AI, PDF, PNG or SVG preferred'), upload('Additional brand assets (optional)', 'brand-assets', 'Brand guidelines, lookbook, campaign images…') ] },
-      { title: 'Bank details', desc: 'Payout account details.',
-        fields: [ f('Payout Currency', 'currency_id', 'currency'), f('Bank name', 'bank-name', 'bank'), f('Account holder name', 'bank-holder', 'text', 'Name as it appears on bank statement'), ibanSwiftGroup('bank'), bankExtra('+ Add another currency account (optional)') ] }
+      {
+        title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
+        fields: [f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand')]
+      },
+      {
+        title: 'Personal details', desc: 'Your identity for account verification — kept confidential.',
+        fields: [nameGroup, addressGroup('ind')]
+      },
+      {
+        title: 'Identity document', desc: 'Upload a clear copy of your National ID or Passport.',
+        fields: [docType, uploadGroup([upload('Front of Document', 'doc-front'), upload('Back of Document', 'doc-back')])]
+      },
+      {
+        title: 'Brand logo & assets', desc: 'Upload your logo in the highest quality available.',
+        fields: [upload('Brand logo', 'brand-logo', 'AI, PDF, PNG or SVG preferred'), upload('Additional brand assets (optional)', 'brand-assets', 'Brand guidelines, lookbook, campaign images…')]
+      },
+      {
+        title: 'Bank details', desc: 'Payout account details.',
+        fields: [f('Payout Currency', 'currency_id', 'currency'), f('Bank name', 'bank-name', 'bank'), f('Account holder name', 'bank-holder', 'text', 'Name as it appears on bank statement'), ibanSwiftGroup('bank'), bankExtra('+ Add another currency account (optional)')]
+      }
     ]
   }
   return [
-    { title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
-      fields: [ f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand') ] },
-    { title: 'Legal company details', desc: 'Your registered business information.',
+    {
+      title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
+      fields: [f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand')]
+    },
+    {
+      title: 'Legal company details', desc: 'Your registered business information.',
       fields: [
         f('Legal company name', 'legal-name', 'text', 'e.g. Zucci FZ LLC'),
         addressGroup('biz'),
@@ -61,17 +74,24 @@ export function kycSections(entityType, answers) {
           upload('Upload Commercial Registry', 'commercial_registry'),
           upload('Upload Tax Certificate', 'tax_certificate')
         ])
-      ] },
-    { title: 'Owner identity', desc: 'Identity of the owner or authorized representative.',
+      ]
+    },
+    {
+      title: 'Owner identity', desc: 'Identity of the owner or authorized representative.',
       fields: [
         nameGroup,
         phoneOwner,
         docType,
         uploadGroup([upload('Front of ID / Passport', 'doc-front'), upload('Back of ID (if applicable)', 'doc-back')])
-      ] },
-    { title: 'Brand logo & assets', desc: 'Upload your logo in the highest quality available.',
-      fields: [ upload('Brand logo', 'brand-logo', 'AI, PDF, PNG or SVG preferred'), upload('Additional brand assets (optional)', 'brand-assets') ] },
-    { title: 'Bank accounts', desc: 'Primary payout account details.',
-      fields: [ f('Payout Currency', 'currency_id', 'currency'), f('Bank name', 'bank-egp-name', 'bank'), ibanSwiftGroup('bank-egp'), bankExtra('+ Add an additional currency account (USD, EUR, GBP…)') ] }
+      ]
+    },
+    {
+      title: 'Brand logo & assets', desc: 'Upload your logo in the highest quality available.',
+      fields: [upload('Brand logo', 'brand-logo', 'AI, PDF, PNG or SVG preferred'), upload('Additional brand assets (optional)', 'brand-assets')]
+    },
+    {
+      title: 'Bank accounts', desc: 'Primary payout account details.',
+      fields: [f('Payout Currency', 'currency_id', 'currency'), f('Bank name', 'bank-egp-name', 'bank'), ibanSwiftGroup('bank-egp'), bankExtra('+ Add an additional currency account (USD, EUR, GBP…)')]
+    }
   ]
 }

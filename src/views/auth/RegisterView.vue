@@ -174,7 +174,7 @@ import StepPassword from "@/components/auth/register-steps/StepPassword.vue";
 
 import { ref, reactive, computed, onMounted, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import { kycSections as buildKycSections } from "@/data/registerSections";
+import { kycSections as buildKycSections, commercialIdLabel } from "@/data/registerSections";
 import { COUNTRIES } from "@/data/countries";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { setCookie, getCookie, removeCookie } from "@/lib/cookies";
@@ -373,8 +373,8 @@ function mapBackendKycToFrontend(kyc) {
   mapped["legal-name"] = kyc.legal_name || "";
   mapped["commercial-id"] = kyc.commercial_id || "";
   mapped["tax-id"] = kyc.tax_id || "";
-  mapped["commercial-doc-file-id"] = kyc.commercial_id_file_id || null;
-  mapped["tax-doc-file-id"] = kyc.tax_id_file_id || null;
+  mapped["commercial_registry-file-id"] = kyc.commercial_id_file_id || null;
+  mapped["tax_certificate-file-id"] = kyc.tax_id_file_id || null;
   mapped["vat-id"] = kyc.vat_id || "";
   mapped["same-owner-phone"] = kyc.same_phone_as_registration !== false;
   mapped["owner-phone"] = kyc.owner_phone || "";
@@ -921,8 +921,8 @@ function buildIdentityPayload() {
     commercial_id: kycData["commercial-id"] || "",
     tax_id: kycData["tax-id"] || "",
     vat_id: kycData["vat-id"] || "",
-    commercial_id_file_id: kycData["commercial-doc-file-id"] || null,
-    tax_id_file_id: kycData["tax-doc-file-id"] || null,
+    commercial_id_file_id: kycData["commercial_registry-file-id"] || null,
+    tax_id_file_id: kycData["tax_certificate-file-id"] || null,
     same_phone_as_registration: kycData["same-owner-phone"] !== false,
     owner_phone: kycData["owner-phone"] || null,
     id_document_kind:
@@ -1108,6 +1108,26 @@ function validateKycSection(section) {
       const legalName = kycData["legal-name"]?.trim();
       if (!legalName) {
         return setKycError("Please enter legal company name");
+      }
+
+      const commId = kycData["commercial-id"]?.trim();
+      if (!commId) {
+        return setKycError(`Please enter ${commercialIdLabel(country)}`);
+      }
+
+      const taxId = kycData["tax-id"]?.trim();
+      if (!taxId) {
+        return setKycError("Please enter Tax Certificate Number");
+      }
+
+      const commFile = kycData["commercial_registry-file-id"];
+      if (!commFile) {
+        return setKycError("Please upload Commercial Registry");
+      }
+
+      const taxFile = kycData["tax_certificate-file-id"];
+      if (!taxFile) {
+        return setKycError("Please upload Tax Certificate");
       }
     } else if (title.includes("personal") || title.includes("owner")) {
       const rawFirst =
