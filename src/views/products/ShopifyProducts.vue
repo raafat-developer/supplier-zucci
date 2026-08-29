@@ -2,20 +2,20 @@
   <div class="flex flex-col gap-5 p-4 bg-white-10 max-w-full overflow-hidden">
     <div class="rounded-xl border border-border bg-white-10 overflow-hidden w-full max-w-full">
       <!-- Header -->
-      <div class="flex items-start justify-between px-6 pt-6 pb-4 gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between px-6 pt-6 pb-4 gap-4">
         <div>
           <h1 class="text-xl font-bold">Shopify Sync</h1>
           <p class="text-sm text-muted-foreground mt-0.5">
             {{ shopifyProducts.length }} products available in your connected Shopify store
           </p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <!-- View Log Button (User Story 2) -->
           <AppButton
             variant="outline"
             size="sm"
             @click="openLogsModal"
-            class="flex items-center gap-1.5 border-border hover:bg-muted text-foreground font-medium"
+            class="flex items-center gap-1.5 border-border hover:bg-muted text-foreground font-medium shrink-0 whitespace-nowrap w-fit"
           >
             <History class="size-3.5" />
             View Log
@@ -26,7 +26,7 @@
             size="sm"
             @click="handleSync"
             :disabled="syncing || !selectedProductIds.length || !activeIntegration"
-            class="flex items-center gap-1.5"
+            class="flex items-center gap-1.5 shrink-0 whitespace-nowrap w-fit"
           >
             <Loader2 v-if="syncing" class="size-3.5 animate-spin" />
             <RefreshCw v-else class="size-3.5" />

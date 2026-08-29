@@ -47,8 +47,8 @@
         <div
           class="flex items-start justify-between gap-4 flex-wrap lg:flex-nowrap"
         >
-          <!-- Left part: Circular Logo + Grid of Columns -->
-          <div class="flex-grow flex items-center gap-3 min-w-0">
+          <!-- Left part: Circular Logo + Grid of Columns (DESKTOP) -->
+          <div class="hidden md:flex flex-grow items-center gap-3 min-w-0">
             <!-- Circular logo -->
             <div
               class="size-14 rounded-full border border-border bg-muted/10 flex items-center justify-center font-bold text-sm text-muted-foreground shrink-0 shadow-sm"
@@ -58,7 +58,7 @@
 
             <!-- Columns Row -->
             <div
-              class="flex-grow grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2"
+              class="flex-grow grid grid-cols-4 gap-x-4 gap-y-2"
             >
               <!-- Column 1: Order ID + Internal Tracking -->
               <div class="flex flex-col gap-1.5 min-w-0">
@@ -156,8 +156,103 @@
             </div>
           </div>
 
+          <!-- Left part: Circular Logo + Details (MOBILE) -->
+          <div class="flex md:hidden flex-col gap-4 w-full">
+            <!-- Header Row: Logo + Order ID & Badges -->
+            <div class="flex items-center gap-3">
+              <div
+                class="size-12 rounded-full border border-border bg-muted/10 flex items-center justify-center font-bold text-sm text-muted-foreground shrink-0 shadow-sm"
+              >
+                OR
+              </div>
+              <div class="flex flex-col gap-1 min-w-0">
+                <span class="text-sm font-bold text-foreground">
+                  Order #{{ currentOrder.id }}
+                </span>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    class="status-badge py-0.5 px-2 text-[8px]"
+                    :class="statusBadgeClass(currentOrder.fulfillmentStatus)"
+                  >
+                    {{ statusLabel(currentOrder.fulfillmentStatus) || "—" }}
+                  </span>
+                  <span class="status-badge status-badge--blue py-0.5 px-2 text-[8px]">
+                    {{
+                      currentOrder.tracking?.carrierLabel ||
+                      currentOrder.tracking?.carrier ||
+                      currentOrder.carrier ||
+                      "Aramex"
+                    }}
+                  </span>
+                  <span class="status-badge status-badge--orange py-0.5 px-2 text-[8px]">
+                    {{
+                      currentOrder.returnStatus?.label ||
+                      currentOrder.returnStatus?.code ||
+                      "No Returns"
+                    }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Details Grid: Tracking and Dates -->
+            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-border/40">
+              <!-- Internal Tracking -->
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
+                  >Internal tracking</span
+                >
+                <span class="text-xs font-semibold text-foreground truncate">
+                  {{
+                    currentOrder.tracking?.trackingNumber ||
+                    currentOrder.trackingNumber ||
+                    "—"
+                  }}
+                </span>
+              </div>
+
+              <!-- International Tracking -->
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
+                  >International tracking</span
+                >
+                <span class="text-xs font-semibold text-foreground truncate">
+                  {{
+                    currentOrder.internationalTracking ||
+                    currentOrder.tracking?.internationalTracking ||
+                    "—"
+                  }}
+                </span>
+              </div>
+
+              <!-- Est Delivery Date -->
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
+                  >Est. delivery date</span
+                >
+                <span class="text-xs font-semibold text-foreground truncate">
+                  {{ currentOrder.tracking?.estimatedDelivery || "—" }}
+                </span>
+              </div>
+
+              <!-- Created Date -->
+              <div class="flex flex-col gap-0.5 min-w-0">
+                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
+                  >Created date</span
+                >
+                <span class="text-xs font-semibold text-foreground truncate">
+                  {{
+                    formatDateOnly(
+                      currentOrder.orderedAtDisplay || currentOrder.orderedAt,
+                    )
+                  }}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <!-- Right side: AccountManagerCard -->
-          <div class="shrink-0">
+          <div class="w-full lg:w-auto lg:shrink-0">
             <AccountManagerCard
               v-if="currentOrder.accountManager"
               :manager="currentOrder.accountManager"
@@ -174,7 +269,9 @@
             Order status
           </h3>
         </div>
-        <div class="relative flex items-center justify-between">
+        
+        <!-- Desktop Stepper -->
+        <div class="hidden md:flex relative items-center justify-between">
           <!-- Progress Line -->
           <div
             class="absolute top-[14px] h-[3px] bg-[#fff] rounded z-0"
@@ -245,6 +342,65 @@
             </span>
           </div>
         </div>
+
+        <!-- Mobile Stepper -->
+        <div class="flex md:hidden relative flex-col gap-6 pl-4 py-2">
+          <!-- Progress Line -->
+          <div
+            class="absolute left-[26px] top-[24px] bottom-[24px] w-[3px] bg-[#fff] rounded z-0"
+          >
+            <div
+              class="w-full bg-[#96bf48] rounded transition-all duration-500"
+              :style="{
+                height: progressPercent + '%',
+              }"
+            ></div>
+          </div>
+
+          <!-- Steps -->
+          <div
+            v-for="(step, idx) in currentOrder.fulfillmentProgress ||
+            progressSteps"
+            :key="idx"
+            class="relative flex items-center gap-4 z-10"
+          >
+            <!-- Step Indicator -->
+            <div class="w-[20px] h-8 flex items-center justify-center shrink-0">
+              <!-- Completed Step (Solid Green Dot) -->
+              <div
+                v-if="step.state ? step.state === 'done' : idx < currentStepIdx"
+                class="size-3.5 rounded-full bg-[#96bf48] shadow-[0_0_8px_rgba(150,191,72,0.6)]"
+              ></div>
+              <!-- Current Step (Double Green Ring/Circle) -->
+              <div
+                v-else-if="
+                  step.state ? step.state === 'current' : idx === currentStepIdx
+                "
+                class="size-5 rounded-full border-[3px] border-[#96bf48] bg-[#fff] flex items-center justify-center"
+              >
+                <div class="size-1.5 rounded-full bg-[#96bf48]"></div>
+              </div>
+              <!-- Inactive Step (Dark Gray Circle) -->
+              <div v-else class="size-3 rounded-full bg-[#fff]"></div>
+            </div>
+
+            <!-- Step Label -->
+            <span
+              class="text-[12px] font-bold"
+              :class="
+                (
+                  step.state
+                    ? step.state === 'done' || step.state === 'current'
+                    : idx <= currentStepIdx
+                )
+                  ? 'text-[#96bf48]'
+                  : 'text-muted-foreground'
+              "
+            >
+              {{ step.label }}
+            </span>
+          </div>
+        </div>
       </div>
 
       <!-- Sections 2, 3 & 4 Grid (Item List, Customer Info, Invoice Breakdown, Shipment Info) -->
@@ -257,7 +413,9 @@
             >
               Item List
             </h3>
-            <div class="overflow-x-auto">
+            
+            <!-- Desktop Table View -->
+            <div class="hidden md:block overflow-x-auto">
               <table class="w-full text-left border-collapse">
                 <thead>
                   <tr
@@ -368,6 +526,89 @@
                   </template>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div class="md:hidden flex flex-col gap-4">
+              <div
+                v-for="item in currentOrder.items"
+                :key="item.sku"
+                class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0"
+              >
+                <!-- Item Card Header: Image & Name/SKU -->
+                <div class="flex items-start gap-3 mb-3">
+                  <div
+                    class="size-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40"
+                  >
+                    <img
+                      v-if="item.imageUrl"
+                      :src="item.imageUrl"
+                      class="size-full object-cover"
+                      :alt="item.name"
+                    />
+                    <Package v-else class="size-6 text-muted-foreground" />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold text-foreground">
+                      {{ item.name }}
+                    </p>
+                    <p class="text-[10px] text-muted-foreground">
+                      SKU: {{ item.sku }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Item Details Grid -->
+                <div class="grid grid-cols-3 gap-2 text-xs py-2 bg-muted/10 rounded-lg px-3">
+                  <div class="flex flex-col">
+                    <span class="text-[9px] font-bold text-muted-foreground uppercase">Item Code</span>
+                    <span class="font-medium text-foreground mt-0.5">{{ currentOrder.id }}</span>
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-[9px] font-bold text-muted-foreground uppercase">Price</span>
+                    <span class="font-bold text-foreground mt-0.5">
+                      {{ item.unitPriceFormatted || `${currentOrder.currency} ${formatNumber(item.unitPrice)}` }}
+                      <span class="text-[10px] text-muted-foreground font-medium">×{{ item.qty }}</span>
+                    </span>
+                  </div>
+                  <div class="flex flex-col items-start">
+                    <span class="text-[9px] font-bold text-muted-foreground uppercase mb-0.5">Status</span>
+                    <span
+                      class="status-badge py-0 px-1.5 text-[9px]"
+                      :class="statusBadgeClass(item.status || currentOrder.fulfillmentStatus)"
+                    >
+                      {{ statusLabel(item.status || currentOrder.fulfillmentStatus) || "pending" }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Per-unit status breakdown if units array exists -->
+                <div v-if="item.units && item.units.length" class="mt-3 pl-3 border-l-2 border-border">
+                  <div class="text-[9px] font-bold text-muted-foreground uppercase mb-1.5">
+                    Unit Statuses:
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      v-for="(unit, uIdx) in item.units"
+                      :key="uIdx"
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border/40 text-[9px] font-medium bg-background"
+                    >
+                      Unit #{{ uIdx + 1 }}:
+                      <span
+                        class="status-badge py-0 px-1 text-[8px]"
+                        :class="statusBadgeClass(unit.status)"
+                      >
+                        {{ statusLabel(unit.status) || "pending" }}
+                      </span>
+                      <span
+                        v-if="unit.barcode"
+                        class="text-muted-foreground font-mono"
+                        >({{ unit.barcode }})</span
+                      >
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1670,6 +1911,13 @@ function deleteComment(commentId) {
   padding: 8px 24px 24px;
 }
 
+@media (max-width: 768px) {
+  .order-detail-page {
+    padding: 8px 12px 12px;
+    gap: 12px;
+  }
+}
+
 /* ─── Back Link ─── */
 .back-link {
   display: inline-flex;
@@ -1766,6 +2014,13 @@ function deleteComment(commentId) {
 .detail-header__manager {
   width: 35%;
   min-width: 390px;
+}
+
+@media (max-width: 1024px) {
+  .detail-header__manager {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* ─── Action Buttons ─── */
@@ -2858,7 +3113,5 @@ function deleteComment(commentId) {
   font-size: 13px;
 }
 
-.hidden {
-  display: none;
-}
+
 </style>

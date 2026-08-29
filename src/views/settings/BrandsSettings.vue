@@ -3,7 +3,7 @@
     class="w-full bg-white-10 rounded-xl border border-border shadow-xs min-h-[calc(100vh-5.5rem)] flex flex-col max-w-full overflow-hidden"
   >
     <div class="p-4 flex flex-col gap-4">
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 class="text-base font-semibold mb-1">Brands</h2>
           <p class="text-sm text-muted-foreground">
@@ -13,6 +13,7 @@
         <AppButton
           v-can="'settings.brands.create'"
           size="sm"
+          class="w-fit shrink-0 whitespace-nowrap"
           @click="showAddBrand = true"
           ><Plus class="size-3.5" /> Add Brand</AppButton
         >

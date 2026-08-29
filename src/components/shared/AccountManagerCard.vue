@@ -3,7 +3,7 @@
     <!-- Left side: manager details -->
     <div class="flex-grow min-w-0">
       <p class="text-sm font-semibold text-foreground">{{ manager.name }}</p>
-      <p class="text-xs text-muted-foreground whitespace-nowrap">
+      <p class="text-xs text-muted-foreground truncate" :title="(manager.title || 'Account Manager') + ' · Responds in 2h'">
         {{ manager.title || "Account Manager" }} · Responds in 2h
       </p>
     </div>

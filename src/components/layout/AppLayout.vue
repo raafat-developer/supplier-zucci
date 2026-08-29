@@ -9,7 +9,7 @@
     >
       <AppTopbar />
       <main
-        class="flex-1 p-3 sm:p-5 pt-16 flex flex-col justify-between overflow-x-hidden w-full max-w-full"
+        class="flex-1 px-3 pb-3 pt-16 sm:px-5 sm:pb-5 flex flex-col justify-between overflow-x-hidden w-full max-w-full"
       >
         <div class="flex-1 flex flex-col overflow-x-hidden w-full max-w-full">
           <router-view />
