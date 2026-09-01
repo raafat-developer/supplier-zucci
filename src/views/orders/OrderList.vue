@@ -71,11 +71,12 @@
           <span>{{ t.label }}</span>
           <span
             v-if="t.count !== undefined"
-            class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-[10px] font-bold px-1 leading-none shrink-0 bg-slate-500/10 text-slate-700 border border-slate-500/20"
-            :class="{
-              'bg-[#111] text-white border-[#111]':
-                filter === t.value,
-            }"
+            class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-[10px] font-bold px-1 leading-none shrink-0"
+            :class="
+              filter === t.value
+                ? 'bg-[#111] text-white border border-[#111]'
+                : 'bg-slate-500/10 text-slate-700 border border-slate-500/20'
+            "
           >
             {{ t.count }}
           </span>

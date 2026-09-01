@@ -13,9 +13,16 @@
           <ChevronLeft class="size-5" />
         </button>
         <div
-          class="size-10 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0 bg-slate-800"
+          class="size-10 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0 overflow-hidden border border-border/40"
+          :style="{ background: (brand.logoUrl || brand.logo || brand.logo_url) ? 'transparent' : (brand.color || '#1e293b') }"
         >
-          {{ brand.initials || brand.init }}
+          <img
+            v-if="brand.logoUrl || brand.logo || brand.logo_url"
+            :src="brand.logoUrl || brand.logo || brand.logo_url"
+            :alt="brand.name"
+            class="w-full h-full object-cover rounded-lg"
+          />
+          <span v-else>{{ brand.initials || brand.init || "B" }}</span>
         </div>
         <div>
           <h2 class="text-sm font-bold text-foreground">{{ brand.name }}</h2>
@@ -301,10 +308,18 @@
               <AppButton
                 variant="outline"
                 size="sm"
+                :disabled="savingSocial"
                 @click="editingSocial = null"
                 >Cancel</AppButton
               >
-              <AppButton size="sm" @click="saveSocial">Save</AppButton>
+              <AppButton
+                size="sm"
+                :loading="savingSocial"
+                :disabled="savingSocial"
+                @click="saveSocial"
+              >
+                {{ savingSocial ? "Saving..." : "Save" }}
+              </AppButton>
             </div>
           </div>
         </div>
@@ -468,6 +483,7 @@ const { get, post, patch, put, upload, api } = useApi();
 const apiBrand = ref(null);
 const loading = ref(false);
 const uploadingAsset = ref(false);
+const savingSocial = ref(false);
 
 const previewFileUrl = ref(null);
 const previewFileName = ref("");
@@ -547,9 +563,11 @@ const socials = [
 ];
 
 async function fetchBrandDetail() {
+  const brandId = route.params.id;
+  if (!brandId || brandId === "undefined") return;
   loading.value = true;
   try {
-    const res = await get(`/supplier/brands/${route.params.id}`);
+    const res = await get(`/supplier/brands/${brandId}`);
     apiBrand.value = res?.data || res;
   } catch (e) {
     console.error("Failed to fetch brand detail:", e);
@@ -583,6 +601,8 @@ function editSocial(s) {
 }
 
 async function saveSocial() {
+  if (!editingSocial.value || savingSocial.value) return;
+  savingSocial.value = true;
   try {
     const key = editingSocial.value.key;
     const value = socialEditValue.value;
@@ -592,10 +612,12 @@ async function saveSocial() {
     if (!brand.value.social) brand.value.social = {};
     brand.value.social[key] = value;
     toast(`${editingSocial.value.label} updated!`);
+    editingSocial.value = null;
   } catch (e) {
     console.error(e);
+  } finally {
+    savingSocial.value = false;
   }
-  editingSocial.value = null;
 }
 
 function syncStore(store) {
@@ -757,7 +779,24 @@ async function previewAsset(fileId, name) {
       return;
     }
 
-    previewFileUrl.value = getProxyUrl(url);
+    let blobUrl = null;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Direct fetch failed");
+      const blob = await response.blob();
+      blobUrl = window.URL.createObjectURL(blob);
+    } catch (_) {
+      try {
+        const proxyUrl = getProxyUrl(url);
+        const response = await fetch(proxyUrl);
+        const blob = await response.blob();
+        blobUrl = window.URL.createObjectURL(blob);
+      } catch (_) {
+        blobUrl = getProxyUrl(url);
+      }
+    }
+
+    previewFileUrl.value = blobUrl;
     previewFileName.value = filename || name || `Asset-${fileId}`;
     previewFileType.value = mimeType || "application/octet-stream";
     previewFileId.value = fileId;
@@ -803,35 +842,29 @@ async function downloadAsset(fileId, name) {
       targetName += ext;
     }
 
+    // Force file blob download (never open in new tab)
+    let blob;
     try {
-      const downloadUrl = getProxyUrl(url);
-      const response = await fetch(downloadUrl, { method: "GET" });
-      if (!response.ok) throw new Error("Fetch failed");
-      const blob = await response.blob();
-
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = targetName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (corsErr) {
-      console.warn(
-        "CORS block detected, falling back to new tab navigation:",
-        corsErr,
-      );
-      const link = document.createElement("a");
-      link.href = url;
-      link.target = "_blank";
-      link.download = targetName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Direct fetch failed");
+      blob = await response.blob();
+    } catch (_) {
+      const proxyUrl = getProxyUrl(url);
+      const response = await fetch(proxyUrl);
+      blob = await response.blob();
     }
+
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = targetName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
   } catch (e) {
     console.error("Failed to download brand asset:", e);
+    toast("Failed to download brand asset.", "error");
   }
 }
 </script>

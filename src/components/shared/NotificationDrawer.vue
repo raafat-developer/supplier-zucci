@@ -176,16 +176,17 @@ function formatTimeAgo(dateStr) {
   }
 }
 
+import { getValidNotificationUrl } from '@/utils/notificationRoute'
+
 function handleNotificationClick(n) {
   notificationStore.markAsRead(n.id)
   notificationStore.closeDrawer()
 
-  if (n.actionUrl) {
-    if (n.actionUrl.startsWith('http://') || n.actionUrl.startsWith('https://')) {
-      window.location.href = n.actionUrl
-    } else {
-      router.push(n.actionUrl)
-    }
+  const targetUrl = getValidNotificationUrl(n.actionUrl, router)
+  if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+    window.location.href = targetUrl
+  } else {
+    router.push(targetUrl)
   }
 }
 

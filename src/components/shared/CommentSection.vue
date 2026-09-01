@@ -1,10 +1,10 @@
 <template>
-  <div class="rounded-xl border bg-white-10 overflow-hidden">
-    <div class="px-5 py-3 border-b border-border">
+  <div :class="hideList ? '' : 'rounded-xl border bg-white-10 overflow-hidden'">
+    <div v-if="!hideList" class="px-5 py-3 border-b border-border">
       <h3 class="text-sm font-semibold">Activity & Comments</h3>
     </div>
     <!-- Timeline -->
-    <div class="p-5 flex flex-col gap-4">
+    <div v-if="!hideList && comments.length" class="p-5 flex flex-col gap-4">
       <div v-for="(evt, i) in comments" :key="i" class="flex gap-3">
         <div
           class="size-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
@@ -61,7 +61,7 @@
       </div>
     </div>
     <!-- Input -->
-    <div class="px-5 py-3 border-t border-border">
+    <div :class="hideList ? 'py-1' : 'px-5 py-3 border-t border-border'">
       <div class="flex items-start gap-3">
         <div
           class="size-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
@@ -152,6 +152,7 @@ import MediaLibrary from "./MediaLibrary.vue";
 
 const props = defineProps({
   initialComments: { type: Array, default: () => [] },
+  hideList: { type: Boolean, default: false },
 });
 const emit = defineEmits(["preview", "comment-added"]);
 
@@ -219,26 +220,50 @@ function parseMentions(text) {
 
 let fetchTimeout = null;
 
-async function fetchUsers(q) {
+async function fetchUsers(q = "") {
   if (fetchTimeout) clearTimeout(fetchTimeout);
   fetchTimeout = setTimeout(async () => {
     try {
-      const res = await get("/supplier/orders/timeline-users", { q });
-      if (res && res.data) {
-        users.value = res.data.map((u) => ({
-          id: u.id,
-          name: u.name,
-          initials:
-            u.initials ||
-            u.name
-              ?.split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()
-              .slice(0, 2) ||
-            "US",
-          color: u.color || "#4f46e5",
-        }));
+      let res = await get("/supplier/orders/timeline-users", { q });
+      if (!res || !res.data || !res.data.length) {
+        res = await get("/supplier/team", { q });
+      }
+      if (res && (res.data || res.members || Array.isArray(res))) {
+        const rawList = res.data || res.members || (Array.isArray(res) ? res : []);
+        if (rawList.length) {
+          const apiUsers = rawList.map((u) => {
+            const name =
+              u.name ||
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              u.fullName ||
+              u.email ||
+              "User";
+            return {
+              id: u.id,
+              name: name,
+              initials:
+                u.initials ||
+                name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2) ||
+                "US",
+              color: u.color || "#4f46e5",
+            };
+          });
+          const existingNames = new Set(
+            apiUsers.map((u) => u.name.toLowerCase()),
+          );
+          const fallbackUsers = TEAM_MEMBERS.map((m) => ({
+            id: m.id,
+            name: m.name,
+            initials: m.initials,
+            color: m.color,
+          })).filter((m) => !existingNames.has(m.name.toLowerCase()));
+          users.value = [...apiUsers, ...fallbackUsers];
+        }
       }
     } catch (e) {
       console.error("Failed to fetch timeline users:", e);

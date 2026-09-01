@@ -310,7 +310,11 @@
                 </button>
               </div>
               <span
-                v-if="item.status === 'valid' || item.status === 'approved'"
+                v-if="
+                  item.status === 'valid' ||
+                  item.status === 'approved' ||
+                  item.status === 'active'
+                "
                 class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-semibold text-[10px]"
               >
                 Valid
@@ -824,7 +828,9 @@ const previewFileId = ref("");
 const documentSections = computed(() => {
   const findDoc = (type) => {
     return documentsList.value.find((d) => {
-      const docType = String(d.documentType || d.type || "").toLowerCase();
+      const docType = String(
+        d.documentType || d.document_type || d.type || d.name || "",
+      ).toLowerCase();
       const targetType = String(type).toLowerCase();
 
       if (docType === targetType) return true;
@@ -840,16 +846,7 @@ const documentSections = computed(() => {
       if (targetType === "tax_certificate") {
         return docType.includes("tax");
       }
-      if (targetType === "vat_certificate") {
-        return docType.includes("vat");
-      }
-      if (targetType === "memorandum_of_association") {
-        return (
-          docType.includes("memorandum") ||
-          docType.includes("moa") ||
-          docType.includes("association")
-        );
-      }
+    
       if (targetType === "owner_passport") {
         return (
           docType.includes("owner") ||
@@ -858,14 +855,13 @@ const documentSections = computed(() => {
           docType.includes("id")
         );
       }
-      if (targetType === "bank_letter_egp") {
+      if (targetType === "owner_passport_2") {
         return (
-          docType.includes("bank") &&
-          (docType.includes("egp") || docType.includes("egypt"))
+          docType.includes("owner_2") ||
+          docType.includes("owner 2") ||
+          docType.includes("owner ii") ||
+          docType.includes("passport_2")
         );
-      }
-      if (targetType === "bank_letter_usd") {
-        return docType.includes("bank") && docType.includes("usd");
       }
       return false;
     });
@@ -873,18 +869,22 @@ const documentSections = computed(() => {
 
   const mapDocItem = (name, type) => {
     const doc = findDoc(type);
+    const docStatus = doc
+      ? doc.status === "active"
+        ? "valid"
+        : doc.status || doc.approvalStatus || doc.state || "valid"
+      : "missing";
+    const expiryVal = doc?.expiryDate || doc?.expiry_date || doc?.expiresAt;
     return {
       name,
       type,
-      id: doc?.id || null,
-      expiry: doc?.expiryDate
-        ? new Date(doc.expiryDate).toLocaleDateString()
-        : "—",
-      status: doc?.status || "missing",
+      id: doc?.id || doc?.documentId || null,
+      expiry: expiryVal ? new Date(expiryVal).toLocaleDateString() : "—",
+      status: docStatus,
       canDownload: !!doc,
       isExpired:
-        doc?.status === "expired" ||
-        (doc?.expiryDate && new Date(doc.expiryDate) < new Date()),
+        docStatus === "expired" ||
+        (expiryVal && new Date(expiryVal) < new Date()),
     };
   };
 
@@ -894,8 +894,6 @@ const documentSections = computed(() => {
       items: [
         mapDocItem("Tax ID", "tax_certificate"),
         mapDocItem("Commercial ID", "commercial_certificate"),
-        mapDocItem("Value Added Tax Certificate", "vat_certificate"),
-        mapDocItem("Memorandum of Association", "memorandum_of_association"),
       ],
     },
     {
@@ -903,20 +901,6 @@ const documentSections = computed(() => {
       items: [
         mapDocItem("NID or Passport — Owner I", "owner_passport"),
         mapDocItem("NID or Passport — Owner II", "owner_passport_2"),
-      ],
-    },
-    {
-      title: "Bank Letters",
-      items: [
-        mapDocItem("EGP Bank Account Letter", "bank_letter_egp"),
-        mapDocItem("USD Bank Account Letter", "bank_letter_usd"),
-      ],
-    },
-    {
-      title: "Contracts and Agreements",
-      items: [
-        mapDocItem("KSA Contract", "contract_ksa"),
-        mapDocItem("UAE Contract", "contract_uae"),
       ],
     },
   ];
@@ -935,13 +919,7 @@ const docTypeOptions = [
   { value: "tax_certificate", label: "Tax ID / Certificate" },
   { value: "commercial_registry", label: "Commercial ID / Registry" },
   { value: "trade_license", label: "Trade License" },
-  { value: "vat_certificate", label: "Value Added Tax Certificate" },
-  { value: "memorandum_of_association", label: "Memorandum of Association" },
   { value: "owner_passport", label: "Owner Passport / ID" },
-  { value: "bank_letter_egp", label: "EGP Bank Account Letter" },
-  { value: "bank_letter_usd", label: "USD Bank Account Letter" },
-  { value: "contract_ksa", label: "KSA Contract" },
-  { value: "contract_uae", label: "UAE Contract" },
 ];
 
 function handleDocFileChange(e) {
@@ -1032,16 +1010,56 @@ async function downloadDocument(id, name) {
   if (!id) return;
   try {
     toast("Downloading document...");
-    const res = await api.get(`/supplier/business/documents/${id}/download`, {
+    const res = await get(`/supplier/business/documents/${id}/download`);
+    const fileData = res?.data || res;
+    const downloadUrl = fileData?.url || fileData?.data?.url;
+    const contentType = fileData?.mimeType || fileData?.contentType || "";
+    let ext = "";
+    if (contentType.includes("pdf")) ext = ".pdf";
+    else if (contentType.includes("png")) ext = ".png";
+    else if (contentType.includes("jpeg") || contentType.includes("jpg"))
+      ext = ".jpg";
+
+    let targetName =
+      fileData?.filename || fileData?.name || name || `document-${id}`;
+    if (ext && !targetName.toLowerCase().endsWith(ext)) {
+      targetName += ext;
+    }
+
+    if (downloadUrl) {
+      let blob;
+      try {
+        const fileRes = await fetch(downloadUrl);
+        if (!fileRes.ok) throw new Error("Direct fetch failed");
+        blob = await fileRes.blob();
+      } catch (_) {
+        const proxyUrl = getProxyUrl(downloadUrl);
+        const fileRes = await fetch(proxyUrl);
+        blob = await fileRes.blob();
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = targetName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      return;
+    }
+
+    // Fallback if binary stream endpoint
+    const blobRes = await api.get(`/supplier/business/documents/${id}/download`, {
       responseType: "blob",
     });
-    const contentType =
-      res.headers["content-type"] || "application/octet-stream";
-    const blob = new Blob([res.data], { type: contentType });
+    const cType =
+      blobRes.headers["content-type"] || "application/octet-stream";
+    const blob = new Blob([blobRes.data], { type: cType });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = name || `document-${id}`;
+    link.download = targetName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1056,14 +1074,48 @@ async function previewDocument(id, name) {
   if (!id) return;
   try {
     toast("Loading preview...");
-    const res = await api.get(`/supplier/business/documents/${id}/download`, {
+    const res = await get(`/supplier/business/documents/${id}/download`);
+    const fileData = res?.data || res;
+    const downloadUrl = fileData?.url || fileData?.data?.url;
+    const filename =
+      fileData?.filename || fileData?.name || name || `Document-${id}`;
+    const mimeType =
+      fileData?.mimeType || fileData?.contentType || "application/pdf";
+
+    if (downloadUrl) {
+      let blobUrl = null;
+      try {
+        const fileRes = await fetch(downloadUrl);
+        if (!fileRes.ok) throw new Error("Direct fetch failed");
+        const blob = await fileRes.blob();
+        blobUrl = window.URL.createObjectURL(blob);
+      } catch (_) {
+        try {
+          const proxyUrl = getProxyUrl(downloadUrl);
+          const fileRes = await fetch(proxyUrl);
+          const blob = await fileRes.blob();
+          blobUrl = window.URL.createObjectURL(blob);
+        } catch (_) {
+          blobUrl = getProxyUrl(downloadUrl);
+        }
+      }
+
+      previewFileUrl.value = blobUrl;
+      previewFileName.value = filename;
+      previewFileType.value = mimeType;
+      previewFileId.value = id;
+      return;
+    }
+
+    // Fallback if binary stream
+    const blobRes = await api.get(`/supplier/business/documents/${id}/download`, {
       responseType: "blob",
     });
-    const contentType = res.headers["content-type"] || "application/pdf";
-    const blob = new Blob([res.data], { type: contentType });
+    const contentType = blobRes.headers["content-type"] || "application/pdf";
+    const blob = new Blob([blobRes.data], { type: contentType });
     const url = window.URL.createObjectURL(blob);
     previewFileUrl.value = url;
-    previewFileName.value = name || `Document-${id}`;
+    previewFileName.value = filename;
     previewFileType.value = contentType;
     previewFileId.value = id;
   } catch (e) {
@@ -1269,7 +1321,15 @@ async function fetchBusinessDocuments() {
     const res = await get("/supplier/business/documents");
     const raw = res?.data || res;
     if (Array.isArray(raw)) {
-      documentsList.value = raw;
+      const flatItems = [];
+      raw.forEach((sec) => {
+        if (sec && Array.isArray(sec.items)) {
+          flatItems.push(...sec.items);
+        } else if (sec && (sec.documentType || sec.type || sec.id)) {
+          flatItems.push(sec);
+        }
+      });
+      documentsList.value = flatItems;
     } else if (raw && Array.isArray(raw.sections)) {
       const flatItems = [];
       raw.sections.forEach((sec) => {

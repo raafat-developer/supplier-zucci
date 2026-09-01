@@ -205,74 +205,17 @@
       </div>
 
       <!-- ─── TIMELINE AND COMMENTS ─── -->
-      <div>
-        <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
-          TIMELINE AND COMMENTS
-        </p>
+      <div class="mb-6 flex flex-col gap-6">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
+            TIMELINE AND COMMENTS
+          </p>
 
-        <!-- Comment Input Card -->
-        <div class="rounded-xl border border-border bg-white-10 overflow-hidden shadow-2xs mb-4">
-          <div class="p-4 flex items-start gap-3">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop"
-              class="size-8 rounded-full object-cover shrink-0"
-              alt="User"
-            />
-            <textarea
-              v-model="newCommentText"
-              placeholder="Leave a comment..."
-              rows="2"
-              class="w-full bg-transparent text-sm outline-none focus:outline-none focus:ring-0 focus:border-none focus-visible:outline-none focus-visible:ring-0 border-none ring-0 resize-none placeholder:text-muted-foreground"
-              @keydown.enter.ctrl="handlePostComment"
-            />
-          </div>
-
-          <div class="bg-[#0f172a] text-white px-4 py-2.5 flex items-center justify-between text-xs">
-            <div class="flex items-center gap-3 text-slate-400">
-              <button class="hover:text-white transition-colors" title="Mention"><span class="font-mono">@</span></button>
-              <button class="hover:text-white transition-colors" title="Tag"><span class="font-mono">#</span></button>
-              <button class="hover:text-white transition-colors" title="Attach file"><Paperclip class="size-4" /></button>
-              <span class="text-[11px] text-slate-400 ml-2">Only you, other staff and zucci staff can see comments</span>
-            </div>
-            <button
-              @click="handlePostComment"
-              class="size-7 rounded-md bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
-            >
-              <Send class="size-3.5" />
-            </button>
-          </div>
-        </div>
-
-        <!-- Posted Comments List -->
-        <div class="flex flex-col gap-3 mb-6">
-          <div
-            v-for="c in (currentOrder.comments && currentOrder.comments.length ? currentOrder.comments : defaultComments)"
-            :key="c.id"
-            class="p-4 rounded-xl border border-border bg-white-10 flex items-start gap-3 justify-between"
-          >
-            <div class="flex items-start gap-3 min-w-0">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop"
-                class="size-8 rounded-full object-cover shrink-0"
-                alt="User"
-              />
-              <div>
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-bold text-foreground">{{ c.user?.name || 'Reem Aboughattas' }}</span>
-                  <span class="text-xs text-muted-foreground">{{ c.createdAtDisplay || '5 min ago' }}</span>
-                </div>
-                <p class="text-sm text-foreground mt-1 leading-relaxed">
-                  {{ c.text || 'Please make sure the order is delivered on time.' }}
-                </p>
-              </div>
-            </div>
-            <button
-              @click="deleteComment(c.id)"
-              class="p-1 rounded text-muted-foreground hover:text-rose-500 transition-colors"
-            >
-              <Trash2 class="size-4" />
-            </button>
-          </div>
+          <CommentSection
+            :initialComments="currentOrder.comments && currentOrder.comments.length ? currentOrder.comments : defaultComments"
+            @comment-added="handlePostComment"
+            @preview="previewFile = $event"
+          />
         </div>
 
         <!-- Timeline History -->
@@ -605,6 +548,7 @@ import MediaLibrary from "@/components/shared/MediaLibrary.vue";
 import ZucciFooter from "@/components/shared/ZucciFooter.vue";
 import AccountManagerCard from "@/components/shared/AccountManagerCard.vue";
 import ContactCard from "@/components/ui/ContactCard.vue";
+import CommentSection from "@/components/shared/CommentSection.vue";
 
 function formatDateOnly(dateStr) {
   if (!dateStr) return "—";
@@ -671,16 +615,12 @@ const defaultTimeline = ref([
 ]);
 
 const newCommentText = ref('');
-function handlePostComment() {
-  if (!newCommentText.value.trim()) return;
+function handlePostComment(commentObj) {
+  if (!currentOrder.value) return;
   if (!currentOrder.value.comments) currentOrder.value.comments = [];
-  currentOrder.value.comments.unshift({
-    id: Date.now(),
-    user: { name: 'You' },
-    createdAtDisplay: 'Just now',
-    text: newCommentText.value.trim()
-  });
-  newCommentText.value = '';
+  if (commentObj && typeof commentObj === 'object') {
+    currentOrder.value.comments.push(commentObj);
+  }
   toast('Comment posted successfully');
 }
 

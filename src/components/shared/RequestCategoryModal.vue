@@ -60,7 +60,7 @@
       >
         Cancel
       </AppButton>
-      <AppButton type="submit" variant="default" :loading="submitting">
+      <AppButton type="submit" variant="default" :disabled="!isValid || submitting" :loading="submitting">
         Submit Request
       </AppButton>
     </div>
@@ -92,6 +92,10 @@ const name = ref("");
 const parentPath = ref(props.initialParentPath || "");
 const notes = ref("");
 const submitting = ref(false);
+
+const isValid = computed(() => {
+  return name.value.trim().length > 0 && notes.value.trim().length > 0;
+});
 
 // Ensure categories are loaded
 onMounted(async () => {

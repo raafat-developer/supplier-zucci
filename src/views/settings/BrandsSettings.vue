@@ -32,10 +32,16 @@
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-3">
               <div
-                class="size-12 rounded-xl flex items-center justify-center text-base font-bold text-white shrink-0"
-                :style="{ background: b.color }"
+                class="size-12 rounded-xl flex items-center justify-center text-base font-bold text-white shrink-0 overflow-hidden border border-border/40"
+                :style="{ background: b.logoUrl ? 'transparent' : b.color }"
               >
-                {{ b.init }}
+                <img
+                  v-if="b.logoUrl"
+                  :src="b.logoUrl"
+                  :alt="b.name"
+                  class="w-full h-full object-cover rounded-xl"
+                />
+                <span v-else>{{ b.init }}</span>
               </div>
               <div>
                 <p class="text-sm font-bold">{{ b.name }}</p>
@@ -248,11 +254,13 @@ watch(
 const enrichedBrands = computed(() => {
   return brandStore.brands.map((b) => {
     const name = b.name || "";
-    const init = name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "B";
+    const init = b.initials || name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase() || "B";
+    const logoUrl = b.logoUrl || b.logo || b.logo_url || null;
     return {
       id: b.id,
       name: b.name,
       nameAr: b.nameAr || "",
+      logoUrl: logoUrl,
       init: init,
       color: b.color || "#4f46e5",
       status: b.status || "active",
@@ -261,7 +269,7 @@ const enrichedBrands = computed(() => {
       productCount: b.productCount || 0,
       marketCount: b.marketCount || 0,
       orderCount: b.orderCount || 0,
-      sync: b.shopifySynced || !!b.shopifyDomain,
+      sync: b.shopifySynced || !!b.shopifyDomain || (typeof b.sync === "object" ? b.sync?.connected : false),
       markets: b.markets || []
     };
   });

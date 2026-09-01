@@ -6,7 +6,7 @@
           v-for="t in store.toasts"
           :key="t.id"
           @click="handleToastClick(t)"
-          class="pointer-events-auto flex items-start gap-3 p-3.5 transition-all duration-200"
+          class="pointer-events-auto flex items-center gap-3 p-3.5 transition-all duration-200"
           :class="[
             isNotification(t)
               ? 'rounded-2xl border border-white/15 bg-neutral-900/95 text-white shadow-2xl backdrop-blur-xl'
@@ -17,7 +17,7 @@
           <!-- Notification Icon Badge (New Dark Style) -->
           <div
             v-if="isNotification(t)"
-            class="size-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+            class="size-8 rounded-xl flex items-center justify-center shrink-0"
             :class="getIconStyle(t).bg"
           >
             <component :is="getIconStyle(t).icon" class="size-4" :class="getIconStyle(t).color" />
@@ -26,7 +26,7 @@
           <!-- Normal Toast Icon Badge (Old Style) -->
           <div
             v-else
-            class="size-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+            class="size-8 rounded-full flex items-center justify-center shrink-0"
             :class="getNormalToastStyle(t).iconBg"
           >
             <component :is="getNormalToastStyle(t).icon" class="size-4" :class="getNormalToastStyle(t).iconColor" />
@@ -50,7 +50,7 @@
           <!-- Close button -->
           <button
             @click.stop="store.removeToast(t.id)"
-            class="p-1 rounded-md shrink-0 transition-colors -mr-1 -mt-0.5"
+            class="p-1 rounded-md shrink-0 transition-colors -mr-1"
             :class="isNotification(t) ? 'text-neutral-400 hover:text-white' : 'opacity-60 hover:opacity-100'"
             title="Dismiss"
           >
@@ -140,6 +140,8 @@ function getNormalToastStyle(t) {
   }
 }
 
+import { getValidNotificationUrl } from '@/utils/notificationRoute'
+
 function handleToastClick(t) {
   if (t.onClick) {
     t.onClick(t)
@@ -151,12 +153,11 @@ function handleToastClick(t) {
     notificationStore.markAsRead(t.notifId)
   }
 
-  if (t.actionUrl) {
-    if (t.actionUrl.startsWith('http://') || t.actionUrl.startsWith('https://')) {
-      window.location.href = t.actionUrl
-    } else {
-      router.push(t.actionUrl)
-    }
+  const targetUrl = getValidNotificationUrl(t.actionUrl, router)
+  if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+    window.location.href = targetUrl
+  } else {
+    router.push(targetUrl)
   }
   store.removeToast(t.id)
 }

@@ -12,60 +12,65 @@
           </div>
 
           <!-- Toolbar -->
-          <div class="flex flex-col gap-3 px-4 py-3 border-b border-border shrink-0">
-            <!-- First Row: Bulk Actions & Date Filter & Grid/List switcher & Upload Button -->
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-              <div class="flex gap-2 items-center flex-1 min-w-0 flex-wrap">
-                <AppSelect
-                  v-model="bulkAction"
-                  :options="bulkActionOptions"
-                  placeholder="Bulk Actions"
-                  @change="handleBulkAction"
-                  class="w-full sm:w-auto"
-                />
-                <AppSelect
-                  v-model="dateFilter"
-                  :options="dateOptions"
-                  class="w-full sm:w-auto"
-                />
-              </div>
-              <div class="flex items-center gap-2">
-                <!-- Grid / List toggle -->
-                <div class="flex rounded-lg border border-border overflow-hidden shrink-0">
-                  <button
-                    @click="viewMode = 'grid'"
-                    class="px-2.5 py-1.5 text-xs transition-colors"
-                    :class="viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'"
-                  >
-                    <Grid3x3 class="size-3.5" />
-                  </button>
-                  <button
-                    @click="viewMode = 'list'"
-                    class="px-2.5 py-1.5 text-xs transition-colors"
-                    :class="viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'"
-                  >
-                    <List class="size-3.5" />
-                  </button>
-                </div>
-                <!-- Upload -->
-                <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold cursor-pointer hover:bg-primary/90 transition-colors shrink-0">
-                  <Upload class="size-3.5" /> Upload
-                  <input type="file" multiple class="hidden" @change="onUpload" />
-                </label>
-              </div>
+          <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-border shrink-0 flex-wrap gap-y-2">
+            <!-- Left: Bulk actions + Date filter -->
+            <div class="flex gap-2 items-center">
+              <AppSelect
+                v-model="bulkAction"
+                :options="bulkActionOptions"
+                placeholder="Bulk Actions"
+                @change="handleBulkAction"
+              />
+              <AppSelect
+                v-model="dateFilter"
+                :options="dateOptions"
+              />
             </div>
 
-            <!-- Second Row: Search bar & File type tabs -->
-            <div class="flex items-center justify-between gap-3 flex-wrap md:flex-nowrap">
-              <div class="search-field-wrap w-full md:w-64 min-w-0">
-                <svg class="ml-2.5 shrink-0 text-muted-foreground" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input v-model="search" placeholder="Search files…" class="pl-2 pr-3 py-1.5 flex-1 bg-transparent text-sm border-none focus:outline-none" />
+            <!-- Right: Search + Type chips + Grid/List + Upload -->
+            <div class="flex gap-2 items-center flex-wrap">
+              <!-- Search -->
+              <div class="flex items-center rounded-lg border border-input bg-background px-2.5 py-1 text-xs text-foreground focus-within:ring-1 focus-within:ring-primary w-40 md:w-52">
+                <svg class="shrink-0 text-muted-foreground mr-2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input v-model="search" placeholder="Search files…" class="w-full bg-transparent text-xs border-none focus:outline-none placeholder:text-muted-foreground" />
               </div>
 
               <!-- Type filter chips -->
-              <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5 w-full md:w-auto -mx-4 px-4 md:mx-0 md:px-0">
-                <button v-for="f in typeFilters" :key="f.value" @click="typeFilter = f.value" class="chip shrink-0" :class="{ active: typeFilter === f.value }">{{ f.label }}</button>
+              <div class="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/50">
+                <button
+                  v-for="f in typeFilters"
+                  :key="f.value"
+                  @click="typeFilter = f.value"
+                  class="px-3 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer"
+                  :class="typeFilter === f.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'"
+                >
+                  {{ f.label }}
+                </button>
               </div>
+
+              <!-- Grid / List toggle -->
+              <div class="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  @click="viewMode = 'grid'"
+                  class="px-2.5 py-1.5 text-xs transition-colors"
+                  :class="viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'"
+                >
+                  <Grid3x3 class="size-3.5" />
+                </button>
+                <button
+                  @click="viewMode = 'list'"
+                  class="px-2.5 py-1.5 text-xs transition-colors"
+                  :class="viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'"
+                >
+                  <List class="size-3.5" />
+                </button>
+              </div>
+
+              <!-- Upload -->
+              <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold cursor-pointer hover:bg-primary/90 transition-colors">
+                <Upload class="size-3.5" /> Upload
+                <input type="file" :accept="acceptOnly === 'image' ? 'image/*' : undefined" multiple class="hidden" @change="onUpload" />
+              </label>
             </div>
           </div>
 
@@ -202,7 +207,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch} from 'vue'
 import { X, Upload, FileText, Check, Grid3x3, List } from 'lucide-vue-next'
 import { FILES } from '@/data/mock'
 import { useApi } from '@/composables/useApi'
@@ -212,14 +217,24 @@ const props = defineProps({
   show: Boolean,
   title: { type: String, default: 'Media Library' },
   insertLabel: { type: String, default: 'Insert selected' },
-  multiple: { type: Boolean, default: true }
+  multiple: { type: Boolean, default: true },
+  acceptOnly: { type: String, default: null },
+  defaultType: { type: String, default: 'image' }
 })
 const emit = defineEmits(['close', 'insert'])
 
-const { get, upload } = useApi()
+import { useAppStore } from '@/stores/app'
+const { toast } = useAppStore()
 
 const search = ref('')
-const typeFilter = ref('all')
+const typeFilter = ref(props.defaultType || props.acceptOnly || 'image')
+
+watch(() => props.show, (isOpen) => {
+  if (isOpen) {
+    typeFilter.value = props.defaultType || props.acceptOnly || 'image'
+  }
+})
+
 const dateFilter = ref('All dates')
 const viewMode = ref('grid')
 const selected = ref([])
@@ -251,7 +266,9 @@ const dateOptions = computed(() => {
 
 const filtered = computed(() => {
   let list = allFiles.value
-  if (typeFilter.value !== 'all') list = list.filter(f => f.type === typeFilter.value)
+  if (typeFilter.value !== 'all') {
+    list = list.filter(f => f.type === typeFilter.value)
+  }
   if (search.value) {
     const q = search.value.toLowerCase()
     list = list.filter(f => f.name.toLowerCase().includes(q))
@@ -316,7 +333,21 @@ async function fetchMedia() {
   }
 }
 
-function insertSelected() { emit('insert', [...selected.value]); close() }
+function insertSelected() {
+  if (props.acceptOnly === 'image') {
+    const nonImages = selected.value.filter(s => s.type !== 'image' && !s.mimeType?.startsWith('image/'))
+    if (nonImages.length > 0) {
+      toast("Only image files can be added to products", "error")
+      const imagesOnly = selected.value.filter(s => s.type === 'image' || s.mimeType?.startsWith('image/'))
+      if (!imagesOnly.length) return
+      emit('insert', [...imagesOnly])
+      close()
+      return
+    }
+  }
+  emit('insert', [...selected.value])
+  close()
+}
 function close() { selected.value = []; emit('close') }
 
 async function onUpload(e) {
@@ -327,6 +358,9 @@ function onDrop(e) {
   for (const f of e.dataTransfer.files) addFile(f)
 }
 async function addFile(f) {
+  if (props.acceptOnly === 'image' && f.type && !f.type.startsWith('image/')) {
+    return
+  }
   try {
     const formData = new FormData()
     formData.append('file', f)

@@ -18,10 +18,12 @@
             <span>{{ t.label }}</span>
             <span
               v-if="t.count !== undefined"
-              class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-[10px] font-bold px-1 leading-none shrink-0 bg-slate-500/10 text-slate-700 border border-slate-500/20"
-              :class="{
-                'bg-[#111] text-white border-[#111]': tab === t.value,
-              }"
+              class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-[10px] font-bold px-1 leading-none shrink-0"
+              :class="
+                tab === t.value
+                  ? 'bg-[#111] text-white border border-[#111]'
+                  : 'bg-slate-500/10 text-slate-700 border border-slate-500/20'
+              "
             >
               {{ t.count }}
             </span>
@@ -604,9 +606,12 @@ const tabs = computed(() => {
 });
 
 const currentBrandDbId = computed(() => {
-  const currentSlug = brandStore.currentBrandId;
-  const backendBrand = authStore.brands?.find((b) => b.slug === currentSlug);
-  return backendBrand?.id || currentSlug;
+  const currentVal = brandStore.currentBrandId;
+  if (!currentVal) return "";
+  const found =
+    brandStore.brands?.find((b) => b.id === currentVal || b.slug === currentVal) ||
+    authStore.brands?.find((b) => b.id === currentVal || b.slug === currentVal);
+  return found?.id || currentVal;
 });
 
 function resolveCategoryId(pathStr, tree) {
@@ -867,6 +872,15 @@ watch(
     sourceFilter,
   ],
   () => {
+    page.value = 1;
+    fetchProducts();
+  },
+);
+
+watch(
+  () => brandStore.currentBrandId,
+  () => {
+    brandFilter.value = "";
     page.value = 1;
     fetchProducts();
   },

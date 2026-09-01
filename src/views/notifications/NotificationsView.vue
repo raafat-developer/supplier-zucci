@@ -325,14 +325,15 @@ function formatDate(dateStr) {
   }
 }
 
+import { getValidNotificationUrl } from "@/utils/notificationRoute";
+
 function handleClickNotification(n) {
   notificationStore.markAsRead(n.id);
-  if (n.actionUrl) {
-    if (n.actionUrl.startsWith("http://") || n.actionUrl.startsWith("https://")) {
-      window.location.href = n.actionUrl;
-    } else {
-      router.push(n.actionUrl);
-    }
+  const targetUrl = getValidNotificationUrl(n.actionUrl, router);
+  if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+    window.location.href = targetUrl;
+  } else {
+    router.push(targetUrl);
   }
 }
 

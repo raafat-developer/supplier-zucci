@@ -329,9 +329,15 @@
               </button>
               <button
                 @click="sendInvite"
-                class="px-5 py-2 bg-black hover:bg-black/90 text-white rounded-lg text-xs font-bold transition-colors"
+                :disabled="!isInviteValid || sendingInvite"
+                class="px-5 py-2 rounded-lg text-xs font-bold transition-all"
+                :class="
+                  !isInviteValid || sendingInvite
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                    : 'bg-black hover:bg-black/90 text-white cursor-pointer shadow-sm'
+                "
               >
-                Send Invite
+                {{ sendingInvite ? "Sending..." : "Send Invite" }}
               </button>
             </div>
           </div>
@@ -580,6 +586,37 @@ const invite = reactive({
   brands: {},
 });
 
+const sendingInvite = ref(false);
+
+const isInviteValid = computed(() => {
+  const fName = (invite.firstName || "").trim();
+  const lName = (invite.lastName || "").trim();
+  const email = (invite.email || "").trim();
+  const role = (invite.role || "").trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return (
+    fName.length > 0 &&
+    lName.length > 0 &&
+    email.length > 0 &&
+    emailRegex.test(email) &&
+    role.length > 0
+  );
+});
+
+watch(showInvite, (isOpen) => {
+  if (isOpen) {
+    Object.assign(invite, {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      role: "",
+      brands: {},
+    });
+  }
+});
+
 const groups = computed(() => {
   const ownersList = teamMembers.value.filter((m) => m.group === "owners");
   const managersList = teamMembers.value.filter((m) => m.group === "brand_managers");
@@ -763,16 +800,14 @@ async function openMemberProfile(m) {
 }
 
 async function sendInvite() {
-  if (!invite.firstName || !invite.lastName || !invite.email || !invite.role) {
-    toast("Please fill in all details", "error");
-    return;
-  }
+  if (!isInviteValid.value || sendingInvite.value) return;
+  sendingInvite.value = true;
   try {
     const brandIds = Object.keys(invite.brands).filter((id) => invite.brands[id]);
     await post("/supplier/team/members", {
-      firstName: invite.firstName,
-      lastName: invite.lastName,
-      email: invite.email,
+      firstName: invite.firstName.trim(),
+      lastName: invite.lastName.trim(),
+      email: invite.email.trim(),
       phone: invite.phone,
       roleCode: invite.role,
       brandIds: brandIds,
@@ -789,7 +824,9 @@ async function sendInvite() {
     });
     await fetchTeam();
   } catch (e) {
-    console.error(e);
+    console.error("Failed to send invite:", e);
+  } finally {
+    sendingInvite.value = false;
   }
 }
 

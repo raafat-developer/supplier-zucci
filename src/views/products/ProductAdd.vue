@@ -33,9 +33,16 @@
         </button>
         <button
           @click="publishStatus === 'draft' ? saveDraft() : submitProduct()"
-          class="px-5 py-1.5 text-xs font-bold rounded-lg bg-black text-white hover:bg-black/90 shadow-sm transition-colors shrink-0"
+          :disabled="!isFormValid || saving || submitting"
+          class="px-5 py-1.5 text-xs font-bold rounded-lg transition-all shrink-0 flex items-center gap-1.5"
+          :class="
+            !isFormValid || saving || submitting
+              ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+              : 'bg-black text-white hover:bg-black/90 cursor-pointer shadow-sm'
+          "
         >
-          Add Product
+          <Loader2 v-if="saving || submitting" class="size-3.5 animate-spin" />
+          {{ saving || submitting ? "Processing..." : "Add Product" }}
         </button>
       </div>
     </div>
@@ -740,11 +747,36 @@
                     />
                   </td>
                   <td class="py-2.5 px-4">
-                    <input
-                      v-model="v.barcode"
-                      placeholder="EAN/UPC"
-                      class="w-24 bg-transparent border border-border/30 rounded px-1.5 py-1 text-xs font-mono focus:outline-none"
-                    />
+                    <div class="flex flex-col gap-0.5">
+                      <input
+                        :value="getVariantMarketBarcode(vi, activeMarketTab)"
+                        @input="
+                          setVariantMarketPrice(
+                            vi,
+                            'barcode',
+                            $event.target.value,
+                          )
+                        "
+                        placeholder="EAN/UPC"
+                        class="w-28 bg-transparent border rounded px-1.5 py-1 text-xs font-mono focus:outline-none transition-colors"
+                        :class="
+                          isDuplicateVariantBarcode(vi, activeMarketTab)
+                            ? 'border-destructive text-destructive bg-destructive/10 focus:ring-1 focus:ring-destructive'
+                            : 'border-border/30 focus:border-black/30'
+                        "
+                        :title="
+                          isDuplicateVariantBarcode(vi, activeMarketTab)
+                            ? 'Barcode must be unique across all markets and variants'
+                            : ''
+                        "
+                      />
+                      <span
+                        v-if="isDuplicateVariantBarcode(vi, activeMarketTab)"
+                        class="text-[9px] font-bold text-destructive"
+                      >
+                        Duplicate barcode
+                      </span>
+                    </div>
                   </td>
                   <td class="py-2.5 px-4 text-center">
                     <button
@@ -849,6 +881,7 @@
       :show="showMediaLib"
       title="Add Product Images"
       insertLabel="Add images"
+      acceptOnly="image"
       @close="showMediaLib = false"
       @insert="onMediaInsert"
     />
@@ -1040,6 +1073,7 @@ import {
   List,
   ListOrdered,
   AlertCircle,
+  Loader2,
 } from "lucide-vue-next";
 import { useAppStore } from "@/stores/app";
 import { useApi } from "@/composables/useApi";
@@ -1383,8 +1417,31 @@ function validateStep(s) {
     }
   }
   if (s === 3 && form.isVariable) {
-    if (!form.variants.length)
+    if (!form.variants.length) {
       errs.push("Generate at least one variant or switch to simple product");
+    } else {
+      const activeMarkets = enabledMarketsList.value.length
+        ? enabledMarketsList.value
+        : [{ code: activeMarketTab.value }];
+      const seenBarcodes = new Map();
+
+      for (let i = 0; i < form.variants.length; i++) {
+        for (const m of activeMarkets) {
+          const b = getVariantMarketBarcode(i, m.code);
+          if (b) {
+            const key = b.toLowerCase();
+            if (seenBarcodes.has(key)) {
+              const first = seenBarcodes.get(key);
+              errs.push(
+                `Barcode "${b}" in ${m.code} market (Variant ${i + 1}) is already used in ${first.market} market (Variant ${first.variantIndex + 1}). Barcodes must be unique across all markets.`,
+              );
+            } else {
+              seenBarcodes.set(key, { variantIndex: i, market: m.code });
+            }
+          }
+        }
+      }
+    }
   }
   if (s === 4) {
     if (!form.sku.trim()) errs.push("SKU is required");
@@ -1395,6 +1452,47 @@ function validateStep(s) {
   }
   return errs;
 }
+
+const isFormValid = computed(() => {
+  if (!form.nameEn || !form.nameEn.trim()) return false;
+  if (!form.description || !form.description.trim()) return false;
+  if (!form.category) return false;
+  if (!form.brand) return false;
+
+  if (!form.isVariable) {
+    const enabledM = markets.value.filter((m) => m.enabled);
+    if (!enabledM.length) return false;
+    for (const m of enabledM) {
+      const p = form.marketPrices?.[m.code]?.price;
+      if (!p || Number(p) <= 0) return false;
+    }
+  }
+
+  if (form.isVariable) {
+    if (!form.variants || !form.variants.length) return false;
+
+    const activeMarkets = enabledMarketsList.value.length
+      ? enabledMarketsList.value
+      : [{ code: activeMarketTab.value }];
+    const seenBarcodes = new Set();
+
+    for (let i = 0; i < form.variants.length; i++) {
+      for (const m of activeMarkets) {
+        const b = getVariantMarketBarcode(i, m.code);
+        if (b) {
+          const key = b.toLowerCase();
+          if (seenBarcodes.has(key)) return false;
+          seenBarcodes.add(key);
+        }
+      }
+    }
+  }
+
+  if (!form.sku || !form.sku.trim()) return false;
+  if (!form.weight || Number(form.weight) <= 0) return false;
+
+  return true;
+});
 
 function nextStep() {
   submitted.value = true;
@@ -1716,14 +1814,48 @@ function setVariantMarketPrice(variantIndex, field, value) {
   const v = form.variants[variantIndex];
   if (!v) return;
   if (!v.prices) v.prices = {};
-  if (!v.prices[activeMarketTab.value]) {
-    v.prices[activeMarketTab.value] = { price: 0, comparePrice: null };
+  const mCode = activeMarketTab.value;
+  if (!v.prices[mCode]) {
+    v.prices[mCode] = { price: 0, comparePrice: null, inventory: 0, barcode: "" };
   }
-  v.prices[activeMarketTab.value][field] = value
-    ? Number(value)
-    : field === "comparePrice"
-      ? null
-      : 0;
+  if (field === "barcode") {
+    v.prices[mCode].barcode = value ? String(value).trim() : "";
+  } else {
+    v.prices[mCode][field] = value
+      ? Number(value)
+      : field === "comparePrice"
+        ? null
+        : 0;
+  }
+}
+
+function getVariantMarketBarcode(variantIndex, marketCode) {
+  const v = form.variants[variantIndex];
+  if (!v) return "";
+  const mCode = marketCode || activeMarketTab.value;
+  const val = v.prices?.[mCode]?.barcode ?? (v.barcodes?.[mCode] || "");
+  return val ? String(val).trim() : "";
+}
+
+function isDuplicateVariantBarcode(variantIndex, marketCode) {
+  const currentCode = getVariantMarketBarcode(variantIndex, marketCode);
+  if (!currentCode) return false;
+
+  let matches = 0;
+  const activeMarkets = enabledMarketsList.value.length
+    ? enabledMarketsList.value
+    : [{ code: activeMarketTab.value }];
+
+  for (let i = 0; i < form.variants.length; i++) {
+    for (const m of activeMarkets) {
+      const b = getVariantMarketBarcode(i, m.code);
+      if (b && b.toLowerCase() === currentCode.toLowerCase()) {
+        matches++;
+        if (matches > 1) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function addTag() {
@@ -1735,10 +1867,18 @@ function addTag() {
 }
 
 function onMediaInsert(items) {
-  items.forEach((i) => {
+  const imagesOnly = items.filter(
+    (i) => !i.type || i.type === "image" || i.mimeType?.startsWith("image/"),
+  );
+  if (imagesOnly.length < items.length) {
+    toast("Only images can be added to products", "error");
+  }
+  imagesOnly.forEach((i) => {
     if (i.src) form.images.push({ fileId: i.id, src: i.src });
   });
-  toast(items.length + " image(s) added");
+  if (imagesOnly.length > 0) {
+    toast(imagesOnly.length + " image(s) added");
+  }
 }
 
 function resolveCategoryId(pathStr, tree) {
@@ -1840,6 +1980,7 @@ function buildPayload() {
           price: Number(mp.price) || 0,
           compareAtPrice: mp.comparePrice ? Number(mp.comparePrice) : null,
           stock: Number(mp.inventory) || 0,
+          barcode: mp.barcode || null,
         };
       }),
       stock: enabledM.reduce(

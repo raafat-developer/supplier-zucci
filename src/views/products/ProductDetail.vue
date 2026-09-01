@@ -90,24 +90,25 @@
 
       <!-- Right Side Actions -->
       <div class="flex items-center gap-2">
-        <AppSelect
+        <AppSelect 
+        v-if="product.approvalStatus === 'approved'"
           v-model="product.status"
           :options="statusOptions"
           label="label"
           value="code"
           customClass="rounded-lg border border-border/80 bg-white-10 px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-black/20"
         />
-        <button
+        <!-- <button
           type="button"
           class="size-8 rounded-lg border border-border/80 flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors shrink-0"
         >
           <Eye class="size-4" />
-        </button>
+        </button> -->
         <button
           v-can="'products.edit'"
           v-if="
             product.approvalStatus !== 'approved' &&
-            product.approvalStatus !== 'pending'
+            product.approvalStatus !== 'pending_review'
           "
           @click="submitToReview"
           :disabled="submitting || saving"
@@ -139,9 +140,9 @@
         <span class="size-2 rounded-full bg-red-600"></span>
         Product Rejected
       </div>
-      <p v-if="product.rejectionReason">
+      <p>
         <strong class="font-semibold">Reason:</strong>
-        {{ product.rejectionReason }}
+        {{ rejectionReasonLabel || product.rejectionReason || "No reason provided" }}
       </p>
       <p v-if="product.rejectionNote">
         <strong class="font-semibold">Details:</strong>
@@ -370,49 +371,32 @@
           <div
             class="p-4 rounded-xl bg-muted/5 border border-border/50 flex flex-col gap-3"
           >
-            <div class="flex items-center justify-between border-b pb-2">
+            <div class="flex items-center justify-between border-b pb-2.5">
               <span
                 class="text-xs font-bold text-foreground uppercase tracking-wider"
                 >Synced Details</span
               >
-              <button
-                class="text-[10px] font-bold text-primary hover:underline"
+              <span
+                class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-600 bg-blue-500/10 border border-blue-500/20 rounded"
+                >From Store</span
               >
-                Re-sync
-              </button>
             </div>
-            <div class="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span class="text-muted-foreground uppercase font-medium"
-                  >UPC/SKU:</span
-                >
-                <p class="font-mono mt-0.5 text-foreground font-semibold">
-                  {{ product.sku || "—" }}
-                </p>
+            <div class="flex flex-col divide-y divide-border/40 text-xs">
+              <div class="py-3 flex items-center justify-between">
+                <span class="text-muted-foreground font-medium">Brand SKU</span>
+                <span class="font-mono text-foreground font-semibold">{{ product.sku || "—" }}</span>
               </div>
-              <div>
-                <span class="text-muted-foreground uppercase font-medium"
-                  >Size:</span
-                >
-                <p class="mt-0.5 text-foreground font-semibold">
-                  Custom Variant - Size
-                </p>
+              <div class="py-3 flex items-center justify-between">
+                <span class="text-muted-foreground font-medium">Tags</span>
+                <span class="text-foreground font-semibold truncate max-w-xs">{{ product.tags?.join(" · ") || "—" }}</span>
               </div>
-              <div>
-                <span class="text-muted-foreground uppercase font-medium"
-                  >Shipping Weight:</span
-                >
-                <p class="mt-0.5 text-foreground font-semibold font-mono">
-                  {{ product.weight }} {{ weightUnit }}
-                </p>
+              <div class="py-3 flex items-center justify-between">
+                <span class="text-muted-foreground font-medium">Shipping Weight</span>
+                <span class="font-mono text-foreground font-semibold">{{ product.weight ? product.weight + " " + weightUnit : "—" }}</span>
               </div>
-              <div>
-                <span class="text-muted-foreground uppercase font-medium"
-                  >Synced Category:</span
-                >
-                <p class="mt-0.5 text-foreground font-semibold">
-                  {{ product.category || "—" }}
-                </p>
+              <div class="py-3 flex items-center justify-between">
+                <span class="text-muted-foreground font-medium">Synced Category</span>
+                <span class="text-foreground font-semibold truncate max-w-xs">{{ product.category || "—" }}</span>
               </div>
             </div>
           </div>
@@ -421,19 +405,21 @@
           <div
             class="p-4 rounded-xl bg-white-10 border border-border/50 flex flex-col gap-3"
           >
-            <span
-              class="text-xs font-bold text-foreground uppercase tracking-wider border-b pb-2"
-              >Live Details</span
-            >
-            <div class="grid grid-cols-2 gap-3.5">
-              <div class="flex flex-col gap-1">
+            <div class="border-b pb-2.5">
+              <span
+                class="text-xs font-bold text-foreground uppercase tracking-wider"
+                >Live Details</span
+              >
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div class="flex flex-col gap-1 col-span-2">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Category</label
                 >
                 <CategoryPicker v-model="product.category" />
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-2">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Size Guide</label
@@ -446,7 +432,7 @@
                   value="id"
                 />
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-2">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Care Instructions</label
@@ -456,10 +442,10 @@
                   :options="careInstructionOptions"
                   label="name"
                   value="id"
-                  customClass="rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
+                  customClass="w-full rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
                 />
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-2">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Return Policy</label
@@ -469,10 +455,10 @@
                   :options="returnPolicyOptions"
                   label="name"
                   value="id"
-                  customClass="rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
+                  customClass="w-full rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
                 />
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-1">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Shipping Weight</label
@@ -494,7 +480,7 @@
                   />
                 </div>
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-1">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >HS Code (Customs)</label
@@ -504,20 +490,21 @@
                   class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
                 />
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-1">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Country of Origin</label
                 >
-                <SearchableSelect
-                  v-model="product.countryOfOrigin"
-                  :options="countriesList"
-                  placeholder="Select Country of Origin"
-                  label="label"
-                  value="code"
-                />
+                <div class="flex items-center justify-between rounded-lg border border-input bg-muted/20 px-3 py-2 text-xs text-foreground">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold text-muted-foreground uppercase">EG</span>
+                    <span class="font-medium">Egypt</span>
+                  </div>
+                  <Lock class="size-3.5 text-muted-foreground" />
+                </div>
+                <p class="text-[10px] text-muted-foreground mt-0.5">Set from your business registration — contact support to change</p>
               </div>
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 col-span-1">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Fulfillment</label
@@ -527,7 +514,7 @@
                   :options="fulfillmentModeOptions"
                   label="name"
                   value="id"
-                  customClass="rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none"
+                  customClass="w-full rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none"
                 />
               </div>
               <div class="flex flex-col gap-1 col-span-2">
@@ -535,31 +522,44 @@
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Tags</label
                 >
-                <input
-                  v-model="tagInput"
-                  placeholder="Type and press Enter..."
-                  class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs w-full focus:outline-none"
-                  @keydown.enter.prevent="addTag"
-                />
-                <div
-                  class="flex flex-wrap gap-1.5 mt-2"
-                  v-if="product.tags.length"
-                >
+                <div class="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-input bg-white-10 focus-within:ring-1 focus-within:ring-black/30">
                   <span
                     v-for="t in product.tags"
                     :key="t"
-                    class="px-2.5 py-0.5 bg-muted/40 text-foreground text-xs rounded-md flex items-center gap-1 border border-border/40 font-semibold"
+                    class="px-2 py-0.5 bg-muted/60 text-foreground text-xs rounded flex items-center gap-1 font-medium border border-border/40"
                   >
                     {{ t }}
                     <button
-                      @click="
-                        product.tags = product.tags.filter((x) => x !== t)
-                      "
-                      class="hover:text-destructive text-sm font-bold"
+                      type="button"
+                      @click="product.tags = product.tags.filter((x) => x !== t)"
+                      class="hover:text-destructive text-xs font-bold"
                     >
                       ×
                     </button>
                   </span>
+                  <input
+                    v-model="tagInput"
+                    placeholder="Type and press Enter..."
+                    class="bg-transparent text-xs outline-none flex-1 min-w-[120px]"
+                    @keydown.enter.prevent="addTag"
+                  />
+                </div>
+              </div>
+              <div class="flex flex-col gap-1 col-span-2">
+                <label
+                  class="text-[10px] font-bold text-foreground uppercase tracking-wider"
+                  >Platform SKU</label
+                >
+                <div class="flex items-center rounded-lg border border-input bg-muted/20 px-3 py-2 text-xs font-mono text-foreground justify-between">
+                  <span>{{ product.sku || "—" }}</span>
+                  <button
+                    type="button"
+                    @click="copySku"
+                    class="text-muted-foreground hover:text-foreground transition-colors p-1"
+                    title="Copy SKU"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1037,77 +1037,87 @@
           Activity
         </h3>
 
-        <div class="flex flex-col gap-3 py-2">
-          <!-- Hand-styled Mock Timeline Activities matching Figma -->
+        <!-- Dynamic Activity Timeline from fetchActivity API -->
+        <div
+          class="flex flex-col gap-3 py-2"
+          v-if="activityLog && activityLog.length"
+        >
           <div
-            class="flex gap-3 items-start text-xs border-l-2 border-border/50 pl-4 ml-2 relative"
+            v-for="(act, idx) in activityLog"
+            :key="idx"
+            class="flex gap-3 items-start text-xs border-l-2 pl-4 ml-2 relative"
+            :class="
+              idx === activityLog.length - 1
+                ? 'border-l-transparent'
+                : 'border-border/50'
+            "
           >
             <span
-              class="size-2.5 rounded-full bg-emerald-500 absolute -left-[6px] top-1.5 border-2 border-white"
+              class="size-2.5 rounded-full absolute -left-[6px] top-1.5 border-2 border-white"
+              :class="
+                act.role?.toLowerCase() === 'admin'
+                  ? 'bg-blue-500'
+                  : 'bg-emerald-500'
+              "
             ></span>
             <div class="flex-1">
               <div class="flex items-center justify-between">
-                <span class="font-bold text-foreground"
-                  >Reem Aboughattas
+                <span class="font-bold text-foreground">
+                  {{ act.actor }}
                   <span
-                    class="text-[10px] text-muted-foreground font-normal bg-muted/40 px-1.5 py-0.5 rounded ml-1"
-                    >VENDOR</span
-                  ></span
-                >
-                <span class="text-muted-foreground">Jun 1, 2026</span>
+                    class="text-[10px] uppercase font-normal px-1.5 py-0.5 rounded ml-1"
+                    :class="
+                      act.role?.toLowerCase() === 'admin'
+                        ? 'bg-blue-500/10 text-blue-600 font-semibold'
+                        : 'bg-muted/40 text-muted-foreground'
+                    "
+                  >
+                    {{ act.role || 'VENDOR' }}
+                  </span>
+                </span>
+                <span class="text-muted-foreground">{{ act.date }}</span>
               </div>
-              <p class="text-muted-foreground mt-0.5">Created product</p>
+              <p class="text-muted-foreground mt-0.5 leading-relaxed">{{ act.action }}</p>
+              <!-- Attachments if any -->
+              <div
+                v-if="act.attachments?.length"
+                class="grid grid-cols-6 gap-2 mt-2"
+              >
+                <div
+                  v-for="(att, ai) in act.attachments"
+                  :key="ai"
+                  @click="previewFileUrl = att.src"
+                  class="aspect-square rounded-lg border border-border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <img
+                    v-if="att.type === 'image'"
+                    :src="att.src"
+                    class="w-full h-full object-cover"
+                  />
+                  <div
+                    v-else
+                    class="w-full h-full flex items-center justify-center bg-muted"
+                  >
+                    <FileText class="size-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div
-            class="flex gap-3 items-start text-xs border-l-2 border-border/50 pl-4 ml-2 relative"
-          >
-            <span
-              class="size-2.5 rounded-full bg-blue-500 absolute -left-[6px] top-1.5 border-2 border-white"
-            ></span>
-            <div class="flex-1">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-foreground"
-                  >Zucci Admin
-                  <span
-                    class="text-[10px] text-muted-foreground font-normal bg-blue-500/10 text-blue-600 px-1.5 py-0.5 rounded ml-1"
-                    >ADMIN</span
-                  ></span
-                >
-                <span class="text-muted-foreground">Jul 2, 2026</span>
-              </div>
-              <p class="text-muted-foreground mt-0.5">Approved product</p>
-            </div>
-          </div>
-
-          <div class="flex gap-3 items-start text-xs pl-4 ml-2 relative">
-            <span
-              class="size-2.5 rounded-full bg-emerald-500 absolute -left-[4px] top-1.5 border-2 border-white"
-            ></span>
-            <div class="flex-1">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-foreground"
-                  >Reem Aboughattas
-                  <span
-                    class="text-[10px] text-muted-foreground font-normal bg-muted/40 px-1.5 py-0.5 rounded ml-1"
-                    >VENDOR</span
-                  ></span
-                >
-                <span class="text-muted-foreground">Jul 8, 2026</span>
-              </div>
-              <p class="text-muted-foreground mt-0.5">
-                updated description & images
-              </p>
-            </div>
-          </div>
+        <div
+          v-else
+          class="py-4 text-center text-xs text-muted-foreground bg-muted/10 rounded-lg border border-dashed border-border/60"
+        >
+          No activity recorded yet
         </div>
 
         <div class="border-t border-border/40 pt-4 mt-2">
           <CommentSection
             :key="activityLogKey"
-            :initialComments="activityLog"
-            @preview="previewFile = $event"
+            :hideList="true"
+            @preview="previewFileUrl = $event.src || $event.url"
             @comment-added="postComment"
           />
         </div>
@@ -1233,10 +1243,11 @@ import {
   ListOrdered,
   Trash2,
   Eye,
+  Lock,
 } from "lucide-vue-next";
 import { statusLabel, TEAM_MEMBERS } from "@/data/mock";
 import { SIZE_VALUES } from "@/data/sizeCharts";
-import { COLOR_SWATCH } from "@/data/productsMeta";
+import { COLOR_SWATCH, REJECTION_REASONS } from "@/data/productsMeta";
 import { useAppStore } from "@/stores/app";
 import { useApi } from "@/composables/useApi";
 import { useBrandStore } from "@/stores/brand";
@@ -1312,6 +1323,7 @@ const newAttrForm = reactive({
 const sizeGuidesList = ref([]);
 const returnPolicies = ref([]);
 const fulfillmentModes = ref([]);
+const rejectionReasonsList = ref([]);
 const weightUnit = ref("kg");
 const weightUnits = ref([
   { id: "kg", label: "kg" },
@@ -1349,6 +1361,14 @@ const isVariable = computed({
   get: () => product.isVariable,
   set: (val) => {
     product.isVariable = val;
+    if (val) {
+      const hasRealVariants = product.variants.some(
+        (v) => v.attributes && v.attributes.length > 0 && v.color !== "Default",
+      );
+      if (!hasRealVariants) {
+        product.variants = [];
+      }
+    }
   },
 });
 const showMediaLib = ref(false);
@@ -1457,6 +1477,9 @@ const descEditorAr = ref(null);
 const previewFile = ref(null);
 const saving = ref(false);
 const submitting = ref(false);
+const activityLog = ref([]);
+const activityLogKey = ref(0);
+const productActivityLog = ref([]);
 
 const careTemplates = ref([]);
 
@@ -1508,8 +1531,40 @@ const statusOptions = computed(() => {
   ];
 });
 
-const activityLog = ref([]);
-const activityLogKey = ref(0);
+const rejectionReasonLabel = computed(() => {
+  const raw = product.rejectionReason;
+  if (!raw && raw !== 0) return "";
+  const rawStr = String(raw).trim();
+
+  // 1. Check fetched reference enums
+  const foundInEnums = rejectionReasonsList.value.find(
+    (r) =>
+      String(r.id) === rawStr ||
+      String(r.code || "").toLowerCase() === rawStr.toLowerCase() ||
+      String(r.label || r.name || r.value || "").toLowerCase() === rawStr.toLowerCase(),
+  );
+  if (foundInEnums) {
+    return (
+      foundInEnums.label ||
+      foundInEnums.name ||
+      foundInEnums.value ||
+      foundInEnums.code
+    );
+  }
+
+  // 2. Check REJECTION_REASONS constant from productsMeta
+  const foundInMeta = REJECTION_REASONS.find(
+    (r, idx) =>
+      String(r.id || idx + 1) === rawStr ||
+      String(r.code || "").toLowerCase() === rawStr.toLowerCase() ||
+      String(r.value || r.label || "").toLowerCase() === rawStr.toLowerCase(),
+  );
+  if (foundInMeta) {
+    return foundInMeta.label || foundInMeta.value;
+  }
+
+  return rawStr;
+});
 
 const currentBrandDbId = computed(() => {
   const currentSlug = brandStore.currentBrandId;
@@ -2087,23 +2142,52 @@ function resolveCategoryPath(id, tree) {
   return findPath(tree, id) || "";
 }
 
-async function fetchActivity() {
+async function fetchActivity(overrideId) {
+  const productId = overrideId || route.params.id || product.id;
+  if (!productId || productId === "undefined") return;
   try {
     const res = await get(
-      `/supplier/catalog/products/${route.params.id}/activity?page=1&perPage=100`,
+      `/supplier/catalog/products/${productId}/activity?page=1&perPage=100`,
     );
     if (res && res.data) {
       activityLog.value = res.data.map((a) => {
+        const actor =
+          a.actor || a.author || a.user?.name || (a.system ? "System" : "Vendor User");
+        const role = a.role || a.user?.role || (a.system ? "SYSTEM" : "VENDOR");
+        const action = a.action || a.text || "";
+        const rawDate = a.date || a.occurredAt || a.createdAt || a.time;
+        let dateStr = "";
+        if (rawDate) {
+          try {
+            const d = new Date(rawDate);
+            dateStr = isNaN(d.getTime())
+              ? rawDate
+              : d.toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                });
+          } catch (_) {
+            dateStr = rawDate;
+          }
+        }
         return {
-          system: a.system,
-          author: a.author || "System",
-          time: new Date(a.time).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }),
-          text: a.text,
-          initials: a.initials || "SY",
+          id: a.id,
+          system: !!a.system,
+          actor,
+          role,
+          action,
+          date: dateStr,
+          text: action,
+          initials:
+            a.initials ||
+            actor
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2) ||
+            "US",
           attachments:
             a.attachments?.map((att) => {
               const isImage =
@@ -2128,6 +2212,9 @@ async function fetchActivity() {
 
 async function postComment(comment) {
   try {
+    const productId = product.id || route.params.id;
+    if (!productId || productId === "undefined") return;
+
     const attachmentFileIds = [];
     if (comment.attachments?.length) {
       for (const att of comment.attachments) {
@@ -2159,17 +2246,26 @@ async function postComment(comment) {
       attachmentFileIds,
     };
 
-    await post(`/supplier/catalog/products/${product.id}/activity`, payload);
+    await post(`/supplier/catalog/products/${productId}/activity`, payload);
     toast("Comment posted successfully!");
-    await fetchActivity();
+    await fetchActivity(productId);
   } catch (e) {
     // handled
   }
 }
 
-async function fetchProductDetails() {
+function copySku() {
+  if (product.sku) {
+    navigator.clipboard.writeText(product.sku);
+    toast("Platform SKU copied to clipboard!");
+  }
+}
+
+async function fetchProductDetails(overrideId) {
+  const productId = overrideId || route.params.id || product.id;
+  if (!productId || productId === "undefined") return;
   try {
-    const res = await get(`/supplier/catalog/products/${route.params.id}`);
+    const res = await get(`/supplier/catalog/products/${productId}`);
     if (res && res.data) {
       const data = res.data;
       product.id = data.id;
@@ -2226,8 +2322,15 @@ async function fetchProductDetails() {
       product.returnPolicyId = data.returnPolicyId || 1;
       product.fulfillmentModeId = data.fulfillmentModeId || 1;
       product.rejectionReason =
-        data.rejectionReason || data.rejection_reason || "";
+        data.rejectionReason ||
+        data.rejection_reason ||
+        data.rejectionReasonId ||
+        data.rejection_reason_id ||
+        "";
       product.rejectionNote = data.rejectionNote || data.rejection_note || "";
+      if (data.activityLog && Array.isArray(data.activityLog)) {
+        productActivityLog.value = data.activityLog;
+      }
       product.status = statusOptions.value.find(
         (s) => s.label.toLowerCase() === data.productStatus.toLowerCase(),
       )?.code;
@@ -2304,69 +2407,75 @@ async function fetchProductDetails() {
         }
       }
 
-      product.variants = data.variants
-        ? data.variants.map((v) => {
-            const colorAttr = v.attributes?.find(
-              (a) => a.attributeCode === "color" || a.code === "color",
-            );
-            const sizeAttr = v.attributes?.find(
-              (a) => a.attributeCode === "size" || a.code === "size",
-            );
+      if (!product.isVariable) {
+        product.variants = [];
+      } else {
+        product.variants = data.variants
+          ? data.variants
+              .filter((v) => v.attributes && v.attributes.length > 0)
+              .map((v) => {
+                const colorAttr = v.attributes?.find(
+                  (a) => a.attributeCode === "color" || a.code === "color",
+                );
+                const sizeAttr = v.attributes?.find(
+                  (a) => a.attributeCode === "size" || a.code === "size",
+                );
 
-            const colorLabel =
-              colorAttr?.attributeValueLabel ||
-              colorAttr?.label ||
-              colorAttr?.value ||
-              "Default";
-            const sizeLabel =
-              sizeAttr?.attributeValueLabel ||
-              sizeAttr?.label ||
-              sizeAttr?.value ||
-              "One Size";
+                const colorLabel =
+                  colorAttr?.attributeValueLabel ||
+                  colorAttr?.label ||
+                  colorAttr?.value ||
+                  "Default";
+                const sizeLabel =
+                  sizeAttr?.attributeValueLabel ||
+                  sizeAttr?.label ||
+                  sizeAttr?.value ||
+                  "One Size";
 
-            const marketPrices = {};
-            const marketStocks = {};
-            const marketsList = ["AE", "SA", "EG", "QA", "KW", "BH", "OM"];
-            marketsList.forEach((code) => {
-              const m = lookupStore.markets?.find(
-                (market) => market.code === code,
-              );
-              const pObj = v.prices?.find(
-                (p) => p.marketId === m?.id || p.marketCode === code,
-              );
-              marketPrices[code] = pObj
-                ? pObj.price
-                : (v.prices?.[0]?.price ?? v.price ?? 289);
-              marketStocks[code] = pObj
-                ? (pObj.stock ?? pObj.inventory ?? 0)
-                : (v.stock ?? v.inventory ?? 0);
-            });
+                const marketPrices = {};
+                const marketStocks = {};
+                const marketsList = ["AE", "SA", "EG", "QA", "KW", "BH", "OM"];
+                marketsList.forEach((code) => {
+                  const m = lookupStore.markets?.find(
+                    (market) => market.code === code,
+                  );
+                  const pObj = v.prices?.find(
+                    (p) => p.marketId === m?.id || p.marketCode === code,
+                  );
+                  marketPrices[code] = pObj
+                    ? pObj.price
+                    : (v.prices?.[0]?.price ?? v.price ?? 289);
+                  marketStocks[code] = pObj
+                    ? (pObj.stock ?? pObj.inventory ?? 0)
+                    : (v.stock ?? v.inventory ?? 0);
+                });
 
-            return {
-              id: v.id,
-              color: colorLabel,
-              size: sizeLabel,
-              colorObj: colorAttr
-                ? {
-                    id: colorAttr.attributeValueId || colorAttr.valueId,
-                    label: colorLabel,
-                  }
-                : null,
-              sizeObj: sizeAttr
-                ? {
-                    id: sizeAttr.attributeValueId || sizeAttr.valueId,
-                    label: sizeLabel,
-                  }
-                : null,
-              sku: v.sku,
-              price: v.prices?.[0]?.price ?? 0,
-              inventory: v.stock ?? v.inventory ?? 0,
-              attributes: v.attributes || [],
-              marketPrices,
-              marketStocks,
-            };
-          })
-        : [];
+                return {
+                  id: v.id,
+                  color: colorLabel,
+                  size: sizeLabel,
+                  colorObj: colorAttr
+                    ? {
+                        id: colorAttr.attributeValueId || colorAttr.valueId,
+                        label: colorLabel,
+                      }
+                    : null,
+                  sizeObj: sizeAttr
+                    ? {
+                        id: sizeAttr.attributeValueId || sizeAttr.valueId,
+                        label: sizeLabel,
+                      }
+                    : null,
+                  sku: v.sku,
+                  price: v.prices?.[0]?.price ?? 0,
+                  inventory: v.stock ?? v.inventory ?? 0,
+                  attributes: v.attributes || [],
+                  marketPrices,
+                  marketStocks,
+                };
+              })
+          : [];
+      }
 
       // Filter variantAttributes based on data.configuredAttributes
       if (data.configuredAttributes?.length) {
@@ -2732,7 +2841,8 @@ async function loadLookups() {
     // Fetch enums
     try {
       const enumsRes = await get("/reference/enums", {
-        types: "fulfillment_mode,return_policy,weight_unit",
+        types:
+          "fulfillment_mode,return_policy,weight_unit,rejection_reason,product_rejection_reason",
       });
       if (enumsRes && enumsRes.enums) {
         if (enumsRes.enums.return_policy?.length) {
@@ -2743,6 +2853,13 @@ async function loadLookups() {
         }
         if (enumsRes.enums.weight_unit?.length) {
           weightUnits.value = enumsRes.enums.weight_unit;
+        }
+        const rejEnums =
+          enumsRes.enums.rejection_reason ||
+          enumsRes.enums.product_rejection_reason ||
+          [];
+        if (rejEnums.length) {
+          rejectionReasonsList.value = rejEnums;
         }
       }
     } catch (_) {}
@@ -2785,9 +2902,18 @@ async function loadLookups() {
 }
 
 onMounted(async () => {
+  const productId = route.params.id;
+  if (!productId || productId === "undefined") return;
+
   await loadLookups();
+  if (route.params.id !== productId) return;
+
   await fetchAllAttributes();
-  await fetchProductDetails();
-  await fetchActivity();
+  if (route.params.id !== productId) return;
+
+  await fetchProductDetails(productId);
+  if (route.params.id !== productId) return;
+
+  await fetchActivity(productId);
 });
 </script>
