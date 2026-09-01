@@ -15,7 +15,9 @@
           : open
             ? 'border-primary/50'
             : 'border-border',
+        isInvalid ? '!border-red-500' : ''
       ]"
+      :style="isInvalid ? 'border-color: #ef4444 !important; box-shadow: inset 0 0 0 1px #ef4444 !important;' : ''"
     >
       <span
         class="truncate font-medium flex items-center gap-2"
@@ -181,6 +183,7 @@ const props = defineProps({
   theme: { type: String, default: "light" },
   label: { type: String, default: "label" },
   value: { type: String, default: "value" },
+  isInvalid: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["update:modelValue"]);

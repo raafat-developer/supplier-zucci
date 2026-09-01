@@ -583,12 +583,29 @@ watch(
   },
   { deep: true },
 );
-watch(regPassword, () => {
-  if (passwordErr.value) passwordErr.value = "";
-});
-watch(kycStep, () => {
-  kycErr.value = "";
-});
+watch(
+  [answers, phone, email],
+  () => {
+    if (leadErr.value || leadErrField.value) {
+      leadErr.value = "";
+      leadErrField.value = "";
+    }
+  },
+  { deep: true }
+);
+watch(
+  [stage, kycStep],
+  () => {
+    leadErr.value = "";
+    leadErrField.value = "";
+    phoneErr.value = "";
+    emailErr.value = "";
+    kycErr.value = "";
+    passwordErr.value = "";
+  },
+  { immediate: true }
+);
+
 watch(
   kycData,
   () => {
@@ -608,32 +625,17 @@ function clearLeadErr(field) {
 async function submitMergedLead() {
   const fn = answers.firstName?.trim() || "";
   const ln = answers.lastName?.trim() || "";
-
-  if (!fn || fn.length < 2) {
-    leadErr.value = "Please enter a valid first name (at least 2 characters)";
-    leadErrField.value = "firstName";
-    toast("Please enter your first name", "error");
-    return;
-  }
-  if (!ln || ln.length < 2) {
-    leadErr.value = "Please enter a valid last name (at least 2 characters)";
-    leadErrField.value = "lastName";
-    toast("Please enter your last name", "error");
-    return;
-  }
-
   const phoneInfo = getFormattedPhone();
-  if (!phoneInfo.isValid) {
-    leadErr.value = "Please enter a valid mobile number";
-    leadErrField.value = "phone";
-    toast("Please enter a valid mobile number", "error");
-    return;
-  }
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value);
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
-    leadErr.value = "Please enter a valid email address";
-    leadErrField.value = "email";
-    toast("Please enter a valid email address", "error");
+  const fnInvalid = !fn || fn.length < 2;
+  const lnInvalid = !ln || ln.length < 2;
+  const phoneInvalid = !phoneInfo.isValid;
+  const emailInvalid = !validEmail;
+
+  if (fnInvalid || lnInvalid || phoneInvalid || emailInvalid) {
+    leadErr.value = "Please fill all mandatory fields";
+    leadErrField.value = "all";
     return;
   }
 
@@ -674,7 +676,6 @@ async function submitMergedLead() {
       errData?.message ||
       "Failed to submit details. Please try again.";
     leadErr.value = errMsg;
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }
@@ -1014,8 +1015,7 @@ function validateKycSection(section) {
   const title = (section?.title || "").toLowerCase();
 
   function setKycError(msg) {
-    kycErr.value = msg;
-    toast(msg, "error");
+    kycErr.value = "Please fill all mandatory fields";
     return false;
   }
 
@@ -1504,6 +1504,9 @@ function goLoading() {
   font-family: inherit;
   outline: none;
   transition: border-color 150ms;
+}
+.reg-input.\!border-red-500 {
+  border-color: #ef4444 !important;
 }
 .reg-input:focus {
   border-color: rgba(255, 255, 255, 0.5);

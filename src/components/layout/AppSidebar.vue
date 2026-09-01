@@ -19,69 +19,123 @@
     }"
   >
     <!-- Brand switcher -->
-    <div class="border-b border-sidebar-border shrink-0">
+    <div
+      class="relative border-b border-sidebar-border shrink-0 h-16 flex items-center px-1.5"
+      data-brand-menu
+      @mouseenter="onMouseEnterItem($event, 'Brand')"
+      @mouseleave="setFlyout(null)"
+    >
       <button
-        @click="brandDropOpen = !brandDropOpen"
-        class="smb w-full gap-2.5"
+        @click="if (store.sidebarCollapsed) { flyout = flyout === 'Brand' ? null : 'Brand'; } else { brandDropOpen = !brandDropOpen; }"
+        class="smb w-full gap-2.5 !py-2"
+        :class="{ 'justify-center px-1': store.sidebarCollapsed }"
       >
         <div
-          class="size-7 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+          class="size-8 rounded-md flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-xs"
           :style="{ background: currentBrand.color }"
         >
           {{ currentBrand.init }}
         </div>
         <div class="flex-1 min-w-0 hide-collapsed text-left">
-          <p class="text-[13px] font-semibold truncate">
+          <p class="text-sm font-semibold truncate leading-tight text-foreground">
             {{ currentBrand.name }}
           </p>
-          <p class="text-[10px] text-muted-foreground truncate">
+          <p class="text-xs text-muted-foreground truncate">
             {{ currentBrand.role || "Brand Admin" }}
           </p>
         </div>
-        <ChevronDown
-          class="size-3.5 text-muted-foreground shrink-0 hide-collapsed transition-transform"
-          :class="{ 'rotate-180': brandDropOpen }"
+        <ChevronsUpDown
+          class="size-4 text-muted-foreground shrink-0 hide-collapsed"
         />
       </button>
-      <div
-        v-if="brandDropOpen"
-        class="mt-1 rounded-lg border border-border bg-background shadow-lg overflow-hidden anim-down py-1"
-      >
-        <div class="px-3 py-1 text-[11px] font-medium text-muted-foreground">
-          Brands
-        </div>
-        <button
-          v-for="b in activeBrands"
-          :key="b.id"
-          @click="selectBrand(b.id)"
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
-          :class="{ 'bg-accent/80 font-medium': b.id === currentBrandId }"
-        >
-          <div
-            class="size-6 rounded flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-            :style="{ background: b.color }"
-          >
-            {{ b.init }}
-          </div>
-          <span class="flex-1 truncate text-left text-xs">{{ b.name }}</span>
-          <Check
-            v-if="b.id === currentBrandId"
-            class="size-3.5 text-foreground shrink-0"
-          />
-        </button>
+
+      <!-- Brand Switcher Dropdown Popup (Expanded) -->
+      <Transition name="profile-drop">
         <div
-          v-can="'settings.brands.create'"
-          class="border-t border-border mt-1 pt-1"
+          v-if="brandDropOpen && !store.sidebarCollapsed"
+          class="absolute top-full left-2 right-2 mt-1 rounded-xl border border-border bg-background shadow-2xl overflow-hidden anim-down py-1.5 z-[250] flex flex-col gap-0.5"
         >
+          <div class="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Brands
+          </div>
           <button
-            @click="onAddBrand"
-            class="flex items-center gap-2 w-full px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-left"
+            v-for="b in activeBrands"
+            :key="b.id"
+            @click="selectBrand(b.id)"
+            class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-accent transition-colors"
+            :class="{ 'bg-accent/80 font-semibold': b.id === currentBrandId }"
           >
-            <Plus class="size-3.5 shrink-0" />
-            <span>Add Brand</span>
+            <div
+              class="size-7 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              :style="{ background: b.color }"
+            >
+              {{ b.init }}
+            </div>
+            <span class="flex-1 truncate text-left font-medium text-foreground">{{ b.name }}</span>
+            <Check
+              v-if="b.id === currentBrandId"
+              class="size-4 text-foreground shrink-0"
+            />
           </button>
+
+          <div
+            v-can="'settings.brands.create'"
+            class="border-t border-border mt-1 pt-1"
+          >
+            <button
+              @click="onAddBrand"
+              class="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors text-left"
+            >
+              <Plus class="size-4 shrink-0" />
+              <span>Add Brand</span>
+            </button>
+          </div>
         </div>
-      </div>
+      </Transition>
+
+      <!-- Brand Switcher Flyout (Collapsed) -->
+      <Teleport to="body">
+        <div
+          v-if="store.sidebarCollapsed && flyout === 'Brand'"
+          class="flyout-panel"
+          :style="flyoutStyle"
+          @mouseenter="setFlyout('Brand')"
+          @mouseleave="setFlyout(null)"
+        >
+          <p class="flyout-title">Brands</p>
+          <button
+            v-for="b in activeBrands"
+            :key="b.id"
+            @click="selectBrand(b.id); flyout = null;"
+            class="smb nav-btn text-[0.8125rem] py-1.5 w-full flex items-center gap-2.5"
+            :class="{ 'bg-accent/80 font-semibold': b.id === currentBrandId }"
+          >
+            <div
+              class="size-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+              :style="{ background: b.color }"
+            >
+              {{ b.init }}
+            </div>
+            <span class="flex-1 truncate text-left font-medium text-foreground">{{ b.name }}</span>
+            <Check
+              v-if="b.id === currentBrandId"
+              class="size-3.5 text-foreground shrink-0"
+            />
+          </button>
+          <div
+            v-can="'settings.brands.create'"
+            class="border-t border-border mt-1 pt-1"
+          >
+            <button
+              @click="onAddBrand(); flyout = null;"
+              class="flex items-center gap-2.5 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors rounded-md"
+            >
+              <Plus class="size-3.5 shrink-0" />
+              <span>Add brand</span>
+            </button>
+          </div>
+        </div>
+      </Teleport>
     </div>
     <!-- Nav -->
     <nav class="flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
@@ -117,9 +171,9 @@
             <span class="flex-1 text-left hide-collapsed">{{
               item.label
             }}</span>
-            <ChevronDown
-              class="size-3 text-muted-foreground hide-collapsed transition-transform"
-              :class="{ 'rotate-180': openSub === item.label }"
+            <ChevronRight
+              class="size-4 text-muted-foreground shrink-0 hide-collapsed transition-transform"
+              :class="{ 'rotate-90': openSub === item.label }"
             />
           </button>
           <!-- Inline submenu (expanded sidebar) -->
@@ -132,7 +186,7 @@
                 v-for="child in item.children"
                 :key="child.route"
                 @click="router.push(child.route)"
-                class="smb w-full text-[13px]"
+                class="smb nav-btn text-[0.8125rem] py-1.5 w-full"
                 :data-current="isChildActive(child.route)"
               >
                 <component
@@ -175,20 +229,29 @@
                   router.push(child.route);
                   flyout = null;
                 "
-                class="flyout-item flex items-center gap-2"
-                :class="{ active: isChildActive(child.route) }"
+                class="smb nav-btn text-[0.8125rem] py-1.5 w-full"
+                :data-current="isChildActive(child.route)"
               >
                 <component
                   v-if="child.icon"
                   :is="child.icon"
-                  class="size-3.5 shrink-0"
+                  class="size-4 shrink-0"
                   :class="
                     isChildActive(child.route)
                       ? 'text-white'
                       : 'text-muted-foreground'
                   "
                 />
-                <span>{{ child.label }}</span>
+                <span
+                  v-else
+                  class="size-1.5 rounded-full shrink-0"
+                  :class="
+                    isChildActive(child.route)
+                      ? 'bg-white'
+                      : 'bg-muted-foreground/30'
+                  "
+                />
+                <span class="flex-1 text-left">{{ child.label }}</span>
               </button>
             </div>
           </Teleport>
@@ -211,6 +274,7 @@
           class="badge-count bg-destructive hide-collapsed"
           >{{ unreadCount }}</span
         >
+        <ChevronRight class="size-4 text-muted-foreground shrink-0 hide-collapsed" />
       </button>
       <!-- Settings with submenu -->
       <div
@@ -225,9 +289,9 @@
         >
           <SettingsIcon class="size-4 shrink-0" />
           <span class="flex-1 text-left hide-collapsed">Settings</span>
-          <ChevronDown
-            class="size-3 text-muted-foreground hide-collapsed transition-transform"
-            :class="{ 'rotate-180': openSub === 'Settings' }"
+          <ChevronRight
+            class="size-4 text-muted-foreground shrink-0 hide-collapsed transition-transform"
+            :class="{ 'rotate-90': openSub === 'Settings' }"
           />
         </button>
         <div class="sidebar-sub-wrap" :class="{ open: openSub === 'Settings' }">
@@ -236,7 +300,7 @@
               v-for="s in settingsItems"
               :key="s.route"
               @click="handleSettingsItemClick(s)"
-              class="smb w-full text-[13px]"
+              class="smb nav-btn text-[0.8125rem] py-1.5 w-full"
               :data-current="route.path === s.route"
             >
               <span
@@ -262,14 +326,174 @@
               v-for="s in settingsItems"
               :key="s.route"
               @click="handleSettingsItemClick(s)"
-              class="flyout-item"
-              :class="{ active: route.path === s.route }"
+              class="smb nav-btn text-[0.8125rem] py-1.5 w-full"
+              :data-current="route.path === s.route"
             >
-              {{ s.label }}
+              <span
+                class="size-1.5 rounded-full shrink-0"
+                :class="
+                  route.path === s.route ? 'bg-white' : 'bg-muted-foreground/30'
+                "
+              />
+              <span class="flex-1 text-left">{{ s.label }}</span>
             </button>
           </div>
         </Teleport>
       </div>
+    </div>
+
+    <!-- Profile Footer Card -->
+    <div
+      class="p-2 border-t border-sidebar-border shrink-0 relative"
+      data-profile-menu
+      @mouseenter="onMouseEnterItem($event, 'Profile')"
+      @mouseleave="setFlyout(null)"
+    >
+      <button
+        @click="if (store.sidebarCollapsed) { flyout = flyout === 'Profile' ? null : 'Profile'; } else { profileOpen = !profileOpen; }"
+        class="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-accent/60 transition-colors text-left"
+        :class="{ 'justify-center p-1': store.sidebarCollapsed }"
+      >
+        <div
+          class="size-9 rounded-full bg-[#3dda84] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-xs"
+        >
+          {{ userInitials }}
+        </div>
+        <div class="flex-1 min-w-0 hide-collapsed">
+          <p class="text-sm font-semibold truncate text-foreground leading-tight">
+            {{ userName }}
+          </p>
+          <p class="text-xs text-muted-foreground truncate">
+            {{ userEmail || "user@example.com" }}
+          </p>
+        </div>
+        <ChevronsUpDown
+          class="size-4 text-muted-foreground shrink-0 hide-collapsed"
+        />
+      </button>
+
+      <!-- Profile Dropdown (Expanded) -->
+      <Transition name="profile-drop">
+        <div
+          v-if="profileOpen && !store.sidebarCollapsed"
+          class="absolute bottom-full mb-2 left-2 right-2 rounded-xl border border-border bg-background shadow-xl p-2 overflow-hidden z-[200] flex flex-col gap-1 min-w-[220px]"
+        >
+          <!-- User info header -->
+          <div class="flex items-center gap-3 p-1.5 pb-2.5 border-b border-border">
+            <div
+              class="size-9 rounded-full bg-[#3dda84] text-white flex items-center justify-center text-xs font-bold shrink-0"
+            >
+              {{ userInitials }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate text-foreground leading-tight">
+                {{ userName }}
+              </p>
+              <p class="text-xs text-muted-foreground truncate">
+                {{ userEmail || "user@example.com" }}
+              </p>
+            </div>
+          </div>
+
+          <!-- My Account -->
+          <button
+            @click="goProfile"
+            class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-accent rounded-lg transition-colors text-left font-medium"
+          >
+            <User class="size-4 text-muted-foreground" />
+            <span>My Account</span>
+          </button>
+
+          <!-- Security -->
+          <button
+            @click="
+              router.push('/app/settings/my-account');
+              profileOpen = false;
+            "
+            class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-accent rounded-lg transition-colors text-left font-medium"
+          >
+            <Shield class="size-4 text-muted-foreground" />
+            <span>Security</span>
+          </button>
+
+          <!-- Help & Support -->
+          <button
+            @click="toast('Support coming soon')"
+            class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-foreground hover:bg-accent rounded-lg transition-colors text-left font-medium"
+          >
+            <HelpCircle class="size-4 text-muted-foreground" />
+            <span>Help & Support</span>
+          </button>
+
+          <div class="border-t border-border my-0.5" />
+
+          <!-- Log out -->
+          <button
+            @click="authStore.logout()"
+            class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors text-left font-medium"
+          >
+            <LogOut class="size-4 text-rose-500" />
+            <span>Log out</span>
+          </button>
+        </div>
+      </Transition>
+
+      <!-- Profile Flyout (Collapsed) -->
+      <Teleport to="body">
+        <div
+          v-if="store.sidebarCollapsed && flyout === 'Profile'"
+          class="flyout-panel"
+          :style="flyoutStyle"
+          @mouseenter="setFlyout('Profile')"
+          @mouseleave="setFlyout(null)"
+        >
+          <div class="flex items-center gap-2.5 p-2 pb-2.5 border-b border-border mb-1">
+            <div
+              class="size-8 rounded-full bg-[#3dda84] text-white flex items-center justify-center text-xs font-bold shrink-0"
+            >
+              {{ userInitials }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-semibold truncate text-foreground leading-tight">
+                {{ userName }}
+              </p>
+              <p class="text-[10px] text-muted-foreground truncate">
+                {{ userEmail || "user@example.com" }}
+              </p>
+            </div>
+          </div>
+          <button
+            @click="goProfile(); flyout = null;"
+            class="smb nav-btn text-[0.8125rem] py-1.5 w-full flex items-center gap-2"
+          >
+            <User class="size-4 text-muted-foreground shrink-0" />
+            <span>My Account</span>
+          </button>
+          <button
+            @click="router.push('/app/settings/my-account'); flyout = null;"
+            class="smb nav-btn text-[0.8125rem] py-1.5 w-full flex items-center gap-2"
+          >
+            <Shield class="size-4 text-muted-foreground shrink-0" />
+            <span>Security</span>
+          </button>
+          <button
+            @click="toast('Support coming soon'); flyout = null;"
+            class="smb nav-btn text-[0.8125rem] py-1.5 w-full flex items-center gap-2"
+          >
+            <HelpCircle class="size-4 text-muted-foreground shrink-0" />
+            <span>Help & Support</span>
+          </button>
+          <div class="border-t border-border pt-1 mt-1">
+            <button
+              @click="authStore.logout(); flyout = null;"
+              class="smb nav-btn text-[0.8125rem] py-1.5 w-full flex items-center gap-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            >
+              <LogOut class="size-4 text-rose-500 shrink-0" />
+              <span>Log out</span>
+            </button>
+          </div>
+        </div>
+      </Teleport>
     </div>
   </aside>
 </template>
@@ -286,6 +510,8 @@ import { useNotificationStore } from "@/stores/notifications";
 
 import {
   ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
   Check,
   Plus,
   LayoutDashboard,
@@ -298,6 +524,8 @@ import {
   Settings as SettingsIcon,
   User,
   LogOut,
+  Shield,
+  HelpCircle,
   Sun,
   Moon,
   Layers,
@@ -312,6 +540,8 @@ import {
   AlertTriangle,
   Archive,
   Ruler,
+  PackageCheck,
+  Boxes,
 } from "lucide-vue-next";
 
 const store = useAppStore();
@@ -428,27 +658,34 @@ function goProfile() {
 function onClickOutside(e) {
   if (profileOpen.value && !e.target.closest("[data-profile-menu]"))
     profileOpen.value = false;
+  if (brandDropOpen.value && !e.target.closest("[data-brand-menu]"))
+    brandDropOpen.value = false;
 }
 
 function onMouseEnterItem(e, label) {
   if (!store.sidebarCollapsed) return;
   const rect = e.currentTarget.getBoundingClientRect();
 
-  let estimatedHeight = 180;
+  let estimatedHeight = 200;
   if (label === "Settings") {
-    estimatedHeight = 260;
-  } else if (label === "__profile") {
     estimatedHeight = 280;
+  } else if (label === "Profile" || label === "__profile") {
+    estimatedHeight = 260;
+  } else if (label === "Brand" || label === "__brand") {
+    estimatedHeight = 220;
   }
 
-  let top = rect.top;
   const viewportHeight = window.innerHeight;
 
-  if (top + estimatedHeight > viewportHeight) {
-    top = Math.max(10, viewportHeight - estimatedHeight - 12);
+  if (label === "Profile" || label === "__profile") {
+    flyoutStyle.value = { bottom: "16px", top: "auto", left: "3.5rem" };
+  } else {
+    let top = rect.top;
+    if (top + estimatedHeight > viewportHeight) {
+      top = Math.max(10, viewportHeight - estimatedHeight - 20);
+    }
+    flyoutStyle.value = { top: top + "px", bottom: "auto", left: "3.5rem" };
   }
-
-  flyoutStyle.value = { top: top + "px", left: "3.25rem" };
   setFlyout(label);
 }
 
@@ -509,13 +746,11 @@ const rawNavItems = [
       {
         route: "/app/products/shopify",
         label: "Shopify",
-        icon: ShopifyIcon,
         permission: "products.view",
       },
       {
         route: "/app/products/size-charts",
         label: "Size Chart",
-        icon: Ruler,
         permission: "products.view",
       },
     ],
@@ -548,23 +783,84 @@ const orderStatusItems = computed(() => {
       icon: Layers,
       permission: "orders.view",
     },
+    {
+      route: "/app/orders?status=pending",
+      label: "Pending",
+      icon: Clock,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=processing",
+      label: "Processing",
+      icon: Loader2,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=late",
+      label: "Late",
+      icon: AlertTriangle,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=shipped",
+      label: "Shipped",
+      icon: Truck,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=fulfilled",
+      label: "Fulfilled",
+      icon: CheckCircle,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=returns",
+      label: "Returns",
+      icon: RotateCcw,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=cancelled",
+      label: "Cancelled",
+      icon: Ban,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=completed",
+      label: "Completed",
+      icon: Check,
+      permission: "orders.view",
+    },
+    {
+      route: "/app/orders?status=closed",
+      label: "Closed",
+      icon: Archive,
+      permission: "orders.view",
+    },
   ];
 
-  const keys = Object.keys(ordersStore.tabs || {}).filter((k) => k !== "all");
-  const displayKeys = keys.length
-    ? keys
-    : ["pending", "late", "fulfilled", "returns", "cancelled"];
+  const knownKeys = new Set([
+    "all",
+    "pending",
+    "processing",
+    "late",
+    "shipped",
+    "fulfilled",
+    "returns",
+    "cancelled",
+    "completed",
+    "closed",
+  ]);
 
-  displayKeys.forEach((key) => {
+  const extraKeys = Object.keys(ordersStore.tabs || {}).filter(
+    (k) => !knownKeys.has(k.toLowerCase())
+  );
+
+  extraKeys.forEach((key) => {
     let icon = Layers;
-    if (key === "pending") icon = Clock;
-    else if (key === "late") icon = AlertTriangle;
-    else if (key === "fulfilled") icon = CheckCircle;
-    else if (key === "returns") icon = RotateCcw;
-    else if (key === "cancelled") icon = Ban;
-    else if (key === "processing") icon = Loader2;
-    else if (key === "shipped") icon = Truck;
-    else if (key === "qc_rejected") icon = XCircle;
+    const k = key.toLowerCase();
+    if (k.includes("deliver")) icon = PackageCheck;
+    else if (k.includes("reject")) icon = XCircle;
 
     const label =
       key.charAt(0).toUpperCase() + key.slice(1).replace(/[_-]/g, " ");
@@ -581,56 +877,58 @@ const orderStatusItems = computed(() => {
 });
 
 const productLifecycleItems = computed(() => {
-  const list = [
+  return [
     {
       route: "/app/products",
       label: "All Products",
-      icon: Layers,
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=draft",
+      label: "Draft",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=pending_review",
+      label: "Pending Review",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=active",
+      label: "Active",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=rejected",
+      label: "Rejected",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=archived",
+      label: "Archived",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=out_of_stock",
+      label: "Out of Stock",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products?status=suspended",
+      label: "Suspended",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products/shopify",
+      label: "Shopify",
+      permission: "products.view",
+    },
+    {
+      route: "/app/products/size-charts",
+      label: "Size Chart",
       permission: "products.view",
     },
   ];
-
-  const source = lookupStore.lifecycleStatuses?.length
-    ? lookupStore.lifecycleStatuses
-    : [
-        { code: "active", label: "Active" },
-        { code: "draft", label: "Draft" },
-        { code: "out_of_stock", label: "Out Of Stock" },
-        { code: "suspended", label: "Suspended" },
-        { code: "archived", label: "Archived" },
-      ];
-
-  source.forEach((s) => {
-    let icon = Layers;
-    if (s.code === "active") icon = CheckCircle;
-    else if (s.code === "draft") icon = FileText;
-    else if (s.code === "out_of_stock") icon = AlertTriangle;
-    else if (s.code === "suspended") icon = Ban;
-    else if (s.code === "archived") icon = Archive;
-
-    list.push({
-      route: `/app/products?status=${s.code}`,
-      label: s.label,
-      icon,
-      permission: "products.view",
-    });
-  });
-
-  list.push({
-    route: "/app/products/shopify",
-    label: "Shopify Products",
-    icon: ShopifyIcon,
-    permission: "products.view",
-  });
-
-  list.push({
-    route: "/app/products/size-charts",
-    label: "Size Charts",
-    icon: Ruler,
-    permission: "products.view",
-  });
-
-  return list;
 });
 
 const navItems = computed(() => {
@@ -641,6 +939,26 @@ const navItems = computed(() => {
       return true;
     })
     .map((item) => {
+      if (item.label === "Orders") {
+        return {
+          ...item,
+          children: orderStatusItems.value.filter((child) => {
+            if (child.permission && !authStore.hasPermission(child.permission))
+              return false;
+            return true;
+          }),
+        };
+      }
+      if (item.label === "Products") {
+        return {
+          ...item,
+          children: productLifecycleItems.value.filter((child) => {
+            if (child.permission && !authStore.hasPermission(child.permission))
+              return false;
+            return true;
+          }),
+        };
+      }
       if (item.children) {
         return {
           ...item,
@@ -657,8 +975,8 @@ const navItems = computed(() => {
 
 const rawSettingsItems = [
   {
-    route: "/app/settings/my-account",
-    label: "My account",
+    route: "/app/settings/general",
+    label: "General",
     permission: "settings.view",
   },
   {
@@ -680,11 +998,6 @@ const rawSettingsItems = [
     route: "/app/settings/integrations",
     label: "Shopify Integration",
     permission: "settings.integrations.view",
-  },
-  {
-    route: "logout",
-    label: "Sign Out",
-    action: "logout",
   },
 ];
 
@@ -741,6 +1054,16 @@ function toggleSub(key) {
 }
 
 function onNavItemClick(item) {
+  if (store.sidebarCollapsed) {
+    if (item.label === "Orders") {
+      router.push("/app/orders");
+      return;
+    }
+    if (item.label === "Products") {
+      router.push("/app/products");
+      return;
+    }
+  }
   if (item.route) {
     router.push(item.route);
   } else if (store.sidebarCollapsed) {
@@ -810,20 +1133,19 @@ aside nav {
 .smb {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.375rem 0.5rem;
-  border-radius: 0.375rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  color: hsl(var(--sidebar-foreground, 240 5.9% 10%));
-  text-align: left;
-  white-space: nowrap;
   overflow: hidden;
-  transition: background 150ms;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  transition: background-color 150ms, color 150ms;
 }
 .smb:hover {
   background: hsl(var(--sidebar-accent, 240 4.8% 95.9%));
@@ -865,7 +1187,7 @@ aside nav {
 .flyout-panel {
   position: fixed;
   z-index: 200;
-  min-width: 160px;
+  min-width: 210px;
   background: hsl(var(--background, 0 0% 100%));
   border: 1px solid hsl(var(--border, 240 5.9% 90%));
   border-radius: 0.75rem;
@@ -884,7 +1206,7 @@ aside nav {
   }
 }
 .flyout-title {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -898,7 +1220,7 @@ aside nav {
   width: 100%;
   text-align: left;
   padding: 0.5rem 0.75rem;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   border-radius: 0.5rem;
   border: none;
   background: transparent;

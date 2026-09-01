@@ -17,6 +17,7 @@
           :type="showPassword ? 'text' : 'password'"
           class="reg-input pr-10"
           :class="{ '!border-red-500 !text-red-400': passwordErr }"
+          :style="passwordErr ? 'border-color: #ef4444 !important;' : ''"
           placeholder="Enter a strong password"
           required
         />

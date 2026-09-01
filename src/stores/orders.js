@@ -197,7 +197,7 @@ export const useOrdersStore = defineStore('orders', () => {
       const res = await api.get(`/supplier/orders/${orderId}/print`, { responseType: 'blob' })
       const blob = new Blob([res.data], { type: 'application/pdf' })
       const url = window.URL.createObjectURL(blob)
-      
+
       const link = document.createElement('a')
       link.href = url
       link.setAttribute('download', `packing-slip-${orderId}.pdf`)
@@ -205,11 +205,27 @@ export const useOrdersStore = defineStore('orders', () => {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-      
+
       return url
     } catch (e) {
       console.error('Error printing order slip:', e)
       throw e
+    }
+  }
+
+  async function bulkFulfillOrders(orderIds = []) {
+    loading.value.action = true
+    try {
+      const res = await post('/supplier/orders/bulk', {
+        action: 'fulfill',
+        orderIds
+      })
+      return res
+    } catch (e) {
+      console.error('Error in bulk fulfill orders:', e)
+      throw e
+    } finally {
+      loading.value.action = false
     }
   }
 
@@ -233,6 +249,7 @@ export const useOrdersStore = defineStore('orders', () => {
     cancelOrder,
     syncOrders,
     exportOrders,
-    printOrderSlip
+    printOrderSlip,
+    bulkFulfillOrders
   }
 })

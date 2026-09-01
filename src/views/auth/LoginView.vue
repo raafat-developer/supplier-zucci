@@ -126,6 +126,8 @@ watch(otpValue, () => {
 watch(
   step,
   () => {
+    loginError.value = "";
+    otpError.value = "";
     nextTick(() => {
       setTimeout(() => {
         const card = document.querySelector(".auth-card");
@@ -142,7 +144,6 @@ watch(
 function toStep(n) {
   if (n === 2 && !email.value) {
     loginError.value = "Please enter your email address";
-    toast("Please enter your email address", "error");
     return;
   }
   loginError.value = "";
@@ -165,7 +166,6 @@ async function handleLogin() {
   if (!email.value || !password.value) {
     const msg = "Please enter your email and password";
     loginError.value = msg;
-    toast(msg, "error");
     return;
   }
   loginError.value = "";
@@ -199,7 +199,6 @@ async function handleLogin() {
       errData?.message ||
       "Invalid email or password.";
     loginError.value = errMsg;
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }

@@ -4,12 +4,14 @@
       type="button"
       @click="dialOpen = !dialOpen"
       ref="dialBtn"
-      class="flex items-center gap-1.5 px-3 py-3 border border-r-0 rounded-l-xl text-sm shrink-0 transition-colors cursor-pointer"
-      :class="
+      class="flex items-center gap-1.5 px-3 py-3 rounded-l-xl text-sm shrink-0 transition-colors cursor-pointer border-t border-b border-l border-r"
+      :class="[
         isDark
-          ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-          : 'border-border bg-muted/50 text-foreground hover:bg-muted'
-      "
+          ? 'bg-white/10 text-white hover:bg-white/20 border-r-white/20'
+          : 'bg-muted/50 text-foreground hover:bg-muted border-r-border',
+        isInvalid ? 'border-t-red-500 border-b-red-500 border-l-red-500' : (isDark ? 'border-t-white/20 border-b-white/20 border-l-white/20' : 'border-t-border border-b-border border-l-border')
+      ]"
+      :style="isInvalid ? 'border-top-color: #ef4444 !important; border-bottom-color: #ef4444 !important; border-left-color: #ef4444 !important;' : ''"
     >
       <img
         v-if="selectedCountry.code"
@@ -39,13 +41,14 @@
       :value="displayValue"
       @input="onInput"
       :placeholder="placeholder"
-      class="flex-1 rounded-r-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2"
+      class="flex-1 rounded-r-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 border-t border-b border-r border-l-0"
       :class="[
         isDark
-          ? 'border border-white/20 bg-white/10 text-white placeholder:text-white/40 focus:border-white/50 focus:ring-white/15'
-          : 'border border-input bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20',
-        isInvalid ? (isDark ? '!border-red-500/50 !ring-red-500/10' : '!border-red-500 !ring-red-500/10') : ''
+          ? 'bg-white/10 text-white placeholder:text-white/40 focus:border-white/50 focus:ring-white/15'
+          : 'bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20',
+        isInvalid ? 'border-t-red-500 border-b-red-500 border-r-red-500' : (isDark ? 'border-t-white/20 border-b-white/20 border-r-white/20' : 'border-t-input border-b-input border-r-input')
       ]"
+      :style="isInvalid ? 'border-top-color: #ef4444 !important; border-bottom-color: #ef4444 !important; border-right-color: #ef4444 !important;' : ''"
     />
     <Teleport to="body">
       <div
@@ -54,7 +57,7 @@
         class="fixed z-[999] rounded-xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         :class="
           isDark
-            ? 'border-white/10 bg-slate-900 text-white'
+            ? 'border-white/20 bg-white-10 backdrop-blur-xl text-white'
             : 'border-border bg-background text-foreground'
         "
         :style="dropStyle"
@@ -67,23 +70,23 @@
             ref="dialSearch"
             v-model="search"
             placeholder="Search country…"
-            class="w-full px-2.5 py-1.5 text-sm rounded-lg focus:outline-none"
+            class="w-full px-3 py-1.5 text-xs rounded-lg outline-none focus:outline-none focus:ring-1 transition-colors"
             :class="
               isDark
-                ? 'bg-white/10 text-white placeholder:text-white/40 border border-white/15 focus:border-white/40'
+                ? 'bg-white/10 text-white placeholder:text-white/40 border border-white/15 focus:border-white/50 focus:ring-white/20'
                 : 'bg-background text-foreground placeholder:text-muted-foreground border border-input focus:border-primary'
             "
           />
         </div>
-        <div class="max-h-56 overflow-y-auto p-1">
+        <div class="phone-dropdown-scroll">
           <button
             v-for="c in filteredCountries"
             :key="c.code"
             @click="selectCountry(c)"
-            class="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg transition-colors text-left cursor-pointer"
+            class="flex items-center gap-2.5 w-full px-3 py-2 text-xs rounded-lg transition-colors text-left cursor-pointer"
             :class="
               isDark
-                ? 'hover:bg-white/10 text-white'
+                ? 'hover:bg-white/15 text-white/90 hover:text-white'
                 : 'hover:bg-accent text-foreground'
             "
           >
@@ -91,9 +94,9 @@
               v-if="c.code"
               :src="flagUrl(c.code)"
               :alt="c.code"
-              class="w-5 h-5 rounded-full object-cover shrink-0"
+              class="w-4 h-4 rounded-full object-cover shrink-0"
             />
-            <span v-else class="text-base">{{ c.flag }}</span>
+            <span v-else class="text-sm">{{ c.flag }}</span>
             <span
               class="flex-1 truncate font-medium"
               :class="isDark ? 'text-white/90' : 'text-foreground/90'"
@@ -127,6 +130,7 @@ const props = defineProps({
   countryCode: { type: String, default: "EG" },
   placeholder: { type: String, default: "Phone number" },
   theme: { type: String, default: "light" },
+  isInvalid: { type: Boolean, default: false },
 });
 
 const isDark = computed(() => props.theme === "dark");
@@ -235,6 +239,7 @@ const displayValue = computed(() => {
 });
 
 const isInvalid = computed(() => {
+  if (props.isInvalid) return true;
   if (!props.modelValue) return false;
   const digits = props.modelValue.replace(/\D/g, "");
   // Don't flag as invalid while they are just starting to type
@@ -355,3 +360,24 @@ watch(dialOpen, (v) => {
   }
 });
 </script>
+
+<style scoped>
+.phone-dropdown-scroll {
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.375rem;
+}
+.phone-dropdown-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.phone-dropdown-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.phone-dropdown-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+}
+.phone-dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+</style>

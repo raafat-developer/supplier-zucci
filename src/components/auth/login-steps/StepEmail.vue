@@ -17,6 +17,7 @@
           placeholder="your@email.com"
           class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring"
           :class="{ '!border-red-500': !!loginError }"
+          :style="loginError ? 'border-color: #ef4444 !important;' : ''"
           @keydown.enter="$emit('next')"
         />
       </div>

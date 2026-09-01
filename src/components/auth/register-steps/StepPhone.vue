@@ -21,6 +21,7 @@
         :countryCode="phone.country"
         @update:countryCode="updateCountry"
         theme="dark"
+        :is-invalid="!!phoneErr"
       />
     </div>
     <div class="flex flex-col gap-2 mt-4">

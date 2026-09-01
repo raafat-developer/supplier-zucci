@@ -23,6 +23,7 @@
         placeholder="your@email.com"
         class="reg-input"
         :class="{ '!border-red-500 !text-red-400': emailErr }"
+        :style="emailErr ? 'border-color: #ef4444 !important;' : ''"
       />
     </div>
     <div class="flex flex-col gap-2 mt-4">

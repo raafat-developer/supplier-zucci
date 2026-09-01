@@ -54,19 +54,24 @@
           </div>
         </div>
         <div
-          class="rounded-xl p-5 flex flex-col gap-3 relative overflow-hidden"
+          class="rounded-xl p-5 flex flex-col gap-3 relative overflow-hidden bg-card border border-border"
           style="min-height: 160px"
         >
           <div
-            class="absolute inset-0 bg-cover bg-center rounded-xl"
+            class="absolute inset-0 bg-cover bg-center rounded-xl pointer-events-none"
             style="
-              background-image: url(&quot;https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&fit=crop&quot;);
-              opacity: 0.15;
+              background-image: url('/uploads/zucci-bg-with-overlay.png');
+    background-size: cover;
+    background-position: bottom;
+    opacity: .6;
             "
           ></div>
-          <div class="relative z-10 flex items-center justify-between">
+          <div
+            @click="$router.push('/app/settings/team')"
+            class="relative z-10 flex items-center justify-between cursor-pointer group"
+          >
             <p class="text-lg font-bold">Your Team</p>
-            <ChevronRight class="size-4 text-muted-foreground" />
+            <ChevronRight class="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
           </div>
           <p class="relative z-10 text-sm text-muted-foreground flex-1">
             Together with your team, expand your brand globally and fulfill each
@@ -74,7 +79,7 @@
           </p>
           <button
             @click="$router.push('/app/settings/team')"
-            class="relative z-10 rounded-lg border bg-white-10 px-4 py-2 text-sm font-medium hover:bg-white/80 transition-colors self-start"
+            class="relative z-10 rounded-lg border bg-white-10 px-4 py-2 text-sm font-medium hover:bg-white/80 transition-colors self-start cursor-pointer"
             style="background: rgba(255, 255, 255, 0.85)"
           >
             Invite Team Member
@@ -105,7 +110,7 @@
             <Copy class="size-4" />
           </button>
         </div>
-        <SaraContactCard />
+        <ContactCard />
       </div>
       <!-- Account Security -->
       <div class="mt-2">
@@ -264,6 +269,7 @@ import { useBrandStore } from "@/stores/brand";
 
 import ZucciFooter from "@/components/shared/ZucciFooter.vue";
 import SettingsSkeleton from "@/components/settings/SettingsSkeleton.vue";
+import ContactCard from "@/components/ui/ContactCard.vue";
 
 const router = useRouter();
 const { toast } = useAppStore();
@@ -370,59 +376,6 @@ const SettingsRow = defineComponent({
           ),
           h("span", { class: "text-sm flex-1" }, props.label),
           h(ChevronRight, { class: "size-4 text-muted-foreground" }),
-        ],
-      );
-  },
-});
-const SaraContactCard = defineComponent({
-  setup() {
-    return () =>
-      h(
-        "div",
-        {
-          class: "flex items-center gap-4 p-4 rounded-xl border bg-white-10",
-        },
-        [
-          h("img", {
-            src: "https://i.pravatar.cc/150?img=38",
-            class: "size-12 rounded-full object-cover shrink-0",
-            alt: "Sara",
-          }),
-          h("div", { class: "flex-1 min-w-0" }, [
-            h("p", { class: "font-semibold text-sm" }, "Sara Medhat"),
-            h(
-              "p",
-              { class: "text-xs text-muted-foreground" },
-              "Senior Partnership Manager",
-            ),
-          ]),
-          h("div", { class: "flex items-center gap-1.5" }, [
-            h(
-              "button",
-              {
-                class:
-                  "size-9 rounded-lg border bg-white-10 flex items-center justify-center hover:bg-accent transition-colors",
-              },
-              [h(MessageSquare, { class: "size-4 text-muted-foreground" })],
-            ),
-            h(
-              "a",
-              {
-                href: "tel:+971501234567",
-                class:
-                  "size-9 rounded-lg border bg-white-10 flex items-center justify-center hover:bg-accent transition-colors",
-              },
-              [h(Phone, { class: "size-4 text-muted-foreground" })],
-            ),
-            h(
-              "button",
-              {
-                class:
-                  "size-9 rounded-lg border bg-white-10 flex items-center justify-center hover:bg-accent transition-colors",
-              },
-              [h(Calendar, { class: "size-4 text-muted-foreground" })],
-            ),
-          ]),
         ],
       );
   },

@@ -23,6 +23,7 @@
         :key="i"
         :field="f"
         :modelValue="kycData"
+        :kycErr="kycErr"
         @update:modelValue="v => Object.assign(kycData, v)"
       />
     </div>

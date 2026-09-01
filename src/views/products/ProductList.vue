@@ -1,115 +1,66 @@
 <template>
-  <div class="flex flex-col gap-5 p-4 bg-white-10 max-w-full overflow-hidden">
-    <div class="rounded-xl border border-border bg-white-10 overflow-hidden w-full max-w-full">
-      <!-- Header -->
-      <div class="flex items-start justify-between px-6 pt-6 pb-4 gap-4">
-        <div>
-          <h1 class="text-xl font-bold">Products</h1>
-          <p class="text-sm text-muted-foreground mt-0.5">
-            {{ totalProductsCount }} products · across {{ brandCount }} brands
-          </p>
-        </div>
-        <div class="flex items-center gap-2 actions-dropdown-container">
-          <!-- Desktop Action Buttons -->
-          <div class="hidden sm:flex items-center gap-2">
-            <AppButton
-              v-can="'products.export'"
-              variant="outline"
-              size="sm"
-              @click="exportProducts"
-              ><Download class="size-3.5" /> Export</AppButton
-            >
-            <AppButton
-              v-can="'products.create'"
-              variant="outline"
-              size="sm"
-              @click="showImportWizard = true"
-              ><Upload class="size-3.5" /> Import</AppButton
-            >
-            <AppButton
-              v-can="'products.create'"
-              size="sm"
-              @click="$router.push('/app/products/new')"
-              ><Plus class="size-3.5" /> Add Product</AppButton
-            >
-          </div>
-
-          <!-- Mobile Actions Dropdown -->
-          <div class="sm:hidden relative">
-            <button
-              @click="showActionsDropdown = !showActionsDropdown"
-              class="px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-semibold hover:bg-accent text-foreground transition-colors flex items-center gap-1.5"
-            >
-              <span>Actions</span>
-              <ChevronDown class="size-3.5" />
-            </button>
-            <div
-              v-if="showActionsDropdown"
-              class="absolute right-0 mt-1 w-40 rounded-lg border border-border bg-background shadow-lg overflow-hidden py-1 z-[150] anim-down"
-            >
-              <button
-                v-can="'products.export'"
-                @click="exportProducts(); showActionsDropdown = false"
-                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
-              >
-                <Download class="size-3.5" />
-                <span>Export</span>
-              </button>
-              <button
-                v-can="'products.create'"
-                @click="showImportWizard = true; showActionsDropdown = false"
-                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
-              >
-                <Upload class="size-3.5" />
-                <span>Import</span>
-              </button>
-              <button
-                v-can="'products.create'"
-                @click="$router.push('/app/products/new'); showActionsDropdown = false"
-                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
-              >
-                <Plus class="size-3.5" />
-                <span>Add Product</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Status Tabs -->
-      <div
-        class="flex items-center gap-0.5 px-6 border-b border-border overflow-x-auto"
-      >
-        <button
-          v-for="t in tabs"
-          :key="t.value"
-          @click="selectTab(t.value)"
-          class="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
-          :class="
-            tab === t.value
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          "
-        >
-          <span>{{ t.label }}</span>
-          <span
-            v-if="getTabCount(t.value) !== undefined"
-            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20"
-            :class="{
-              'bg-primary/10 text-primary border-primary/25': tab === t.value,
-            }"
+  <div class="flex flex-col gap-5 p-4 bg-white-10">
+      <!-- ─── Tabs & Actions Row (OUTSIDE table border) ─── -->
+      <div class="flex items-center justify-between gap-4 py-1 px-1 flex-wrap">
+        <!-- Status Tabs -->
+        <div class="flex items-center gap-1 overflow-x-auto">
+          <button
+            v-for="t in tabs"
+            :key="t.value"
+            @click="selectTab(t.value)"
+            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+            :class="
+              tab === t.value
+                ? 'bg-muted/80 text-foreground font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
+            "
           >
-            {{ getTabCount(t.value) }}
-          </span>
-        </button>
+            <span>{{ t.label }}</span>
+            <span
+              v-if="t.count !== undefined"
+              class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-[10px] font-bold px-1 leading-none shrink-0 bg-slate-500/10 text-slate-700 border border-slate-500/20"
+              :class="{
+                'bg-[#111] text-white border-[#111]': tab === t.value,
+              }"
+            >
+              {{ t.count }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2 shrink-0">
+          <AppButton
+            v-can="'products.export'"
+            variant="outline"
+            size="sm"
+            @click="exportProducts"
+            ><Download class="size-3.5" /> Export</AppButton
+          >
+          <AppButton
+            v-can="'products.create'"
+            variant="outline"
+            size="sm"
+            @click="showImportWizard = true"
+            ><Upload class="size-3.5" /> Import</AppButton
+          >
+          <AppButton
+            v-can="'products.create'"
+            size="sm"
+            @click="$router.push('/app/products/new')"
+            ><Plus class="size-3.5" /> Add Product</AppButton
+          >
+        </div>
       </div>
-      <!-- Filters row -->
+
+      <!-- ─── Filters Row (OUTSIDE table border) ─── -->
       <div
-        class="flex items-center gap-3 px-6 py-3 flex-wrap border-b border-border bg-muted/20"
+        class="flex items-center gap-3 py-2 px-1 flex-wrap"
       >
         <SearchField
           v-model="search"
           placeholder="Search products…"
-          style="width: 12rem"
+          class="w-full sm:w-48"
         />
         <div class="flex items-center gap-1">
           <CategoryPicker
@@ -162,7 +113,7 @@
             "
           >
             <img :src="m.flagUrl" :alt="m.code" class="w-4 h-4 rounded-sm" />
-            <!-- {{ m.code }} -->
+            {{ m.code }}
           </button>
         </div>
 
@@ -252,6 +203,9 @@
           </button>
         </div>
       </div>
+
+      <!-- ─── Main Table Card ─── -->
+      <div class="rounded-xl border border-border bg-white-10 overflow-hidden">
       <!-- Table -->
       <div class="flex-1 overflow-x-auto">
         <table class="data-table w-full min-w-[750px]">
@@ -522,11 +476,6 @@ const computedMarkets = computed(() => {
     : [
         { id: 1, code: "AE", label: "United Arab Emirates" },
         { id: 2, code: "SA", label: "Saudi Arabia" },
-        { id: 3, code: "EG", label: "Egypt" },
-        { id: 4, code: "QA", label: "Qatar" },
-        { id: 5, code: "KW", label: "Kuwait" },
-        { id: 6, code: "BH", label: "Bahrain" },
-        { id: 7, code: "OM", label: "Oman" },
       ];
   return list.map((m) => ({
     ...m,
@@ -562,44 +511,97 @@ const tabCounts = ref({
   archived: 0,
 });
 
-const tabs = computed(() => {
-  const list = [{ value: "all", label: "All" }];
+function getTabCount(val) {
+  if (!val || !tabCounts.value) return 0;
+  const key = String(val);
+  const snakeKey = key.replace(/([A-Z])/g, "_$1").toLowerCase();
+  const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
-  const source = lifecycleStatuses.value.length
-    ? lifecycleStatuses.value
-    : [
-        { code: "draft", label: "Draft" },
-        { code: "pending_review", label: "Pending Review" },
-        { code: "active", label: "Active" },
-        { code: "rejected", label: "Rejected" },
-        { code: "archived", label: "Archived" },
-        { code: "out_of_stock", label: "Out of Stock" },
-        { code: "suspended", label: "Suspended" },
-      ];
+  const count =
+    tabCounts.value[key] ??
+    tabCounts.value[camelKey] ??
+    tabCounts.value[snakeKey];
 
-  source.forEach((s) => {
-    list.push({
-      value: s.code,
-      label: s.label,
-    });
-  });
-
-  return list;
-});
-
-function getTabCount(value) {
-  if (value === "all") return tabCounts.value.all;
-  if (value === "draft") return tabCounts.value.draft;
-  if (value === "pending_review")
-    return tabCounts.value.pendingReview || tabCounts.value.pending_review;
-  if (value === "active") return tabCounts.value.active;
-  if (value === "rejected") return tabCounts.value.rejected;
-  if (value === "archived") return tabCounts.value.archived;
-  if (value === "out_of_stock")
-    return tabCounts.value.outOfStock || tabCounts.value.out_of_stock;
-  if (value === "suspended") return tabCounts.value.suspended;
-  return undefined;
+  return count !== undefined && count !== null ? Number(count) : 0;
 }
+
+const tabLabelMap = {
+  all: "All",
+  draft: "Draft",
+  pendingReview: "Pending Review",
+  pending_review: "Pending Review",
+  active: "Active",
+  rejected: "Rejected",
+  outOfStock: "Out of Stock",
+  out_of_stock: "Out of Stock",
+  suspended: "Suspended",
+  archived: "Archived",
+};
+
+const tabs = computed(() => {
+  if (tabCounts.value && Object.keys(tabCounts.value).length > 0) {
+    const list = [];
+    const keys = Object.keys(tabCounts.value);
+    const tabOrder = [
+      "all",
+      "draft",
+      "pendingReview",
+      "pending_review",
+      "active",
+      "rejected",
+      "archived",
+      "outOfStock",
+      "out_of_stock",
+      "suspended",
+    ];
+
+    const sortedKeys = keys.slice().sort((a, b) => {
+      const idxA = tabOrder.indexOf(a);
+      const idxB = tabOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+
+    const addedValues = new Set();
+
+    sortedKeys.forEach((key) => {
+      let routeValue = key;
+      if (key === "pendingReview") routeValue = "pending_review";
+      if (key === "outOfStock") routeValue = "out_of_stock";
+
+      if (!addedValues.has(routeValue)) {
+        addedValues.add(routeValue);
+        const label =
+          tabLabelMap[key] ||
+          tabLabelMap[routeValue] ||
+          key
+            .replace(/([A-Z])/g, " $1")
+            .replace(/^./, (str) => str.toUpperCase());
+
+        list.push({
+          value: routeValue,
+          label: label,
+          count: Number(tabCounts.value[key] ?? tabCounts.value[routeValue] ?? 0),
+        });
+      }
+    });
+
+    return list;
+  }
+
+  return [
+    { value: "all", label: "All", count: 0 },
+    { value: "draft", label: "Draft", count: 0 },
+    { value: "pending_review", label: "Pending Review", count: 0 },
+    { value: "active", label: "Active", count: 0 },
+    { value: "rejected", label: "Rejected", count: 0 },
+    { value: "archived", label: "Archived", count: 0 },
+    { value: "out_of_stock", label: "Out of Stock", count: 0 },
+    { value: "suspended", label: "Suspended", count: 0 },
+  ];
+});
 
 const currentBrandDbId = computed(() => {
   const currentSlug = brandStore.currentBrandId;
@@ -766,19 +768,14 @@ async function fetchProducts() {
       totalProductsCount.value = res.meta?.total || res.data.length;
       brandCount.value = res.summary?.brandCount || 1;
 
-      const tabsData = res.tabs || {};
-      tabCounts.value = {
-        all: tabsData.all ?? 0,
-        active: tabsData.active ?? 0,
-        pendingReview: tabsData.pendingReview ?? tabsData.pending_review ?? 0,
-        pending_review: tabsData.pendingReview ?? tabsData.pending_review ?? 0,
-        draft: tabsData.draft ?? 0,
-        rejected: tabsData.rejected ?? 0,
-        outOfStock: tabsData.outOfStock ?? tabsData.out_of_stock ?? 0,
-        out_of_stock: tabsData.outOfStock ?? tabsData.out_of_stock ?? 0,
-        suspended: tabsData.suspended ?? 0,
-        archived: tabsData.archived ?? 0,
-      };
+      if (res.tabs) {
+        const tObj = { ...res.tabs };
+        if (tObj.pendingReview !== undefined) tObj.pending_review = tObj.pendingReview;
+        if (tObj.pending_review !== undefined) tObj.pendingReview = tObj.pending_review;
+        if (tObj.outOfStock !== undefined) tObj.out_of_stock = tObj.outOfStock;
+        if (tObj.out_of_stock !== undefined) tObj.outOfStock = tObj.out_of_stock;
+        tabCounts.value = tObj;
+      }
     }
   } catch (e) {
     // fallback or error toast handled by axios

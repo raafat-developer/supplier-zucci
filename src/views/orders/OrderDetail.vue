@@ -1,1024 +1,310 @@
 <template>
-  <div class="order-detail-page bg-white-10">
-    <!-- ─── Top Bar: Back Link and Actions ─── -->
-    <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
-      <button @click="$router.push('/app/orders')" class="back-link !mb-0">
-        <ChevronLeft class="back-link__icon" />Back to Orders
-      </button>
-
-      <!-- Action Buttons -->
-      <div v-if="currentOrder" class="flex items-center gap-2 flex-wrap">
-        <button
-          v-can="'orders.edit'"
-          @click="showUploadEvidence = true"
-          class="btn btn--outline py-1.5 px-3.5 text-xs font-bold"
-        >
-          <Upload class="btn__icon size-3.5" />Upload return evidence
-        </button>
-        <button
-          v-can="'orders.approve'"
-          v-if="currentOrder.fulfillmentStatus === 'pending'"
-          @click="confirmReceipt"
-          class="btn btn--green py-1.5 px-3.5 text-xs font-bold"
-        >
-          <CheckCircle class="btn__icon size-3.5" />Confirm receipt
-        </button>
-        <button
-          v-can="'orders.export'"
-          @click="printOrder"
-          class="btn btn--outline py-1.5 px-3.5 text-xs font-bold"
-        >
-          <Printer class="btn__icon size-3.5" />Print order
-        </button>
-      </div>
-    </div>
-
-    <!-- ─── Loading State ─── -->
-    <div v-if="loading.detail && !currentOrder" class="loading-state">
-      <RefreshCw class="loading-state__spinner" />
-      <span class="loading-state__text">Loading order details...</span>
-    </div>
-
-    <!-- ─── Main Content ─── -->
-    <div v-else-if="currentOrder" class="detail-card">
-      <!-- Header: Order info, badges, and tracking/dates block -->
-      <div class="rounded-xl border border-border bg-card p-4 mb-4">
-        <!-- Main row: Left Part (info + tracking) and Right Part (manager card) -->
-        <div
-          class="flex items-start justify-between gap-4 flex-wrap lg:flex-nowrap"
-        >
-          <!-- Left part: Circular Logo + Grid of Columns (DESKTOP) -->
-          <div class="hidden md:flex flex-grow items-center gap-3 min-w-0">
-            <!-- Circular logo -->
-            <div
-              class="size-14 rounded-full border border-border bg-muted/10 flex items-center justify-center font-bold text-sm text-muted-foreground shrink-0 shadow-sm"
-            >
-              OR
-            </div>
-
-            <!-- Columns Row -->
-            <div
-              class="flex-grow grid grid-cols-4 gap-x-4 gap-y-2"
-            >
-              <!-- Column 1: Order ID + Internal Tracking -->
-              <div class="flex flex-col gap-1.5 min-w-0">
-                <span class="text-xs font-bold text-foreground truncate">
-                  Order #{{ currentOrder.id }}
-                </span>
-                <div class="flex flex-col gap-0.5">
-                  <span
-                    class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                    >Internal tracking</span
-                  >
-                  <span class="text-xs font-semibold text-foreground truncate">
-                    {{
-                      currentOrder.tracking?.trackingNumber ||
-                      currentOrder.trackingNumber ||
-                      "—"
-                    }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Column 2: Fulfillment Status + International Tracking -->
-              <div class="flex flex-col gap-1.5 min-w-0">
-                <div>
-                  <span
-                    class="status-badge"
-                    :class="statusBadgeClass(currentOrder.fulfillmentStatus)"
-                  >
-                    {{ statusLabel(currentOrder.fulfillmentStatus) || "—" }}
-                  </span>
-                </div>
-                <div class="flex flex-col gap-0.5">
-                  <span
-                    class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                    >International tracking</span
-                  >
-                  <span class="text-xs font-semibold text-foreground truncate">
-                    {{
-                      currentOrder.internationalTracking ||
-                      currentOrder.tracking?.internationalTracking ||
-                      "—"
-                    }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Column 3: Carrier Status + Est Delivery Date -->
-              <div class="flex flex-col gap-1.5 min-w-0">
-                <div>
-                  <span class="status-badge status-badge--blue">
-                    {{
-                      currentOrder.tracking?.carrierLabel ||
-                      currentOrder.tracking?.carrier ||
-                      currentOrder.carrier ||
-                      "Aramex"
-                    }}
-                  </span>
-                </div>
-                <div class="flex flex-col gap-0.5">
-                  <span
-                    class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                    >Est. delivery date</span
-                  >
-                  <span class="text-xs font-semibold text-foreground truncate">
-                    {{ currentOrder.tracking?.estimatedDelivery || "—" }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Column 4: Return Status + Created Date -->
-              <div class="flex flex-col gap-1.5 min-w-0">
-                <div>
-                  <span class="status-badge status-badge--orange">
-                    {{
-                      currentOrder.returnStatus?.label ||
-                      currentOrder.returnStatus?.code ||
-                      "No Returns"
-                    }}
-                  </span>
-                </div>
-                <div class="flex flex-col gap-0.5">
-                  <span
-                    class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                    >Created date</span
-                  >
-                  <span class="text-xs font-semibold text-foreground truncate">
-                    {{
-                      formatDateOnly(
-                        currentOrder.orderedAtDisplay || currentOrder.orderedAt,
-                      )
-                    }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Left part: Circular Logo + Details (MOBILE) -->
-          <div class="flex md:hidden flex-col gap-4 w-full">
-            <!-- Header Row: Logo + Order ID & Badges -->
-            <div class="flex items-center gap-3">
-              <div
-                class="size-12 rounded-full border border-border bg-muted/10 flex items-center justify-center font-bold text-sm text-muted-foreground shrink-0 shadow-sm"
-              >
-                OR
-              </div>
-              <div class="flex flex-col gap-1 min-w-0">
-                <span class="text-sm font-bold text-foreground">
-                  Order #{{ currentOrder.id }}
-                </span>
-                <div class="flex flex-wrap gap-1">
-                  <span
-                    class="status-badge py-0.5 px-2 text-[8px]"
-                    :class="statusBadgeClass(currentOrder.fulfillmentStatus)"
-                  >
-                    {{ statusLabel(currentOrder.fulfillmentStatus) || "—" }}
-                  </span>
-                  <span class="status-badge status-badge--blue py-0.5 px-2 text-[8px]">
-                    {{
-                      currentOrder.tracking?.carrierLabel ||
-                      currentOrder.tracking?.carrier ||
-                      currentOrder.carrier ||
-                      "Aramex"
-                    }}
-                  </span>
-                  <span class="status-badge status-badge--orange py-0.5 px-2 text-[8px]">
-                    {{
-                      currentOrder.returnStatus?.label ||
-                      currentOrder.returnStatus?.code ||
-                      "No Returns"
-                    }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Details Grid: Tracking and Dates -->
-            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-border/40">
-              <!-- Internal Tracking -->
-              <div class="flex flex-col gap-0.5 min-w-0">
-                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                  >Internal tracking</span
-                >
-                <span class="text-xs font-semibold text-foreground truncate">
-                  {{
-                    currentOrder.tracking?.trackingNumber ||
-                    currentOrder.trackingNumber ||
-                    "—"
-                  }}
-                </span>
-              </div>
-
-              <!-- International Tracking -->
-              <div class="flex flex-col gap-0.5 min-w-0">
-                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                  >International tracking</span
-                >
-                <span class="text-xs font-semibold text-foreground truncate">
-                  {{
-                    currentOrder.internationalTracking ||
-                    currentOrder.tracking?.internationalTracking ||
-                    "—"
-                  }}
-                </span>
-              </div>
-
-              <!-- Est Delivery Date -->
-              <div class="flex flex-col gap-0.5 min-w-0">
-                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                  >Est. delivery date</span
-                >
-                <span class="text-xs font-semibold text-foreground truncate">
-                  {{ currentOrder.tracking?.estimatedDelivery || "—" }}
-                </span>
-              </div>
-
-              <!-- Created Date -->
-              <div class="flex flex-col gap-0.5 min-w-0">
-                <span class="text-[9px] font-bold text-muted-foreground uppercase tracking-wider"
-                  >Created date</span
-                >
-                <span class="text-xs font-semibold text-foreground truncate">
-                  {{
-                    formatDateOnly(
-                      currentOrder.orderedAtDisplay || currentOrder.orderedAt,
-                    )
-                  }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right side: AccountManagerCard -->
-          <div class="w-full lg:w-auto lg:shrink-0">
-            <AccountManagerCard
-              v-if="currentOrder.accountManager"
-              :manager="currentOrder.accountManager"
-              class="detail-header__manager"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Section 1: Fulfillment Status Bar -->
-      <div class="status-bar-container rounded-xl p-4">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-[11px] font-extrabold uppercase tracking-widest">
-            Order status
-          </h3>
-        </div>
-        
-        <!-- Desktop Stepper -->
-        <div class="hidden md:flex relative items-center justify-between">
-          <!-- Progress Line -->
-          <div
-            class="absolute top-[14px] h-[3px] bg-[#fff] rounded z-0"
-            :style="{
-              left:
-                100 /
-                  (2 *
-                    (currentOrder.fulfillmentProgress || progressSteps)
-                      .length) +
-                '%',
-              right:
-                100 /
-                  (2 *
-                    (currentOrder.fulfillmentProgress || progressSteps)
-                      .length) +
-                '%',
-            }"
-          >
-            <div
-              class="h-full bg-[#96bf48] rounded transition-all duration-500"
-              :style="{
-                width: progressPercent + '%',
-              }"
-            ></div>
-          </div>
-
-          <!-- Steps -->
-          <div
-            v-for="(step, idx) in currentOrder.fulfillmentProgress ||
-            progressSteps"
-            :key="idx"
-            class="relative flex flex-col items-center z-10 flex-1"
-          >
-            <!-- Step Indicator -->
-            <div class="h-8 flex items-center justify-center">
-              <!-- Completed Step (Solid Green Dot) -->
-              <div
-                v-if="step.state ? step.state === 'done' : idx < currentStepIdx"
-                class="size-3.5 rounded-full bg-[#96bf48] shadow-[0_0_8px_rgba(150,191,72,0.6)]"
-              ></div>
-              <!-- Current Step (Double Green Ring/Circle) -->
-              <div
-                v-else-if="
-                  step.state ? step.state === 'current' : idx === currentStepIdx
-                "
-                class="size-5 rounded-full border-[3px] border-[#96bf48] bg-[#fff] flex items-center justify-center"
-              >
-                <div class="size-1.5 rounded-full bg-[#96bf48]"></div>
-              </div>
-              <!-- Inactive Step (Dark Gray Circle) -->
-              <div v-else class="size-3 rounded-full bg-[#fff]"></div>
-            </div>
-
-            <!-- Step Label -->
-            <span
-              class="text-[11px] font-bold mt-2 text-center whitespace-nowrap"
-              :class="
-                (
-                  step.state
-                    ? step.state === 'done' || step.state === 'current'
-                    : idx <= currentStepIdx
-                )
-                  ? 'text-[#96bf48]'
-                  : 'text-muted-foreground'
-              "
-            >
-              {{ step.label }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Mobile Stepper -->
-        <div class="flex md:hidden relative flex-col gap-6 pl-4 py-2">
-          <!-- Progress Line -->
-          <div
-            class="absolute left-[26px] top-[24px] bottom-[24px] w-[3px] bg-[#fff] rounded z-0"
-          >
-            <div
-              class="w-full bg-[#96bf48] rounded transition-all duration-500"
-              :style="{
-                height: progressPercent + '%',
-              }"
-            ></div>
-          </div>
-
-          <!-- Steps -->
-          <div
-            v-for="(step, idx) in currentOrder.fulfillmentProgress ||
-            progressSteps"
-            :key="idx"
-            class="relative flex items-center gap-4 z-10"
-          >
-            <!-- Step Indicator -->
-            <div class="w-[20px] h-8 flex items-center justify-center shrink-0">
-              <!-- Completed Step (Solid Green Dot) -->
-              <div
-                v-if="step.state ? step.state === 'done' : idx < currentStepIdx"
-                class="size-3.5 rounded-full bg-[#96bf48] shadow-[0_0_8px_rgba(150,191,72,0.6)]"
-              ></div>
-              <!-- Current Step (Double Green Ring/Circle) -->
-              <div
-                v-else-if="
-                  step.state ? step.state === 'current' : idx === currentStepIdx
-                "
-                class="size-5 rounded-full border-[3px] border-[#96bf48] bg-[#fff] flex items-center justify-center"
-              >
-                <div class="size-1.5 rounded-full bg-[#96bf48]"></div>
-              </div>
-              <!-- Inactive Step (Dark Gray Circle) -->
-              <div v-else class="size-3 rounded-full bg-[#fff]"></div>
-            </div>
-
-            <!-- Step Label -->
-            <span
-              class="text-[12px] font-bold"
-              :class="
-                (
-                  step.state
-                    ? step.state === 'done' || step.state === 'current'
-                    : idx <= currentStepIdx
-                )
-                  ? 'text-[#96bf48]'
-                  : 'text-muted-foreground'
-              "
-            >
-              {{ step.label }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sections 2, 3 & 4 Grid (Item List, Customer Info, Invoice Breakdown, Shipment Info) -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
-        <!-- Left Column Row 1: Item List (Section 2) -->
-        <div class="lg:col-span-2">
-          <div class="items-card bg-card rounded-xl">
-            <h3
-              class="text-xs font-bold mb-4 uppercase tracking-wider text-muted-foreground"
-            >
-              Item List
-            </h3>
-            
-            <!-- Desktop Table View -->
-            <div class="hidden md:block overflow-x-auto">
-              <table class="w-full text-left border-collapse">
-                <thead>
-                  <tr
-                    class="border-b border-border text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider"
-                  >
-                    <th class="pb-3 w-1/2">Item</th>
-                    <th class="pb-3 text-center">Item code</th>
-                    <th class="pb-3 text-right">Price</th>
-                    <th class="pb-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-border/60">
-                  <template v-for="item in currentOrder.items" :key="item.sku">
-                    <tr class="group">
-                      <td class="py-4 flex items-center gap-3">
-                        <div
-                          class="size-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40"
-                        >
-                          <img
-                            v-if="item.imageUrl"
-                            :src="item.imageUrl"
-                            class="size-full object-cover"
-                            :alt="item.name"
-                          />
-                          <Package
-                            v-else
-                            class="size-6 text-muted-foreground"
-                          />
-                        </div>
-                        <div class="min-w-0">
-                          <p
-                            class="text-xs font-semibold text-foreground truncate max-w-[200px]"
-                          >
-                            {{ item.name }}
-                          </p>
-                          <p class="text-[10px] text-muted-foreground">
-                            SKU: {{ item.sku }}
-                          </p>
-                        </div>
-                      </td>
-                      <td
-                        class="py-4 text-center text-xs text-muted-foreground font-medium"
-                      >
-                        {{ currentOrder.id }}
-                      </td>
-                      <td
-                        class="py-4 text-right text-xs font-bold text-foreground"
-                      >
-                        {{
-                          item.unitPriceFormatted ||
-                          `${currentOrder.currency} ${formatNumber(item.unitPrice)}`
-                        }}
-                        <span
-                          class="text-[10px] text-muted-foreground font-medium ml-1"
-                          >× {{ item.qty }}</span
-                        >
-                      </td>
-                      <td class="py-4 text-center">
-                        <span
-                          class="status-badge"
-                          :class="
-                            statusBadgeClass(
-                              item.status || currentOrder.fulfillmentStatus,
-                            )
-                          "
-                        >
-                          {{
-                            statusLabel(
-                              item.status || currentOrder.fulfillmentStatus,
-                            ) || "pending"
-                          }}
-                        </span>
-                      </td>
-                    </tr>
-                    <!-- Per-unit status breakdown if units array exists -->
-                    <tr
-                      v-if="item.units && item.units.length"
-                      class="bg-muted/10"
-                    >
-                      <td colspan="4" class="px-6 py-2">
-                        <div
-                          class="text-[10px] font-bold text-muted-foreground uppercase mb-1"
-                        >
-                          Unit Statuses:
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                          <span
-                            v-for="(unit, uIdx) in item.units"
-                            :key="uIdx"
-                            class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border/40 text-[10px] font-medium bg-background"
-                          >
-                            Unit #{{ uIdx + 1 }}:
-                            <span
-                              class="status-badge py-0 px-1 text-[9px]"
-                              :class="statusBadgeClass(unit.status)"
-                            >
-                              {{ statusLabel(unit.status) || "pending" }}
-                            </span>
-                            <span
-                              v-if="unit.barcode"
-                              class="text-muted-foreground font-mono"
-                              >({{ unit.barcode }})</span
-                            >
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Mobile Card View -->
-            <div class="md:hidden flex flex-col gap-4">
-              <div
-                v-for="item in currentOrder.items"
-                :key="item.sku"
-                class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0"
-              >
-                <!-- Item Card Header: Image & Name/SKU -->
-                <div class="flex items-start gap-3 mb-3">
-                  <div
-                    class="size-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0 border border-border/40"
-                  >
-                    <img
-                      v-if="item.imageUrl"
-                      :src="item.imageUrl"
-                      class="size-full object-cover"
-                      :alt="item.name"
-                    />
-                    <Package v-else class="size-6 text-muted-foreground" />
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-xs font-semibold text-foreground">
-                      {{ item.name }}
-                    </p>
-                    <p class="text-[10px] text-muted-foreground">
-                      SKU: {{ item.sku }}
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Item Details Grid -->
-                <div class="grid grid-cols-3 gap-2 text-xs py-2 bg-muted/10 rounded-lg px-3">
-                  <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-muted-foreground uppercase">Item Code</span>
-                    <span class="font-medium text-foreground mt-0.5">{{ currentOrder.id }}</span>
-                  </div>
-                  <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-muted-foreground uppercase">Price</span>
-                    <span class="font-bold text-foreground mt-0.5">
-                      {{ item.unitPriceFormatted || `${currentOrder.currency} ${formatNumber(item.unitPrice)}` }}
-                      <span class="text-[10px] text-muted-foreground font-medium">×{{ item.qty }}</span>
-                    </span>
-                  </div>
-                  <div class="flex flex-col items-start">
-                    <span class="text-[9px] font-bold text-muted-foreground uppercase mb-0.5">Status</span>
-                    <span
-                      class="status-badge py-0 px-1.5 text-[9px]"
-                      :class="statusBadgeClass(item.status || currentOrder.fulfillmentStatus)"
-                    >
-                      {{ statusLabel(item.status || currentOrder.fulfillmentStatus) || "pending" }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Per-unit status breakdown if units array exists -->
-                <div v-if="item.units && item.units.length" class="mt-3 pl-3 border-l-2 border-border">
-                  <div class="text-[9px] font-bold text-muted-foreground uppercase mb-1.5">
-                    Unit Statuses:
-                  </div>
-                  <div class="flex flex-wrap gap-2">
-                    <span
-                      v-for="(unit, uIdx) in item.units"
-                      :key="uIdx"
-                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-border/40 text-[9px] font-medium bg-background"
-                    >
-                      Unit #{{ uIdx + 1 }}:
-                      <span
-                        class="status-badge py-0 px-1 text-[8px]"
-                        :class="statusBadgeClass(unit.status)"
-                      >
-                        {{ statusLabel(unit.status) || "pending" }}
-                      </span>
-                      <span
-                        v-if="unit.barcode"
-                        class="text-muted-foreground font-mono"
-                        >({{ unit.barcode }})</span
-                      >
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Column Row 1: Customer Information (Section 3) -->
-        <div
-          class="customer-info-section bg-card border border-border rounded-xl p-5"
-        >
-          <h3
-            class="text-xs font-bold text-foreground mb-4 uppercase tracking-wider text-muted-foreground"
-          >
-            Customer Information
-          </h3>
-          <div class="flex flex-col gap-3">
-            <div
-              class="flex justify-between items-center py-1 border-b border-border/50 text-sm"
-            >
-              <span class="text-muted-foreground text-xs">Name</span>
-              <span class="font-semibold text-foreground text-xs">{{
-                currentOrder.customer?.name ||
-                currentOrder.customerName ||
-                currentOrder.customer ||
-                "—"
-              }}</span>
-            </div>
-            <div
-              class="flex justify-between items-center py-1 border-b border-border/50 text-sm"
-            >
-              <span class="text-muted-foreground text-xs">City</span>
-              <span class="font-semibold text-foreground text-xs">{{
-                currentOrder.city ||
-                currentOrder.customer?.city ||
-                currentOrder.shippingAddress?.city ||
-                "—"
-              }}</span>
-            </div>
-            <div
-              class="flex justify-between items-center py-1 border-b border-border/50 text-sm"
-            >
-              <span class="text-muted-foreground text-xs">Market</span>
-              <span class="font-semibold text-foreground text-xs">{{
-                currentOrder.market || currentOrder.customer?.market || "—"
-              }}</span>
-            </div>
-            <div class="flex justify-between items-center py-1 text-sm">
-              <span class="text-muted-foreground text-xs">Phone</span>
-              <span class="font-semibold text-foreground text-xs">{{
-                currentOrder.shippingAddress?.phone ||
-                currentOrder.customerPhone ||
-                "—"
-              }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Left Column Row 2: Invoice Breakdown -->
-        <div v-if="currentOrder.invoice" class="lg:col-span-2">
-          <div class="invoice-card bg-card border border-border rounded-xl">
-            <h3
-              class="text-xs font-bold px-5 pt-4 mb-4 uppercase tracking-wider text-muted-foreground"
-            >
-              Invoice Breakdown
-            </h3>
-
-            <!-- Subtotal -->
-            <div
-              class="flex justify-between items-center px-5 py-3 border-b border-border/40 text-xs"
-            >
-              <span class="text-muted-foreground font-medium">Subtotal</span>
-              <span class="font-semibold text-foreground font-mono">
-                {{ currentOrder.invoice.subtotal?.formatted || "—" }}
-              </span>
-            </div>
-
-            <!-- Discount -->
-            <div
-              v-if="currentOrder.invoice.discount?.amount > 0"
-              class="flex justify-between items-center px-5 py-3 border-b border-border/40 text-xs"
-            >
-              <span class="text-muted-foreground font-medium">Discount</span>
-              <span class="font-semibold text-red-500 font-mono">
-                -{{ currentOrder.invoice.discount?.formatted }}
-              </span>
-            </div>
-
-            <!-- Shipping -->
-            <div
-              class="flex justify-between items-center px-5 py-3 border-b border-border/40 text-xs"
-            >
-              <span class="text-muted-foreground font-medium">Shipping</span>
-              <span class="font-semibold text-foreground font-mono">
-                {{ currentOrder.invoice.shipping?.formatted || "—" }}
-              </span>
-            </div>
-
-            <!-- Taxes -->
-            <div
-              v-if="currentOrder.invoice.taxes?.amount > 0"
-              class="flex justify-between items-center px-5 py-3 border-b border-border/40 text-xs"
-            >
-              <span class="text-muted-foreground font-medium">Taxes</span>
-              <span class="font-semibold text-foreground font-mono">
-                {{ currentOrder.invoice.taxes?.formatted }}
-              </span>
-            </div>
-
-            <!-- Total -->
-            <div
-              class="flex justify-between items-center px-5 py-3 border-b border-border/40 text-xs font-bold bg-muted/10"
-            >
-              <span class="text-foreground">Total</span>
-              <span class="text-foreground font-mono">
-                {{ currentOrder.invoice.total?.formatted || "—" }}
-              </span>
-            </div>
-
-            <!-- Refunded -->
-            <div
-              class="flex justify-between items-center px-5 py-3 border-b border-border/40 text-xs"
-            >
-              <span class="text-muted-foreground font-medium">Refunded</span>
-              <span class="font-semibold text-red-500 font-mono">
-                {{ refundedFormatted }}
-              </span>
-            </div>
-
-            <!-- Paid -->
-            <div class="flex justify-between items-center px-5 py-3 text-xs">
-              <span class="text-muted-foreground font-medium">Paid</span>
-              <span class="font-semibold text-foreground font-mono">
-                {{ paidFormatted }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Column Row 2: Shipment Information (Section 4) -->
-        <div
-          class="shipment-info-section bg-card border border-border rounded-xl p-5 lg:col-start-3"
-        >
-          <h3
-            class="text-xs font-bold text-foreground mb-4 uppercase tracking-wider text-muted-foreground"
-          >
-            Shipment Information
-          </h3>
-          <div class="flex flex-col gap-3">
-            <div
-              class="flex flex-col gap-1 py-1 border-b border-border/50 text-sm"
-            >
-              <span class="text-muted-foreground text-xs"
-                >Shipping Address</span
-              >
-              <span
-                class="font-semibold text-foreground leading-relaxed text-xs"
-                >{{ formatShippingAddress(currentOrder.shippingAddress) }}</span
-              >
-            </div>
-            <div
-              class="flex justify-between items-center py-1 border-b border-border/50 text-sm"
-            >
-              <span class="text-muted-foreground text-xs">Carrier</span>
-              <span class="font-semibold text-foreground text-xs">{{
-                currentOrder.tracking?.carrierLabel ||
-                currentOrder.tracking?.carrier ||
-                currentOrder.carrier ||
-                "Aramex"
-              }}</span>
-            </div>
-            <div class="flex justify-between items-center py-1 text-sm">
-              <span class="text-muted-foreground text-xs">Tracking Number</span>
-              <span
-                class="font-mono font-bold text-[#96bf48] text-xs"
-                v-if="
-                  currentOrder.tracking?.trackingNumber ||
-                  currentOrder.trackingNumber
-                "
-              >
-                {{
-                  currentOrder.tracking?.trackingNumber ||
-                  currentOrder.trackingNumber
-                }}
-              </span>
-              <span class="text-muted-foreground text-xs" v-else
-                >No tracking added yet</span
-              >
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ─── Tracking Details ─── -->
-      <div
-        v-if="currentOrder.tracking && currentOrder.tracking.trackingNumber"
-        class="section"
+  <div class="order-detail-page bg-white-10 p-4 w-full flex flex-col gap-5">
+    <!-- Back to Orders Link -->
+    <div>
+      <button
+        @click="$router.push('/app/orders')"
+        class="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider"
       >
-        <h2 class="section__heading">Tracking Details</h2>
-        <div class="tracking-card">
-          <div class="tracking-card__cell">
-            <span class="tracking-card__label">Carrier</span>
-            <span class="tracking-card__value">
-              {{
-                currentOrder.tracking.carrierLabel ||
-                currentOrder.tracking.carrier
-              }}
-            </span>
-          </div>
-          <div class="tracking-card__cell">
-            <span class="tracking-card__label">Tracking Number</span>
-            <span class="tracking-card__value tracking-card__value--mono">
-              {{ currentOrder.tracking.trackingNumber }}
-            </span>
-          </div>
-          <div
-            class="tracking-card__cell"
-            v-if="currentOrder.tracking.estimatedDelivery"
+        <ChevronLeft class="size-4" />Back to Orders
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading.detail && !currentOrder" class="flex flex-col items-center justify-center py-20 gap-3">
+      <RefreshCw class="size-8 text-primary animate-spin" />
+      <span class="text-sm text-muted-foreground font-medium">Loading order details...</span>
+    </div>
+
+    <!-- Main Content -->
+    <template v-else-if="currentOrder">
+      <!-- Top Section: Title & Date + Account Manager Card -->
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 class="text-2xl font-extrabold text-foreground tracking-tight">
+            #{{ currentOrder.id }}
+          </h1>
+          <p class="text-sm text-muted-foreground mt-1 font-medium">
+            {{ currentOrder.orderedAtDisplay || currentOrder.orderedAt || 'June 13, 2024 at 1:52 pm' }}
+          </p>
+        </div>
+
+        <!-- Manager Card -->
+        <ContactCard />
+      </div>
+
+      <!-- Action Buttons Row -->
+      <div class="flex items-center justify-between gap-3 flex-wrap pt-1">
+        <!-- Left Buttons -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            v-can="'orders.edit'"
+            @click="showUploadEvidence = true"
+            class="px-4 py-2 rounded-lg border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors shadow-2xs flex items-center gap-1.5"
           >
-            <span class="tracking-card__label">Estimated Delivery</span>
-            <span class="tracking-card__value">
-              {{ currentOrder.tracking.estimatedDelivery }}
+            <Upload class="size-3.5 text-muted-foreground" />
+            Upload return evidence
+          </button>
+          <button
+            v-can="'orders.approve'"
+            v-if="currentOrder.fulfillmentStatus === 'pending'"
+            @click="confirmReceipt"
+            class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5"
+          >
+            <CheckCircle class="size-3.5" />
+            Confirm receipt
+          </button>
+        </div>
+
+        <!-- Right Buttons -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            v-can="'orders.export'"
+            @click="printOrder"
+            class="px-4 py-2 rounded-lg border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors shadow-2xs flex items-center gap-1.5"
+          >
+            <Printer class="size-3.5 text-muted-foreground" />
+            Print order
+          </button>
+          <!-- <button
+            v-can="'orders.edit'"
+            @click="showTrackingDrawer = true"
+            class="px-4 py-2 rounded-lg bg-[#111] hover:bg-black text-white text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5"
+          >
+            <Package class="size-3.5" />
+            Add tracking
+          </button> -->
+          <!-- <button
+            v-can="'orders.edit'"
+            @click="showCancelConfirm = true"
+            class="px-4 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5"
+          >
+            <XCircle class="size-3.5" />
+            Cancel order
+          </button> -->
+        </div>
+      </div>
+
+      <!-- Status Badges Row -->
+      <div class="flex items-center justify-between gap-4 flex-wrap pt-1">
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+          <!-- Fulfillment status pill -->
+          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium">
+            <span>Fulfillment status</span>
+            <span class="rounded-full bg-emerald-500/15 text-emerald-700 font-bold px-2 py-0.5 text-[11px] capitalize">
+              {{ statusLabel(currentOrder.fulfillmentStatus) || "Fulfilled" }}
             </span>
+          </div>
+
+          <!-- Delivery status pill -->
+          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium">
+            <span>Delivery status</span>
+            <span class="rounded-full bg-blue-500/15 text-blue-700 font-bold px-2 py-0.5 text-[11px] capitalize">
+              {{ currentOrder.deliveryStatus || "Delivered" }}
+            </span>
+          </div>
+
+          <!-- Payment status pill -->
+          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium">
+            <span>Payment status</span>
+            <span class="rounded-full bg-amber-500/15 text-amber-700 font-bold px-2 py-0.5 text-[11px] capitalize">
+              {{ currentOrder.paymentStatus || "Pending" }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Right Side Badge -->
+        <div class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 text-xs text-emerald-700 font-bold">
+          <span class="uppercase">FULFILLED</span>
+          <span class="font-normal text-muted-foreground">on {{ currentOrder.orderedAtDisplay || currentOrder.orderedAt || 'June 13, 2024 at 1:52 pm' }}</span>
+        </div>
+      </div>
+
+      <!-- ─── ORDER DETAILS ─── -->
+      <div class="pt-2">
+        <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
+          ORDER DETAILS
+        </p>
+        <div class="rounded-xl border border-border bg-white-10 overflow-hidden divide-y divide-border">
+          <div
+            v-for="item in (currentOrder.items && currentOrder.items.length ? currentOrder.items : mockItems)"
+            :key="item.id || item.sku"
+            class="p-4 flex items-center justify-between gap-4 hover:bg-muted/10 transition-colors"
+          >
+            <div class="flex items-center gap-3.5 min-w-0">
+              <img
+                :src="item.image || item.thumbnail || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&fit=crop'"
+                :alt="item.name"
+                class="size-12 rounded-lg object-cover bg-muted border border-border shrink-0"
+              />
+              <div class="min-w-0">
+                <p class="text-sm font-bold text-foreground truncate">
+                  {{ item.name }}
+                </p>
+                <p class="text-xs text-muted-foreground mt-0.5 font-mono">
+                  SKU: {{ item.sku }}
+                </p>
+              </div>
+            </div>
+
+            <div class="text-right shrink-0">
+              <span class="text-xs text-muted-foreground mr-2 font-mono">
+                ${{ formatNumber(item.price || 31.96) }} USD × {{ item.quantity || item.qty || 1 }}
+              </span>
+              <span class="text-sm font-bold text-foreground font-mono">
+                ${{ formatNumber((item.price || 31.96) * (item.quantity || item.qty || 1)) }} USD
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- ─── Timeline & Comments ─── -->
-      <div class="section">
-        <h2 class="section__heading">Timeline and Comments</h2>
+      <!-- ─── INVOICE BREAKDOWN ─── -->
+      <div>
+        <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
+          INVOICE BREAKDOWN
+        </p>
+        <div class="rounded-xl border border-border bg-white-10 overflow-hidden divide-y divide-border/60 text-sm">
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Subtotal</span>
+              <span class="text-xs font-medium">{{ (currentOrder.items || []).length || 5 }} items</span>
+            </div>
+            <span class="font-mono font-semibold text-foreground shrink-0">${{ formatNumber(currentOrder.subtotal || 309.02) }} USD</span>
+          </div>
 
-        <!-- Comment Input -->
-        <div class="comment-input-card">
-          <div class="comment-input__row">
-            <div class="comment-input__avatar">RA</div>
-            <div class="comment-input__field-wrap">
-              <div
-                ref="commentInputEl"
-                contenteditable="true"
-                class="comment-input__field"
-                data-placeholder="Leave a comment..."
-                style="
-                  outline: none;
-                  white-space: pre-wrap;
-                  word-break: break-word;
-                "
-                @input="checkMention"
-                @keydown="onCommentKey"
-                @paste="onPaste"
-              ></div>
-              <!-- Mention dropdown -->
-              <div v-if="mentionOpen" class="mention-dropdown">
-                <p class="mention-dropdown__title">Team members</p>
-                <button
-                  v-for="m in filteredMembers"
-                  :key="m.name"
-                  @click="insertMention(m)"
-                  class="mention-dropdown__item"
-                >
-                  <div class="mention-dropdown__avatar">
-                    <img
-                      v-if="m.avatarUrl"
-                      :src="m.avatarUrl"
-                      class="mention-dropdown__avatar-img"
-                    />
-                    <span v-else>{{
-                      m.initials || m.name?.slice(0, 2).toUpperCase()
-                    }}</span>
-                  </div>
-                  <span class="mention-dropdown__name">{{ m.name }}</span>
-                </button>
-              </div>
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Discount</span>
+              <span class="text-xs font-medium">20% seasonal discount</span>
             </div>
+            <span class="font-mono font-semibold text-rose-500 shrink-0">-${{ formatNumber(currentOrder.discount || 11.96) }} USD</span>
           </div>
-          <!-- Attachment previews -->
-          <div
-            v-if="pendingAttachments.length"
-            class="comment-input__attachments"
-          >
-            <div
-              v-for="(a, i) in pendingAttachments"
-              :key="i"
-              class="comment-input__att-item"
-            >
-              <img
-                v-if="a.type === 'image'"
-                :src="a.src"
-                class="comment-input__att-img"
-              />
-              <div v-else class="comment-input__att-file">
-                <FileText class="size-5 text-muted-foreground" />
-              </div>
-              <button
-                @click="pendingAttachments.splice(i, 1)"
-                class="comment-input__att-remove"
-              >
-                ×
-              </button>
+
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Shipping</span>
+              <span class="text-xs font-medium">Standard Domestic Rate</span>
             </div>
+            <span class="font-mono font-semibold text-foreground shrink-0">${{ formatNumber(currentOrder.shippingPrice || 11.96) }} USD</span>
           </div>
-          <!-- Toolbar -->
-          <div class="comment-input__toolbar">
-            <button @click="insertAtSign" class="comment-input__tool-btn">
-              @
-            </button>
-            <button class="comment-input__tool-btn">#</button>
-            <input
-              type="file"
-              ref="commentFileInputEl"
-              multiple
-              class="hidden"
-              @change="onCommentFileSelected"
+
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Taxes</span>
+              <span class="text-xs font-medium">VAT (0%) (Included)</span>
+            </div>
+            <span class="font-mono font-semibold text-foreground shrink-0">${{ formatNumber(currentOrder.tax || 0) }} USD</span>
+          </div>
+
+          <div class="px-5 py-4 flex items-center justify-between gap-4 font-bold text-sm bg-muted/5">
+            <span class="text-foreground font-bold">Total</span>
+            <span class="font-mono font-bold text-foreground shrink-0">${{ formatNumber(currentOrder.total || currentOrder.gmv || 320.98) }} USD</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── TIMELINE AND COMMENTS ─── -->
+      <div>
+        <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
+          TIMELINE AND COMMENTS
+        </p>
+
+        <!-- Comment Input Card -->
+        <div class="rounded-xl border border-border bg-white-10 overflow-hidden shadow-2xs mb-4">
+          <div class="p-4 flex items-start gap-3">
+            <img
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop"
+              class="size-8 rounded-full object-cover shrink-0"
+              alt="User"
             />
+            <textarea
+              v-model="newCommentText"
+              placeholder="Leave a comment..."
+              rows="2"
+              class="w-full bg-transparent text-sm outline-none focus:outline-none focus:ring-0 focus:border-none focus-visible:outline-none focus-visible:ring-0 border-none ring-0 resize-none placeholder:text-muted-foreground"
+              @keydown.enter.ctrl="handlePostComment"
+            />
+          </div>
+
+          <div class="bg-[#0f172a] text-white px-4 py-2.5 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-3 text-slate-400">
+              <button class="hover:text-white transition-colors" title="Mention"><span class="font-mono">@</span></button>
+              <button class="hover:text-white transition-colors" title="Tag"><span class="font-mono">#</span></button>
+              <button class="hover:text-white transition-colors" title="Attach file"><Paperclip class="size-4" /></button>
+              <span class="text-[11px] text-slate-400 ml-2">Only you, other staff and zucci staff can see comments</span>
+            </div>
             <button
-              @click="commentFileInputEl.click()"
-              class="comment-input__tool-btn"
-              title="Attach file"
+              @click="handlePostComment"
+              class="size-7 rounded-md bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors"
             >
-              <Paperclip class="size-4" />
-            </button>
-            <span class="comment-input__notice"
-              >Only you, other staff and zucci staff can see comments</span
-            >
-            <button @click="sendComment" class="comment-input__send-btn">
-              <Send class="size-4" />
+              <Send class="size-3.5" />
             </button>
           </div>
         </div>
 
-        <!-- Comments List -->
-        <div v-if="currentOrder.comments?.length" class="comments-card">
+        <!-- Posted Comments List -->
+        <div class="flex flex-col gap-3 mb-6">
           <div
-            v-for="c in currentOrder.comments"
+            v-for="c in (currentOrder.comments && currentOrder.comments.length ? currentOrder.comments : defaultComments)"
             :key="c.id"
-            class="comment-item"
+            class="p-4 rounded-xl border border-border bg-white-10 flex items-start gap-3 justify-between"
           >
-            <div class="comment-item__avatar">
-              {{
-                c.user?.initials ||
-                c.user?.name?.slice(0, 2).toUpperCase() ||
-                "SU"
-              }}
-            </div>
-            <div class="comment-item__body">
-              <div class="comment-item__meta">
-                <span class="comment-item__name">{{ c.user?.name }}</span>
-                <span class="comment-item__time">{{ c.createdAtDisplay }}</span>
-              </div>
-              <p
-                class="comment-item__text"
-                v-html="c.html || formatCommentMentions(c.text)"
-              ></p>
-              <div
-                v-if="c.attachments && c.attachments.length"
-                class="comment-item__att-grid"
-              >
-                <div
-                  v-for="(a, i) in c.attachments"
-                  :key="i"
-                  @click="previewFile = a"
-                  class="comment-item__att-thumb"
-                >
-                  <img
-                    v-if="a.type === 'image'"
-                    :src="a.src"
-                    class="comment-item__att-img"
-                  />
-                  <div v-else class="comment-item__att-placeholder">
-                    <FileText class="size-5 text-muted-foreground" />
-                  </div>
+            <div class="flex items-start gap-3 min-w-0">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&fit=crop"
+                class="size-8 rounded-full object-cover shrink-0"
+                alt="User"
+              />
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-bold text-foreground">{{ c.user?.name || 'Reem Aboughattas' }}</span>
+                  <span class="text-xs text-muted-foreground">{{ c.createdAtDisplay || '5 min ago' }}</span>
                 </div>
+                <p class="text-sm text-foreground mt-1 leading-relaxed">
+                  {{ c.text || 'Please make sure the order is delivered on time.' }}
+                </p>
               </div>
             </div>
             <button
-              v-if="c.canDelete"
               @click="deleteComment(c.id)"
-              class="comment-item__delete"
+              class="p-1 rounded text-muted-foreground hover:text-rose-500 transition-colors"
             >
-              <Trash2 class="size-3.5" />
+              <Trash2 class="size-4" />
             </button>
           </div>
         </div>
 
-        <!-- Timeline Events -->
-        <div v-if="currentOrder.timeline" class="timeline">
+        <!-- Timeline History -->
+        <div class="flex flex-col gap-4 pl-2 border-l-2 border-border/40 ml-4 py-2">
           <div
-            v-for="group in currentOrder.timeline"
+            v-for="group in (currentOrder.timeline && currentOrder.timeline.length ? currentOrder.timeline : defaultTimeline)"
             :key="group.date"
-            class="timeline__group"
+            class="flex flex-col gap-2"
           >
-            <p class="timeline__date">{{ group.date }}</p>
+            <p class="text-xs font-bold text-muted-foreground uppercase tracking-wider">{{ group.date }}</p>
             <div
               v-for="(e, i) in group.events"
               :key="i"
-              class="timeline__event"
+              class="flex items-center justify-between text-xs py-1"
             >
-              <div class="timeline__dot" />
-              <div class="timeline__content">
-                <p class="timeline__text" v-html="e.text"></p>
+              <div class="flex items-center gap-2 text-foreground font-medium">
+                <span class="size-1.5 rounded-full bg-slate-400"></span>
+                <span v-html="e.text"></span>
                 <button
                   v-if="e.btn"
-                  @click="toast('Opening email…')"
-                  class="timeline__btn"
+                  @click="toast('Opening email...')"
+                  class="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded bg-black text-white ml-2"
                 >
                   {{ e.btn }}
                 </button>
               </div>
-              <span class="timeline__time">{{ e.time }}</span>
+              <span class="text-muted-foreground font-mono">{{ e.time }}</span>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
 
     <!-- ─── Tracking Drawer ─── -->
     <AppDrawer v-model="showTrackingDrawer" title="Add Tracking Code">
@@ -1318,6 +604,7 @@ import AppDrawer from "@/components/shared/AppDrawer.vue";
 import MediaLibrary from "@/components/shared/MediaLibrary.vue";
 import ZucciFooter from "@/components/shared/ZucciFooter.vue";
 import AccountManagerCard from "@/components/shared/AccountManagerCard.vue";
+import ContactCard from "@/components/ui/ContactCard.vue";
 
 function formatDateOnly(dateStr) {
   if (!dateStr) return "—";
@@ -1351,7 +638,51 @@ const trackingNumber = ref("");
 const trackingDate = ref("");
 
 const evidenceFiles = ref([]);
-const evidenceNotes = ref("");
+const mockItems = ref([
+  { id: 1, name: 'Swim Leggings - Black - XXL', sku: '3928390023992', quantity: 1, price: 31.96, image: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=120&fit=crop' },
+  { id: 2, name: 'Swim Leggings - Black', sku: '3928390023992', quantity: 1, price: 31.96, image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=120&fit=crop' },
+  { id: 3, name: 'Swim Leggings - Black', sku: '3928390023992', quantity: 1, price: 31.96, image: 'https://images.unsplash.com/photo-1519046904884-53103b34b206?w=120&fit=crop' },
+  { id: 4, name: 'Swim Leggings - Black', sku: '3928390023992', quantity: 1, price: 31.96, image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=120&fit=crop' },
+  { id: 5, name: 'Swim Leggings - Black', sku: '3928390023992', quantity: 1, price: 31.96, image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=120&fit=crop' }
+]);
+
+const defaultComments = ref([
+  { id: 1, user: { name: 'Reem Aboughattas' }, createdAtDisplay: '5 min ago', text: 'Please make sure the order is delivered on time.' }
+]);
+
+const defaultTimeline = ref([
+  {
+    date: 'June 5, 2024',
+    events: [
+      { text: 'Order marked as fulfilled by <b>Zucci</b> operations.', time: '1:52 pm' }
+    ]
+  },
+  {
+    date: 'June 2, 2024',
+    events: [
+      { text: 'Order received at <b>Zucci</b> warehouse (Cairo, Egypt).', time: '1:52 pm' },
+      { text: 'Le Maillot Egypt dispatched order to Zucci\'s warehouse (Cairo, Egypt).', time: '1:52 pm' },
+      { text: 'Order confirmation email was sent to <b>Le Maillot Egypt\'s</b> orders email (orders@lemaillot-eg.com).', btn: 'VIEW EMAIL', time: '1:52 pm' },
+      { text: 'Confirmation #5NUDOV4NP was generated for this order.', time: '1:52 pm' },
+      { text: 'Payment confirmed.', time: '1:52 pm' },
+      { text: 'Customer placed an order via online store.', time: '1:52 pm' }
+    ]
+  }
+]);
+
+const newCommentText = ref('');
+function handlePostComment() {
+  if (!newCommentText.value.trim()) return;
+  if (!currentOrder.value.comments) currentOrder.value.comments = [];
+  currentOrder.value.comments.unshift({
+    id: Date.now(),
+    user: { name: 'You' },
+    createdAtDisplay: 'Just now',
+    text: newCommentText.value.trim()
+  });
+  newCommentText.value = '';
+  toast('Comment posted successfully');
+}
 
 const cancelReasonId = ref(1);
 const cancelRefundModeId = ref(1);

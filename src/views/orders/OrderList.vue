@@ -53,93 +53,27 @@
       </div>
     </div>
 
-    <!-- ─── Main Card ─── -->
-    <div class="order-card bg-white-10 w-full max-w-full overflow-hidden">
-      <!-- Toolbar: Actions (sync, print, export) -->
-      <div
-        class="flex items-center justify-between px-6 py-4 border-b border-border/40 gap-4"
-      >
-        <h2 class="text-base font-semibold">Orders</h2>
-        <div class="flex items-center gap-2 actions-dropdown-container">
-          <!-- Desktop Action Buttons -->
-          <div class="hidden sm:flex items-center gap-2">
-            <button @click="handleSync" class="btn btn--outline">
-              <RefreshCw
-                class="btn__icon"
-                :class="{ 'animate-spin': loading.action }"
-              />
-              Sync
-            </button>
-            <button @click="handlePrintSlips" class="btn btn--outline">
-              <Printer class="btn__icon" />
-              Print Slips
-            </button>
-            <button @click="exportOrders" class="btn btn--solid">
-              <Download class="btn__icon" />
-              Export
-            </button>
-          </div>
-
-          <!-- Mobile Actions Dropdown -->
-          <div class="sm:hidden relative">
-            <button
-              @click="showActionsDropdown = !showActionsDropdown"
-              class="px-3 py-1.5 rounded-lg border border-border bg-background text-xs font-semibold hover:bg-accent text-foreground transition-colors flex items-center gap-1.5"
-            >
-              <span>Actions</span>
-              <ChevronDown class="size-3.5" />
-            </button>
-            <div
-              v-if="showActionsDropdown"
-              class="absolute right-0 mt-1 w-40 rounded-lg border border-border bg-background shadow-lg overflow-hidden py-1 z-[150] anim-down"
-            >
-              <button
-                @click="handleSync(); showActionsDropdown = false"
-                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
-              >
-                <RefreshCw class="size-3.5" :class="{ 'animate-spin': loading.action }" />
-                <span>Sync</span>
-              </button>
-              <button
-                @click="handlePrintSlips(); showActionsDropdown = false"
-                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
-              >
-                <Printer class="size-3.5" />
-                <span>Print Slips</span>
-              </button>
-              <button
-                @click="exportOrders(); showActionsDropdown = false"
-                class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-accent text-left text-foreground transition-colors border-none bg-transparent"
-              >
-                <Download class="size-3.5" />
-                <span>Export</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Status Tabs (in their own separate full-width row) -->
-      <div
-        class="flex items-center gap-0.5 px-6 border-b border-border/40 overflow-x-auto"
-      >
+    <!-- ─── Tabs & Actions Row (OUTSIDE table border) ─── -->
+    <div class="flex items-center justify-between gap-4 py-2 px-1 flex-wrap">
+      <!-- Status Tabs -->
+      <div class="flex items-center gap-1 overflow-x-auto">
         <button
           v-for="t in tabs"
           :key="t.value"
           @click="selectTab(t.value)"
-          class="inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+          class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
           :class="
             filter === t.value
-              ? 'border-primary text-foreground font-semibold'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
+              ? 'bg-muted/80 text-foreground font-semibold shadow-2xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
           "
         >
           <span>{{ t.label }}</span>
           <span
             v-if="t.count !== undefined"
-            class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20"
+            class="inline-flex items-center justify-center min-w-[1.25rem] h-5 rounded-full text-[10px] font-bold px-1 leading-none shrink-0 bg-slate-500/10 text-slate-700 border border-slate-500/20"
             :class="{
-              'bg-primary/10 text-primary border-primary/25':
+              'bg-[#111] text-white border-[#111]':
                 filter === t.value,
             }"
           >
@@ -148,57 +82,78 @@
         </button>
       </div>
 
-      <!-- Sub-controls -->
-      <!-- Filters row -->
-      <div
-        class="flex items-center justify-between gap-3 px-6 py-3 flex-wrap border-b border-border bg-muted/20"
-      >
-        <div class="flex items-center gap-3 flex-wrap flex-1">
-          <SearchField
-            v-model="search"
-            placeholder="Search..."
-            style="width: 12rem"
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 shrink-0">
+        <button @click="handleSync" class="btn btn--outline">
+          <RefreshCw
+            class="btn__icon"
+            :class="{ 'animate-spin': loading.action }"
           />
+          Sync
+        </button>
+        <button @click="handlePrintSlips" class="btn btn--outline">
+          <Printer class="btn__icon" />
+          Print Slips
+        </button>
+        <button @click="exportOrders" class="btn btn--solid">
+          <Download class="btn__icon" />
+          Export
+        </button>
+      </div>
+    </div>
 
-          <!-- All dates -->
-          <AppSelect
-            v-model="dateFilter"
-            :options="dateOptions"
-            placeholder="All dates"
-          />
+    <!-- ─── Filters Row (OUTSIDE table border) ─── -->
+    <div
+      class="flex items-center justify-between gap-3 py-2 px-1 flex-wrap"
+    >
+      <div class="flex items-center gap-3 flex-wrap flex-1">
+        <SearchField
+          v-model="search"
+          placeholder="Search..."
+          class="w-full sm:w-48"
+        />
 
-          <!-- Fulfillment Status Dropdown -->
-          <AppSelect
-            v-model="fulfillmentFilter"
-            :options="fulfillmentOptions"
-            placeholder="Fulfillment Status: All"
-          />
-
-          <!-- Completion Status Dropdown -->
-          <AppSelect
-            v-model="completionFilter"
-            :options="completionOptions"
-            placeholder="Completion Status: All"
-          />
-
-          <!-- Return Status Dropdown -->
-          <AppSelect
-            v-model="returnFilter"
-            :options="returnOptions"
-            placeholder="Return Status: All"
-          />
-        </div>
-        <!-- Bulk Action -->
+        <!-- All dates -->
         <AppSelect
-          v-slot:default
-          v-model="bulkAction"
-          :options="bulkActionOptions"
-          placeholder="Bulk Action"
-          @change="handleBulkAction"
-          customClass="bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground font-medium outline-none hover:bg-accent transition-colors"
+          v-model="dateFilter"
+          :options="dateOptions"
+          placeholder="All dates"
+        />
+
+        <!-- Fulfillment Status Dropdown -->
+        <AppSelect
+          v-model="fulfillmentFilter"
+          :options="fulfillmentOptions"
+          placeholder="Fulfillment Status: All"
+        />
+
+        <!-- Completion Status Dropdown -->
+        <AppSelect
+          v-model="completionFilter"
+          :options="completionOptions"
+          placeholder="Completion Status: All"
+        />
+
+        <!-- Return Status Dropdown -->
+        <AppSelect
+          v-model="returnFilter"
+          :options="returnOptions"
+          placeholder="Return Status: All"
         />
       </div>
+      <!-- Bulk Action -->
+      <AppSelect
+        v-slot:default
+        v-model="bulkAction"
+        :options="bulkActionOptions"
+        placeholder="Bulk Action"
+        @change="handleBulkAction"
+        customClass="bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground font-medium outline-none hover:bg-accent transition-colors"
+      />
+    </div>
 
+    <!-- ─── Main Table Card ─── -->
+    <div class="order-card bg-white-10 rounded-xl border border-border overflow-hidden">
       <!-- Data Table -->
       <div class="order-table-wrap">
         <!-- Loading overlay -->
@@ -398,6 +353,7 @@ const returnOptions = [
   { value: "fully_returned", label: "Fully Returned" },
 ];
 const bulkActionOptions = [
+  { value: "fulfill", label: "Fulfill selected" },
   { value: "print", label: "Print slips" },
   { value: "export", label: "Export selected" },
 ];
@@ -467,35 +423,27 @@ const isAllSelected = computed({
 const tabs = computed(() => {
   const storeTabs = ordersStore.tabs || {};
   const orderedKeys = [
-    "all",
-    "new",
-    "processing",
-    "issues-return",
-    "shipped",
-    "delivered",
-    "canceled",
-    "completed",
-    "closed",
+    { value: "all", label: "All" },
+    { value: "pending", label: "Pending", alt: "new" },
+    { value: "processing", label: "Processing" },
+    { value: "late", label: "Late" },
+    { value: "shipped", label: "Shipped" },
+    { value: "fulfilled", label: "Fulfilled", alt: "delivered" },
+    { value: "returns", label: "Returns", alt: "issues-return" },
+    { value: "cancelled", label: "Cancelled", alt: "canceled" },
+    { value: "completed", label: "Completed" },
+    { value: "closed", label: "Closed" },
   ];
 
-  return orderedKeys.map((k) => {
-    let countKey = k;
-    if (k === "new" && storeTabs.new === undefined) countKey = "pending";
-    if (k === "issues-return" && storeTabs["issues-return"] === undefined)
-      countKey = "returns";
-    if (k === "canceled" && storeTabs.canceled === undefined)
-      countKey = "cancelled";
-    if (k === "delivered" && storeTabs.delivered === undefined)
-      countKey = "fulfilled";
-
-    const label =
-      k === "issues-return"
-        ? "Issues & Return"
-        : k.charAt(0).toUpperCase() + k.slice(1);
+  return orderedKeys.map((item) => {
+    let count = storeTabs[item.value];
+    if (count === undefined && item.alt) {
+      count = storeTabs[item.alt];
+    }
     return {
-      value: k,
-      label,
-      count: storeTabs[countKey] !== undefined ? storeTabs[countKey] : 0,
+      value: item.value,
+      label: item.label,
+      count: count !== undefined ? count : 0,
     };
   });
 });
@@ -504,7 +452,12 @@ const tabs = computed(() => {
 watch(
   () => route.query.status,
   (newStatus) => {
-    filter.value = newStatus || "all";
+    let s = newStatus || "all";
+    if (s === "new") s = "pending";
+    if (s === "issues-return") s = "returns";
+    if (s === "canceled") s = "cancelled";
+    if (s === "delivered") s = "fulfilled";
+    filter.value = s;
   },
   { immediate: true },
 );
@@ -756,7 +709,16 @@ async function handleBulkAction() {
     return;
   }
 
-  if (bulkAction.value === "print") {
+  if (bulkAction.value === "fulfill") {
+    try {
+      await ordersStore.bulkFulfillOrders(selectedOrders.value);
+      toast(`Fulfill request sent for ${selectedOrders.value.length} order(s)!`);
+      selectedOrders.value = [];
+      await ordersStore.fetchOrders(fetchParams.value);
+    } catch (e) {
+      toast("Failed to fulfill selected orders", "error");
+    }
+  } else if (bulkAction.value === "print") {
     handlePrintSlips();
   } else if (bulkAction.value === "export") {
     try {
@@ -1216,5 +1178,23 @@ async function handleBulkAction() {
 .pagination__page {
   padding: 0 8px;
   white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .order-list-page {
+    padding: 12px;
+    gap: 12px;
+  }
+  .stats-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stats-bar__cell {
+    min-width: 140px;
+  }
+  .pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 </style>

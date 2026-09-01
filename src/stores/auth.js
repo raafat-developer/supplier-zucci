@@ -25,9 +25,11 @@ export const useAuthStore = defineStore('auth', () => {
   const isPendingApproval = ref(false)
   const regData = ref(JSON.parse(getCookie('zsc-reg') || '{}'))
 
-  // ── New properties for Actor, Permissions, Markets, and Brands ──
   const actor = ref(
     JSON.parse(localStorage.getItem('zsc-actor') || getCookie('zsc-actor') || 'null')
+  )
+  const me = ref(
+    JSON.parse(localStorage.getItem('zsc-me') || 'null')
   )
   const permissions = ref(
     JSON.parse(localStorage.getItem('zsc-permissions') || getCookie('zsc-permissions') || '[]')
@@ -38,6 +40,35 @@ export const useAuthStore = defineStore('auth', () => {
   const brands = ref(
     JSON.parse(localStorage.getItem('zsc-brands') || getCookie('zsc-brands') || '[]')
   )
+
+  async function fetchMe() {
+    if (!token.value) return null
+    try {
+      const response = await api.get('/auth/supplier/me')
+      const resData = response.data?.data || response.data
+      me.value = resData
+      localStorage.setItem('zsc-me', JSON.stringify(resData))
+
+      const actorData = resData?.actor || resData?.user || resData?.supplier || resData
+      if (actorData && typeof actorData === 'object') {
+        setActor(actorData)
+        const fullName = `${actorData.first_name || ''} ${actorData.last_name || ''}`.trim() || actorData.name || actorData.email?.split('@')[0]
+        setUser({
+          name: fullName,
+          email: actorData.email,
+          actor: actorData
+        })
+      }
+      if (resData?.permissions) setPermissions(resData.permissions)
+      if (resData?.markets) setMarkets(resData.markets)
+      if (resData?.brands) setBrands(resData.brands)
+
+      return resData
+    } catch (err) {
+      console.error('Failed to fetch /auth/supplier/me:', err)
+      return null
+    }
+  }
 
   function setToken(t, rememberDays = 7) {
     token.value = t
@@ -163,6 +194,11 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (tokenVal) {
       setToken(tokenVal)
+      try {
+        await fetchMe()
+      } catch (e) {
+        console.error('fetchMe error after login:', e)
+      }
     }
 
     const actorData = resData?.actor || resData?.user || resData?.supplier
@@ -603,6 +639,8 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     token,
     actor,
+    me,
+    fetchMe,
     permissions,
     markets,
     brands,

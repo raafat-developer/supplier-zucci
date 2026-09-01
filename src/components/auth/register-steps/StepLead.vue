@@ -27,7 +27,8 @@
             type="text"
             placeholder="e.g. Layla"
             class="reg-input"
-            :class="{ '!border-red-500 !text-red-400': leadErrField === 'firstName' }"
+            :class="{ '!border-red-500 !text-red-400': leadErrField === 'firstName' || (leadErr && (!answers.firstName || answers.firstName.length < 2)) }"
+            :style="(leadErrField === 'firstName' || (leadErr && (!answers.firstName || answers.firstName.length < 2))) ? 'border-color: #ef4444 !important;' : ''"
           />
         </div>
         <div class="flex flex-col gap-1.5">
@@ -38,7 +39,8 @@
             type="text"
             placeholder="e.g. Hassan"
             class="reg-input"
-            :class="{ '!border-red-500 !text-red-400': leadErrField === 'lastName' }"
+            :class="{ '!border-red-500 !text-red-400': leadErrField === 'lastName' || (leadErr && (!answers.lastName || answers.lastName.length < 2)) }"
+            :style="(leadErrField === 'lastName' || (leadErr && (!answers.lastName || answers.lastName.length < 2))) ? 'border-color: #ef4444 !important;' : ''"
           />
         </div>
       </div>
@@ -53,7 +55,7 @@
             :countryCode="phone.country"
             @update:countryCode="updateCountry"
             theme="dark"
-            :class="{ '!border-red-500': leadErrField === 'phone' }"
+            :isInvalid="!!leadErrField || !!leadErr"
           />
         </div>
       </div>
@@ -67,7 +69,8 @@
           type="email"
           placeholder="your@email.com"
           class="reg-input"
-          :class="{ '!border-red-500 !text-red-400': leadErrField === 'email' }"
+          :class="{ '!border-red-500 !text-red-400': leadErrField === 'email' || (leadErr && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) }"
+          :style="(leadErrField === 'email' || (leadErr && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) ? 'border-color: #ef4444 !important;' : ''"
         />
       </div>
 

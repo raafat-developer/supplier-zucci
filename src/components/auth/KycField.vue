@@ -15,6 +15,8 @@
         type="text"
         placeholder="e.g. Ahmed"
         class="reg-input"
+        :class="{ '!border-red-500': kycErr && !modelValue['first-name'] }"
+        :style="(kycErr && !modelValue['first-name']) ? 'border-color: #ef4444 !important;' : ''"
       />
     </div>
     <div class="flex flex-col gap-1.5">
@@ -31,6 +33,8 @@
         type="text"
         placeholder="e.g. Hassan"
         class="reg-input"
+        :class="{ '!border-red-500': kycErr && !modelValue['last-name'] }"
+        :style="(kycErr && !modelValue['last-name']) ? 'border-color: #ef4444 !important;' : ''"
       />
     </div>
   </div>
@@ -42,6 +46,7 @@
       :key="i"
       :field="subField"
       :modelValue="modelValue"
+      :kycErr="kycErr"
       @update:modelValue="(v) => emit('update:modelValue', v)"
     />
   </div>
@@ -66,6 +71,8 @@
         @input="update(field.prefix + '-iban', $event.target.value)"
         type="text"
         class="reg-input"
+        :class="{ '!border-red-500': !!kycErr && !modelValue[field.prefix + '-iban'] }"
+        :style="(!!kycErr && !modelValue[field.prefix + '-iban']) ? 'border-color: #ef4444 !important;' : ''"
       />
     </div>
 
@@ -86,6 +93,8 @@
         type="text"
         :placeholder="field.prefix === 'bank' ? 'e.g. AAAABBBCCCC' : ''"
         class="reg-input"
+        :class="{ '!border-red-500': !!kycErr && !modelValue[field.prefix + '-swift'] }"
+        :style="(!!kycErr && !modelValue[field.prefix + '-swift']) ? 'border-color: #ef4444 !important;' : ''"
       />
     </div>
   </div>
@@ -113,6 +122,8 @@
       :type="field.type === 'url' ? 'url' : 'text'"
       :placeholder="field.placeholder"
       class="reg-input"
+      :class="{ '!border-red-500': kycErr && !modelValue[field.key] }"
+      :style="(kycErr && !modelValue[field.key]) ? 'border-color: #ef4444 !important;' : ''"
     />
   </div>
 
@@ -133,6 +144,8 @@
       @input="update(field.key, $event.target.value)"
       rows="2"
       class="reg-input resize-none"
+      :class="{ '!border-red-500': kycErr && !modelValue[field.key] }"
+      :style="(kycErr && !modelValue[field.key]) ? 'border-color: #ef4444 !important;' : ''"
       :placeholder="field.placeholder"
     ></textarea>
   </div>
@@ -155,6 +168,7 @@
       :options="currencyOptions"
       placeholder="Select currency…"
       theme="dark"
+      :isInvalid="!!kycErr && !(modelValue[field.key] || modelValue['currency_id'])"
     />
   </div>
 
@@ -176,6 +190,7 @@
       :options="bankOptions"
       :placeholder="loadingBanks ? 'Loading banks...' : 'Select bank…'"
       theme="dark"
+      :isInvalid="!!kycErr && !modelValue[field.key]"
     />
   </div>
 
@@ -283,7 +298,9 @@
     <label
       v-else
       :for="'kyc-file-' + field.key"
-      class="border-2 border-dashed border-white/20 rounded-xl flex flex-col items-center gap-1.5 py-6 cursor-pointer hover:border-white/40 hover:bg-white/5 transition-colors"
+      class="border-2 border-dashed rounded-xl flex flex-col items-center gap-1.5 py-6 cursor-pointer transition-colors"
+      :class="(!!kycErr && isFieldRequired(field.key) && !modelValue[field.key + '-uploaded'] && !modelValue[field.key + '-file-id']) ? '!border-red-500 bg-red-500/5' : 'border-white/20 hover:border-white/40 hover:bg-white/5'"
+      :style="(!!kycErr && isFieldRequired(field.key) && !modelValue[field.key + '-uploaded'] && !modelValue[field.key + '-file-id']) ? 'border-color: #ef4444 !important;' : ''"
     >
       <UploadCloud class="size-6 text-white/40" />
       <span class="text-xs text-white/60 font-medium"
@@ -331,6 +348,8 @@
       @input="update('website', $event.target.value)"
       type="url"
       class="reg-input"
+      :class="{ '!border-red-500': !!kycErr && !modelValue['website'] }"
+      :style="(!!kycErr && !modelValue['website']) ? 'border-color: #ef4444 !important;' : ''"
       placeholder="https://yourbrand.com"
     />
   </div>
@@ -354,9 +373,11 @@
         class="flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border-[1.5px] backdrop-blur-lg cursor-pointer transition-all text-white"
         :style="{
           borderColor:
-            modelValue['doc-type'] === dt.v
-              ? 'rgba(255,255,255,0.6)'
-              : 'rgba(255,255,255,0.2)',
+            (!!kycErr && !modelValue['doc-type'])
+              ? '#ef4444'
+              : (modelValue['doc-type'] === dt.v
+                ? 'rgba(255,255,255,0.6)'
+                : 'rgba(255,255,255,0.2)'),
           background:
             modelValue['doc-type'] === dt.v
               ? 'rgba(255,255,255,0.18)'
@@ -373,6 +394,8 @@
       :value="modelValue['doc-number']"
       @input="update('doc-number', $event.target.value)"
       class="reg-input mt-2"
+      :class="{ '!border-red-500': !!kycErr && !modelValue['doc-number'] }"
+      :style="(!!kycErr && !modelValue['doc-number']) ? 'border-color: #ef4444 !important;' : ''"
       :placeholder="
         (modelValue['doc-type'] === 'passport' ? 'Passport' : 'National ID') +
         ' number'
@@ -405,6 +428,7 @@
       @update:modelValue="(v) => update('owner-phone', v)"
       countryCode="EG"
       theme="dark"
+      :isInvalid="!!kycErr && !modelValue['owner-phone']"
     />
   </div>
 
@@ -497,6 +521,7 @@
           :options="countryOptions"
           placeholder="Select country"
           theme="dark"
+          :isInvalid="!!kycErr && !(modelValue[field.prefix + '-country'] || modelValue['country_id'])"
         />
       </div>
 
@@ -516,6 +541,7 @@
           :options="cityOptions"
           :placeholder="loadingCities ? 'Loading cities...' : 'Select city'"
           theme="dark"
+          :isInvalid="!!kycErr && !(modelValue[field.prefix + '-city'] || modelValue['city_id'])"
         />
       </div>
     </div>
@@ -533,6 +559,8 @@
         @input="update('address', $event.target.value)"
         rows="2"
         class="reg-input resize-none"
+        :class="{ '!border-red-500': kycErr && !modelValue['address'] }"
+        :style="(kycErr && !modelValue['address']) ? 'border-color: #ef4444 !important;' : ''"
         placeholder="Building, street, floor, apartment"
       ></textarea>
     </div>
@@ -560,7 +588,7 @@ import { commercialIdLabel } from "@/data/registerSections";
 import { useAuthStore } from "@/stores/auth";
 import { useAppStore } from "@/stores/app";
 
-const props = defineProps({ field: Object, modelValue: Object });
+const props = defineProps({ field: Object, modelValue: Object, kycErr: String });
 const emit = defineEmits(["update:modelValue"]);
 
 const authStore = useAuthStore();
@@ -872,6 +900,9 @@ function onCityChange(prefix, val) {
 }
 
 function isFieldRequired(key) {
+  if (key === "doc-back" && props.modelValue?.["doc-type"] === "passport") {
+    return false;
+  }
   const optionalKeys = [
     "instagram",
     "brand-assets",
