@@ -4,7 +4,7 @@ export const LEAD_QUESTIONS = [
   { id: 'firstName', label: 'First name', question: () => "Hi there! 👋 What's your first name?", placeholder: 'e.g. Ahmed', validate: v => v.trim().length >= 2 || 'Please enter your first name' },
   { id: 'lastName', label: 'Last name', question: a => `Nice to meet you, ${a.firstName}! And your last name?`, placeholder: 'e.g. Hassan', validate: v => v.trim().length >= 2 || 'Please enter your last name' },
   { id: 'brandName', label: 'Brand name', question: a => `What's the name of your brand, ${a.firstName}?`, placeholder: 'e.g. Zeyylan', validate: v => v.trim().length >= 2 || 'Please enter your brand name' },
-  { id: 'instagram', label: 'Instagram', question: a => `Last one! What's ${a.brandName}'s Instagram?`, placeholder: '@yourbrand or https://instagram.com/yourbrand', optional: true, validate: v => v.trim().length >= 2 || 'Please enter a handle or URL' }
+  { id: 'instagram', label: 'Instagram', question: a => `Last one! What's ${a.brandName}'s Instagram?`, placeholder: '@yourbrand or https://instagram.com/yourbrand (optional)', optional: true, validate: v => !v || !v.trim() || v.trim().length >= 2 || 'Please enter a handle or URL' }
 ]
 
 export function commercialIdLabel(cc) {
@@ -36,7 +36,7 @@ export function kycSections(entityType, answers) {
     return [
       {
         title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
-        fields: [f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand')]
+        fields: [f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL (optional)', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand')]
       },
       {
         title: 'Personal details', desc: 'Your identity for account verification — kept confidential.',
@@ -59,7 +59,7 @@ export function kycSections(entityType, answers) {
   return [
     {
       title: 'Brand information', desc: 'Public-facing details customers will see on Zucci.',
-      fields: [f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand')]
+      fields: [f('Brand name', 'brand-name', 'text', 'e.g. Zeyylan'), f('Brand description', 'brand-desc', 'textarea', 'Describe your brand, history, style...'), website, f('Instagram URL (optional)', 'instagram', 'url', 'e.g. https://instagram.com/yourbrand')]
     },
     {
       title: 'Legal company details', desc: 'Your registered business information.',

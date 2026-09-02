@@ -165,7 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/login', {
       email: credentials.email,
       password: credentials.password
-    })
+    }, { skipSuccessToast: true })
 
     const resData = response.data
     const challengeId =
@@ -187,7 +187,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/login/verify-otp', {
       login_challenge_id: loginChallengeId.value,
       code: code
-    })
+    }, { skipSuccessToast: true })
 
     const resData = response.data?.data || response.data
     const tokenVal = resData?.token || resData?.access_token || resData?.jwt
@@ -279,7 +279,7 @@ export const useAuthStore = defineStore('auth', () => {
       last_name: leadData.last_name,
       phone: leadData.phone,
       email: leadData.email
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -300,7 +300,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/phone', {
       registration_session_id: registrationSessionId.value,
       phone: phoneNum
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -311,7 +311,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/phone/verify', {
       registration_session_id: registrationSessionId.value,
       code: code
-    })
+    }, { skipToast: true })
     console.log(response)
     updateSessionIdFromResponse(response)
     console.log("Session ID:", registrationSessionId.value);
@@ -324,7 +324,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/email', {
       registration_session_id: registrationSessionId.value,
       email: emailVal
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -335,7 +335,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/email/verify', {
       registration_session_id: registrationSessionId.value,
       code: code
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -346,7 +346,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/otp/resend', {
       registration_session_id: registrationSessionId.value,
       channel: channel
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -357,7 +357,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/entity-type', {
       registration_session_id: registrationSessionId.value,
       entity_type: entityTypeVal
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -373,7 +373,8 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/uploads', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      skipToast: true
     })
     updateSessionIdFromResponse(response)
     return response.data
@@ -386,7 +387,7 @@ export const useAuthStore = defineStore('auth', () => {
       registration_session_id: registrationSessionId.value,
       kyc_section: sectionName,
       kyc: kycDataObj
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -397,7 +398,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/team', {
       registration_session_id: registrationSessionId.value,
       invites: invitesList
-    })
+    }, { skipToast: true })
     updateSessionIdFromResponse(response)
     return response.data
   }
@@ -408,7 +409,7 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/supplier/register/submit', {
       registration_session_id: registrationSessionId.value,
       password: passwordVal
-    })
+    }, { skipToast: true })
 
     const resData = response.data?.data || response.data
     const tokenVal = resData?.token || resData?.access_token
@@ -461,7 +462,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try {
       // API: POST /auth/supplier/logout without body
-      await api.post('/auth/supplier/logout')
+      await api.post('/auth/supplier/logout', {}, { skipSuccessToast: true })
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

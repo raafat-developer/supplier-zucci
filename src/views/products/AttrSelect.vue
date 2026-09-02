@@ -9,6 +9,8 @@ import { ATTR_PRESETS, COLOR_SWATCH } from "@/data/productsMeta";
 import { useClickOutside } from "@/composables/useClickOutside";
 import { useLookup } from "@/composables/useLookup";
 import { useAppStore } from "@/stores/app";
+import { createAttributeValue } from "@/api/lookup.api";
+import { useApi } from "@/composables/useApi";
 const props = defineProps({
   attrCode: { type: String, required: true },
   attrObj: { type: Object, default: () => ({}) },
@@ -200,63 +202,101 @@ const translateText = async (text, targetLang) => {
   }
 };
 
+const requestValueItems = ref([{ label: "", code: "", color: "#000000" }]);
+
+const addRequestValueItem = () => {
+  requestValueItems.value.push({ label: "", code: "", color: "#000000" });
+};
+
+const removeRequestValueItem = (idx) => {
+  if (requestValueItems.value.length > 1) {
+    requestValueItems.value.splice(idx, 1);
+  }
+};
+
 const openRequestModal = () => {
-  reqLabel.value = "";
-  reqCode.value = "";
-  reqSortOrder.value = 99;
-  reqColor.value = "#000000";
+  requestValueItems.value = [{ label: "", code: "", color: "#000000" }];
   isRequestModalOpen.value = true;
   close(); // close the select dropdown
 };
 
 const submitRequest = async () => {
-  if (!reqLabel.value.trim()) {
-    toast.error("Value label is required");
+  const validItems = requestValueItems.value.filter((i) => i.label && i.label.trim());
+  if (!validItems.length) {
+    toast("At least one value label is required", "error");
     return;
   }
   if (!props.attrObj?.id) {
-    toast.error("Attribute ID is missing");
+    toast("Attribute ID is missing", "error");
     return;
   }
 
   isSubmittingRequest.value = true;
   try {
-    const labelEn = reqLabel.value.trim();
-    let labelAr = labelEn;
-    try {
-      labelAr = await translateText(labelEn, "ar");
-    } catch (e) {}
+    const valuesPayload = [];
+    const addedLabels = [];
 
-    const payload = {
-      code: reqCode.value.trim() || labelEn.toLowerCase().replace(/\s+/g, "-"),
-      label: labelEn,
-      sortOrder: Number(reqSortOrder.value) || 0,
-      translations: [
-        { localeId: 1, label: labelEn },
-        { localeId: 2, label: labelAr },
-        { localeId: 3, label: `${labelAr} (AE)` },
+    for (const item of validItems) {
+      const labelEn = item.label.trim();
+      let labelAr = labelEn;
+      try {
+        labelAr = await translateText(labelEn, "ar");
+      } catch (e) {}
+
+      const valCode = item.code?.trim() || labelEn.toLowerCase().replace(/\s+/g, "-");
+      const vObj = {
+        code: valCode,
+        translations: [
+          { localeId: 1, label: labelEn },
+          { localeId: 2, label: labelAr },
+        ],
+      };
+
+      if (
+        props.attrCode === "color" ||
+        props.attrObj?.inputType === colorSwatchTypeId.value
+      ) {
+        vObj.hexColor = item.color || "#000000";
+      }
+
+      valuesPayload.push(vObj);
+      addedLabels.push(labelEn);
+    }
+
+    const proposedPayload = {
+      proposedAttributes: [
+        {
+          attributeId: props.attrObj.id,
+          values: valuesPayload,
+        },
       ],
     };
 
-    if (
-      props.attrCode === "color" ||
-      props.attrObj?.inputType === colorSwatchTypeId.value
-    ) {
-      payload.hexColor = reqColor.value;
-    }
+    const { post } = useApi();
+    await post("/supplier/catalog/attribute-value-requests", proposedPayload);
 
-    await createAttributeValue(props.attrObj.id, payload);
-
-    // Add locally for immediate use in UI
+    // Add locally to options/values for immediate UI availability
     const targetArray = props.attrObj?.options || props.attrObj?.values;
     if (props.attrObj && targetArray) {
-      targetArray.push({ ...payload, id: `tmp-${Date.now()}` });
+      valuesPayload.forEach((v) => {
+        targetArray.push({
+          id: `tmp-${Date.now()}-${v.code}`,
+          code: v.code,
+          label: v.translations?.[0]?.label || v.code,
+          hexColor: v.hexColor,
+        });
+      });
     }
 
-    toast.success(`Option "${payload.label}" added successfully!`);
+    // Auto select created values in parent
+    addedLabels.forEach((lbl) => {
+      addVal(lbl);
+    });
+
+    toast(`${addedLabels.length} value(s) requested successfully!`);
     isRequestModalOpen.value = false;
   } catch (err) {
-    toast.error(err?.message || "Failed to submit request");
+    toast(err?.message || "Failed to submit request", "error");
   } finally {
     isSubmittingRequest.value = false;
   }
@@ -548,48 +588,71 @@ const submitRequest = async () => {
 
           <!-- Body -->
           <div class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-muted-foreground uppercase font-medium"
-                >Value Label <span class="text-destructive">*</span></label
+            <div class="flex items-center justify-between">
+              <label class="text-xs text-muted-foreground uppercase font-medium">Requested Values</label>
+              <button
+                type="button"
+                @click="addRequestValueItem"
+                class="text-xs text-primary font-semibold hover:underline"
               >
-              <input
-                type="text"
-                v-model="reqLabel"
-                placeholder="e.g. Coral Pink"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-              />
-            </div>
-
-            <div class="flex flex-col gap-1.5">
-              <label class="text-xs text-muted-foreground uppercase font-medium"
-                >Value Code</label
-              >
-              <input
-                type="text"
-                v-model="reqCode"
-                placeholder="e.g. coral-pink"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-primary focus:outline-none"
-              />
+                + Add Another Value
+              </button>
             </div>
 
             <div
-              v-if="attrCode === 'color' || attrObj.inputType === 3"
-              class="flex flex-col gap-1.5"
+              v-for="(item, idx) in requestValueItems"
+              :key="idx"
+              class="p-3 rounded-lg border border-border bg-muted/20 flex flex-col gap-3 relative"
             >
-              <label class="text-xs text-muted-foreground uppercase font-medium"
-                >Hex Color Base</label
-              >
-              <div class="flex gap-2 items-center">
-                <input
-                  type="color"
-                  v-model="reqColor"
-                  class="size-8 rounded-md border border-input cursor-pointer p-0 bg-transparent"
-                />
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold text-muted-foreground uppercase">Value #{{ idx + 1 }}</span>
+                <button
+                  v-if="requestValueItems.length > 1"
+                  type="button"
+                  @click="removeRequestValueItem(idx)"
+                  class="text-xs text-rose-500 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-muted-foreground font-medium">Value Label <span class="text-destructive">*</span></label>
                 <input
                   type="text"
-                  v-model="reqColor"
-                  class="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono focus:ring-1 focus:ring-primary focus:outline-none"
+                  v-model="item.label"
+                  placeholder="e.g. Coral Pink"
+                  class="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
                 />
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-muted-foreground font-medium">Value Code</label>
+                <input
+                  type="text"
+                  v-model="item.code"
+                  placeholder="e.g. coral-pink"
+                  class="rounded-lg border border-input bg-background px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary focus:outline-none"
+                />
+              </div>
+
+              <div
+                v-if="attrCode === 'color' || attrObj.inputType === 3"
+                class="flex flex-col gap-1.5"
+              >
+                <label class="text-xs text-muted-foreground font-medium">Hex Color</label>
+                <div class="flex gap-2 items-center">
+                  <input
+                    type="color"
+                    v-model="item.color"
+                    class="size-7 rounded-md border border-input cursor-pointer p-0 bg-transparent"
+                  />
+                  <input
+                    type="text"
+                    v-model="item.color"
+                    class="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-xs font-mono focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -599,18 +662,20 @@ const submitRequest = async () => {
             class="px-5 py-3 border-t border-border flex items-center justify-end gap-2 shrink-0"
           >
             <button
+              type="button"
               :disabled="isSubmittingRequest"
               @click="isRequestModalOpen = false"
-              class="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+              class="px-3 py-2 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
+              type="button"
               :disabled="isSubmittingRequest"
               @click="submitRequest"
-              class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {{ isSubmittingRequest ? "Submitting..." : "Submit Request" }}
+              {{ isSubmittingRequest ? "Submitting..." : "Submit All Values" }}
             </button>
           </div>
         </div>

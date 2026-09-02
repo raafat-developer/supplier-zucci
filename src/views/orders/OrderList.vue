@@ -56,7 +56,7 @@
     <!-- ─── Tabs & Actions Row (OUTSIDE table border) ─── -->
     <div class="flex items-center justify-between gap-4 py-2 px-1 flex-wrap">
       <!-- Status Tabs -->
-      <div class="flex items-center gap-1 overflow-x-auto">
+      <div class="flex items-center  overflow-x-auto">
         <button
           v-for="t in tabs"
           :key="t.value"
@@ -85,13 +85,13 @@
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2 shrink-0">
-        <button @click="handleSync" class="btn btn--outline">
+        <!-- <button @click="handleSync" class="btn btn--outline">
           <RefreshCw
             class="btn__icon"
             :class="{ 'animate-spin': loading.action }"
           />
           Sync
-        </button>
+        </button> -->
         <button @click="handlePrintSlips" class="btn btn--outline">
           <Printer class="btn__icon" />
           Print Slips
@@ -199,7 +199,7 @@
               </td>
               <td class="data-table__td--order">#{{ o.id }}</td>
               <td class="data-table__td--date">
-                {{ formatDate(o.orderedAt || o.date) }}
+                {{ formatDate(o.orderedAt) }}
               </td>
               <td class="data-table__td--total">
                 {{
@@ -421,50 +421,38 @@ const isAllSelected = computed({
   },
 });
 
-const tabs = computed(() => {
-  const storeTabs = ordersStore.tabs || {};
-  const orderedKeys = [
-    { value: "all", label: "All" },
-    { value: "pending", label: "Pending", alt: "new" },
-    { value: "processing", label: "Processing" },
-    { value: "late", label: "Late" },
-    { value: "shipped", label: "Shipped" },
-    { value: "fulfilled", label: "Fulfilled", alt: "delivered" },
-    { value: "returns", label: "Returns", alt: "issues-return" },
-    { value: "cancelled", label: "Cancelled", alt: "canceled" },
-    { value: "completed", label: "Completed" },
-    { value: "closed", label: "Closed" },
-  ];
+const LEGACY_STATUS = {
+  pending: "new",
+  returns: "issues-return",
+  fulfilled: "delivered",
+  cancelled: "canceled",
+};
 
-  return orderedKeys.map((item) => {
-    let count = storeTabs[item.value];
-    if (count === undefined && item.alt) {
-      count = storeTabs[item.alt];
-    }
-    return {
-      value: item.value,
-      label: item.label,
-      count: count !== undefined ? count : 0,
-    };
-  });
-});
+function normalizeStatus(status) {
+  if (!status || status === "all") return "all";
+  return LEGACY_STATUS[status] || status;
+}
+
+const tabs = computed(() =>
+  (ordersStore.tabs || []).map((item) => ({
+    value: item.tab,
+    label: item.label,
+    count: item.count ?? 0,
+  }))
+);
 
 // Sync route status query parameter with active tab filter
 watch(
-  () => route.query.status,
-  (newStatus) => {
-    let s = newStatus || "all";
-    if (s === "new") s = "pending";
-    if (s === "issues-return") s = "returns";
-    if (s === "canceled") s = "cancelled";
-    if (s === "delivered") s = "fulfilled";
-    filter.value = s;
+  () => route.query.status ?? route.query.tab,
+  (raw) => {
+    filter.value = normalizeStatus(raw);
   },
   { immediate: true },
 );
 
 function selectTab(t) {
   const query = { ...route.query };
+  delete query.tab;
   if (t === "all") {
     delete query.status;
   } else {
@@ -599,8 +587,12 @@ function formatDate(dateStr) {
   if (!dateStr) return "—";
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
-  const options = { weekday: "long" };
-  const weekday = date.toLocaleDateString("en-US", options);
+  const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
+  const datePart = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
   const time = date
     .toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -608,7 +600,7 @@ function formatDate(dateStr) {
       hour12: true,
     })
     .toLowerCase();
-  return `${weekday} at ${time}`;
+  return `${weekday}, ${datePart} at ${time}`;
 }
 
 function formatNumber(num) {

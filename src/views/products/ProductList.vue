@@ -3,7 +3,7 @@
       <!-- ─── Tabs & Actions Row (OUTSIDE table border) ─── -->
       <div class="flex items-center justify-between gap-4 py-1 px-1 flex-wrap">
         <!-- Status Tabs -->
-        <div class="flex items-center gap-1 overflow-x-auto">
+        <div class="flex items-center  overflow-x-auto">
           <button
             v-for="t in tabs"
             :key="t.value"
@@ -601,7 +601,6 @@ const tabs = computed(() => {
     { value: "rejected", label: "Rejected", count: 0 },
     { value: "archived", label: "Archived", count: 0 },
     { value: "out_of_stock", label: "Out of Stock", count: 0 },
-    { value: "suspended", label: "Suspended", count: 0 },
   ];
 });
 
@@ -752,7 +751,7 @@ async function fetchProducts() {
           id: p.id,
           name: p.name,
           sku: p.sku,
-          status: p.productStatus || p.status,
+          status: p.status || p.productStatus,
           inventory: p.inventoryTotal,
           category: p.primaryCategory?.name || p.category || "—",
           markets: productMarkets,

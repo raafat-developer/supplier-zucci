@@ -182,7 +182,6 @@ import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 
 const router = useRouter();
-const { toast } = useAppStore();
 const authStore = useAuthStore();
 
 // ── Session Reset Helper ──
@@ -213,8 +212,6 @@ function resetRegistrationSession(
   regPassword.value = "";
 
   Object.keys(kycData).forEach((k) => delete kycData[k]);
-
-  toast(customMsg, "error");
 }
 
 function isSessionExpiredError(error) {
@@ -634,7 +631,7 @@ async function submitMergedLead() {
   const emailInvalid = !validEmail;
 
   if (fnInvalid || lnInvalid || phoneInvalid || emailInvalid) {
-    leadErr.value = "Please fill all mandatory fields";
+    leadErr.value = "Please complete all mandatory fields highlighted below.";
     leadErrField.value = "all";
     return;
   }
@@ -738,7 +735,6 @@ async function phoneNext() {
   const phoneInfo = getFormattedPhone();
   if (!phoneInfo.isValid) {
     phoneErr.value = "Please enter a valid mobile number";
-    toast("Please enter a valid mobile number", "error");
     return;
   }
 
@@ -766,7 +762,6 @@ async function phoneNext() {
       errData?.message ||
       "Failed to submit phone number. Please try again.";
     phoneErr.value = errMsg;
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }
@@ -776,7 +771,6 @@ async function phoneNext() {
 async function emailNext() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
     emailErr.value = "Please enter a valid email address";
-    toast("Please enter a valid email address", "error");
     return;
   }
 
@@ -804,7 +798,6 @@ async function emailNext() {
       errData?.message ||
       "Failed to submit email address. Please try again.";
     emailErr.value = errMsg;
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }
@@ -825,7 +818,6 @@ async function verifyOtp() {
     if (stage.value === "phone-otp") {
       const res = await authStore.verifyPhoneOtp(otpValue.value);
       const resData = res?.data || res;
-      toast("Mobile number verified successfully", "success");
       if (resData?.next_step || resData?.current_step || resData?.payload) {
         populateSessionData(resData);
       } else {
@@ -834,7 +826,6 @@ async function verifyOtp() {
     } else if (stage.value === "email-otp") {
       const res = await authStore.verifyEmailOtp(otpValue.value);
       const resData = res?.data || res;
-      toast("Email address verified successfully", "success");
       if (resData?.next_step || resData?.current_step || resData?.payload) {
         populateSessionData(resData);
       } else {
@@ -862,7 +853,6 @@ async function resendOtp() {
 
   try {
     await authStore.resendRegistrationOtp(channel);
-    toast(`Verification code resent to your ${channel}!`, "success");
   } catch (error) {
     console.error("Resend OTP error:", error);
     if (handleRegistrationError(error)) return;
@@ -890,19 +880,19 @@ async function selectEntity(type) {
     const errData = error.response?.data;
     const errMsg =
       errData?.message || "Failed to select entity type. Please try again.";
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }
 }
 
 function buildBrandPayload() {
+  const insta = answers.instagram?.trim() || kycData["instagram"]?.trim();
   return {
     brand_name: answers.brandName || kycData["brand-name"] || "",
     brand_description: kycData["brand-desc"] || "",
     website: kycData["website"] || "",
     has_website: !kycData["no-website"],
-    instagram: answers.instagram || kycData["instagram"] || "",
+    instagram: insta || null,
     logo_file_id: kycData["brand-logo-file-id"] || null,
     assets_file_id: kycData["brand-assets-file-id"] || null,
   };
@@ -1015,7 +1005,7 @@ function validateKycSection(section) {
   const title = (section?.title || "").toLowerCase();
 
   function setKycError(msg) {
-    kycErr.value = "Please fill all mandatory fields";
+    kycErr.value = "Please complete all mandatory fields highlighted below.";
     return false;
   }
 
@@ -1220,7 +1210,6 @@ async function kycNext() {
   try {
     const res = await authStore.updateKyc(sectionName, payloadData);
     const resData = res?.data || res;
-    toast(`${currentSection.title || "KYC section"} saved`, "success");
 
     if (kycStep.value < kycSections.value.length - 1) {
       kycStep.value++;
@@ -1239,7 +1228,6 @@ async function kycNext() {
     const errMsg =
       errData?.message || "Failed to save section. Please try again.";
     kycErr.value = errMsg;
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }
@@ -1270,7 +1258,6 @@ async function teamNext() {
 
   try {
     await authStore.sendTeamInvites(validInvites);
-    toast("Team invites sent successfully", "success");
     stage.value = "password";
   } catch (error) {
     console.error("Send team invites error:", error);
@@ -1278,7 +1265,6 @@ async function teamNext() {
     const errData = error.response?.data;
     const errMsg =
       errData?.message || "Failed to send team invites. Please try again.";
-    toast(errMsg, "error");
   } finally {
     loading.value = false;
   }
@@ -1296,10 +1282,6 @@ async function submitFinalRegistration() {
   try {
     const res = await authStore.submitRegistration(regPassword.value);
     const resData = res?.data || res;
-    toast(
-      resData?.message || "Registration submitted successfully!",
-      "success",
-    );
     goLoading();
   } catch (error) {
     console.error("Submit registration error:", error);

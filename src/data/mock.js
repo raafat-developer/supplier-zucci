@@ -85,6 +85,9 @@ export function statusBadgeClass(s) {
 }
 
 export function statusLabel(s) {
-  const map = { pending_review:'Pending Review', in_transit:'In Transit' }
-  return map[s] || (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
+  if (!s) return '';
+  const clean = String(s).toLowerCase().trim();
+  const map = { pending_review:'Pending Review', in_transit:'In Transit', out_of_stock:'Out of Stock' };
+  if (map[clean]) return map[clean];
+  return clean.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }

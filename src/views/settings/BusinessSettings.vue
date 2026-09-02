@@ -161,16 +161,6 @@
                 <Pencil class="size-3.5" />
               </button>
               <button
-                v-if="
-                  bank.hasConfirmationLetter || bank.has_confirmation_letter
-                "
-                @click="handleDownloadLetter(bank.id)"
-                class="px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-border hover:bg-muted text-foreground transition-colors inline-flex items-center gap-1"
-                title="Download confirmation letter"
-              >
-                <Download class="size-3.5" /> Letter
-              </button>
-              <button
                 v-if="bank.is_default || bank.isDefault"
                 class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-muted text-muted-foreground border border-border cursor-not-allowed"
                 disabled
@@ -276,9 +266,12 @@
             class="rounded-xl border bg-white-10 p-4 flex flex-col gap-3 justify-between shadow-sm"
           >
             <div>
-              <h4 class="text-xs font-bold text-foreground leading-snug">
+              <h4 class="text-xs font-bold text-foreground leading-snug truncate" :title="item.name">
                 {{ item.name }}
               </h4>
+              <p v-if="item.typeLabel && item.typeLabel !== item.name" class="text-[11px] font-semibold text-primary/80 mt-0.5 capitalize">
+                {{ item.typeLabel }}
+              </p>
               <p
                 v-if="item.status !== 'missing'"
                 class="text-[10px] text-muted-foreground mt-1"
@@ -448,29 +441,6 @@
                   :options="currencyOptions"
                   placeholder="Select currency"
                 />
-              </div>
-              <div class="flex flex-col gap-1">
-                <label
-                  class="text-xs text-muted-foreground font-medium uppercase tracking-wider"
-                  >Bank Confirmation Letter</label
-                >
-                <label
-                  class="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
-                >
-                  <Upload class="size-6 text-muted-foreground" />
-                  <span class="text-xs text-muted-foreground"
-                    >Upload PDF or image</span
-                  >
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    class="hidden"
-                    @change="handleBankLetterChange"
-                  />
-                </label>
-                <p v-if="newBank.letter" class="text-xs text-[#3dda84] mt-1">
-                  ✓ {{ newBank.letter }}
-                </p>
               </div>
             </div>
             <div
@@ -762,6 +732,58 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- File Preview Lightbox Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="previewFileUrl"
+          class="fixed inset-0 z-[600] flex items-center justify-center"
+          @click.self="closePreview"
+        >
+          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            class="relative bg-background rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col max-w-4xl max-h-[90vh] w-full m-4"
+          >
+            <div
+              class="flex items-center justify-between px-5 py-3 border-b border-border"
+            >
+              <span class="text-sm font-bold truncate">{{ previewFileName }}</span>
+              <button
+                @click="closePreview"
+                class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground"
+              >
+                <X class="size-4" />
+              </button>
+            </div>
+            <div class="p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
+              <img
+                v-if="
+                  previewFileType.includes('image') ||
+                  previewFileUrl.match(/\.(png|jpg|jpeg|svg|webp)/i)
+                "
+                :src="previewFileUrl"
+                class="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+              <iframe
+                v-else-if="
+                  previewFileType.includes('pdf') || previewFileUrl.match(/\.pdf/i)
+                "
+                :src="previewFileUrl"
+                class="w-full h-[70vh] rounded-lg"
+              ></iframe>
+              <a
+                v-else
+                :href="previewFileUrl"
+                target="_blank"
+                class="text-primary hover:underline text-sm font-semibold"
+                >Open File Link</a
+              >
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -826,84 +848,153 @@ const previewFileType = ref("");
 const previewFileId = ref("");
 
 const documentSections = computed(() => {
-  const findDoc = (type) => {
-    return documentsList.value.find((d) => {
-      const docType = String(
-        d.documentType || d.document_type || d.type || d.name || "",
-      ).toLowerCase();
-      const targetType = String(type).toLowerCase();
-
-      if (docType === targetType) return true;
-
-      if (targetType === "commercial_certificate") {
-        return (
-          docType.includes("commercial") ||
-          docType.includes("registry") ||
-          docType.includes("trade_license") ||
-          docType.includes("license")
-        );
-      }
-      if (targetType === "tax_certificate") {
-        return docType.includes("tax");
-      }
-    
-      if (targetType === "owner_passport") {
-        return (
-          docType.includes("owner") ||
-          docType.includes("passport") ||
-          docType.includes("nid") ||
-          docType.includes("id")
-        );
-      }
-      if (targetType === "owner_passport_2") {
-        return (
-          docType.includes("owner_2") ||
-          docType.includes("owner 2") ||
-          docType.includes("owner ii") ||
-          docType.includes("passport_2")
-        );
-      }
-      return false;
-    });
+  const formatTypeLabel = (typeStr) => {
+    if (!typeStr) return "Document";
+    const s = String(typeStr).toLowerCase().trim();
+    if (s.includes("tax")) return "Tax ID";
+    if (s.includes("commercial") || s.includes("registry") || s.includes("license")) return "Commercial ID";
+    if (s.includes("owner_2") || s.includes("owner 2")) return "Owner II Passport / ID";
+    if (s.includes("owner") || s.includes("passport") || s.includes("nid")) return "Owner Passport / ID";
+    return s
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  const mapDocItem = (name, type) => {
-    const doc = findDoc(type);
-    const docStatus = doc
-      ? doc.status === "active"
+  const getDocFileName = (d, defaultName = "Document") => {
+    const rawName = d.originalName || d.filename || d.name || "";
+    if (rawName) return rawName;
+    const docType = d.documentType || d.type || "";
+    if (docType) return formatTypeLabel(docType);
+    return defaultName;
+  };
+
+  const mapDocObj = (d, defaultName = null, defaultType = null) => {
+    const docStatus = d
+      ? d.status === "active"
         ? "valid"
-        : doc.status || doc.approvalStatus || doc.state || "valid"
+        : d.status || d.approvalStatus || d.state || "valid"
       : "missing";
-    const expiryVal = doc?.expiryDate || doc?.expiry_date || doc?.expiresAt;
+    const expiryVal = d?.expiryDate || d?.expiry_date || d?.expiresAt;
+    const docTypeRaw = d?.documentType || d?.type || defaultType || "document";
     return {
-      name,
-      type,
-      id: doc?.id || doc?.documentId || null,
+      name: getDocFileName(d, defaultName || formatTypeLabel(docTypeRaw)),
+      typeLabel: formatTypeLabel(docTypeRaw),
+      type: docTypeRaw,
+      id: d?.id || d?.documentId || null,
       expiry: expiryVal ? new Date(expiryVal).toLocaleDateString() : "—",
       status: docStatus,
-      canDownload: !!doc,
+      canDownload: !!(d?.id || d?.documentId),
       isExpired:
         docStatus === "expired" ||
         (expiryVal && new Date(expiryVal) < new Date()),
     };
   };
 
-  return [
+  const isMatchingType = (d, targetType) => {
+    const docType = String(
+      d.documentType || d.document_type || d.type || d.name || "",
+    ).toLowerCase();
+    const target = String(targetType).toLowerCase();
+
+    if (docType === target) return true;
+
+    if (target === "commercial_certificate") {
+      return (
+        docType.includes("commercial") ||
+        docType.includes("registry") ||
+        docType.includes("trade_license") ||
+        docType.includes("license")
+      );
+    }
+    if (target === "tax_certificate") {
+      return docType.includes("tax");
+    }
+    if (target === "owner_passport") {
+      return (
+        docType.includes("owner") ||
+        docType.includes("passport") ||
+        docType.includes("nid") ||
+        docType.includes("id")
+      );
+    }
+    return false;
+  };
+
+  const businessItems = [];
+  const idItems = [];
+  const otherItems = [];
+
+  // Map ALL returned documents without skipping duplicates!
+  (documentsList.value || []).forEach((doc) => {
+    const item = mapDocObj(doc);
+    if (isMatchingType(doc, "tax_certificate") || isMatchingType(doc, "commercial_certificate")) {
+      businessItems.push(item);
+    } else if (isMatchingType(doc, "owner_passport")) {
+      idItems.push(item);
+    } else {
+      otherItems.push(item);
+    }
+  });
+
+  // If no business documents uploaded yet, add placeholders
+  if (!businessItems.some((i) => isMatchingType(i, "tax_certificate"))) {
+    businessItems.unshift({
+      name: "Tax ID",
+      typeLabel: "Tax ID",
+      type: "tax_certificate",
+      id: null,
+      expiry: "—",
+      status: "missing",
+      canDownload: false,
+      isExpired: false,
+    });
+  }
+  if (!businessItems.some((i) => isMatchingType(i, "commercial_certificate"))) {
+    businessItems.push({
+      name: "Commercial ID",
+      typeLabel: "Commercial ID",
+      type: "commercial_certificate",
+      id: null,
+      expiry: "—",
+      status: "missing",
+      canDownload: false,
+      isExpired: false,
+    });
+  }
+
+  // If no ID documents uploaded yet, add placeholder
+  if (!idItems.length) {
+    idItems.push({
+      name: "NID or Passport — Owner I",
+      typeLabel: "Owner Passport / ID",
+      type: "owner_passport",
+      id: null,
+      expiry: "—",
+      status: "missing",
+      canDownload: false,
+      isExpired: false,
+    });
+  }
+
+  const sections = [
     {
       title: "Business Documents",
-      items: [
-        mapDocItem("Tax ID", "tax_certificate"),
-        mapDocItem("Commercial ID", "commercial_certificate"),
-      ],
+      items: businessItems,
     },
     {
       title: "Company Owner(s) ID(s)",
-      items: [
-        mapDocItem("NID or Passport — Owner I", "owner_passport"),
-        mapDocItem("NID or Passport — Owner II", "owner_passport_2"),
-      ],
+      items: idItems,
     },
   ];
+
+  if (otherItems.length) {
+    sections.push({
+      title: "Other Documents",
+      items: otherItems,
+    });
+  }
+
+  return sections;
 });
 
 // Upload Document Modal State
@@ -915,12 +1006,50 @@ const newDoc = reactive({
   file: null,
 });
 
-const docTypeOptions = [
-  { value: "tax_certificate", label: "Tax ID / Certificate" },
-  { value: "commercial_registry", label: "Commercial ID / Registry" },
-  { value: "trade_license", label: "Trade License" },
-  { value: "owner_passport", label: "Owner Passport / ID" },
-];
+const documentTypeEnums = ref([]);
+
+async function fetchDocTypeEnums() {
+  try {
+    const res = await get("/reference/enums?types=document_type");
+    const raw =
+      res?.enums?.document_type ||
+      res?.data?.enums?.document_type ||
+      res?.data?.document_type ||
+      res?.document_type ||
+      res?.items ||
+      res?.data ||
+      res ||
+      [];
+    if (Array.isArray(raw)) {
+      documentTypeEnums.value = raw.map((item) => {
+        if (typeof item === "string") {
+          return {
+            value: item,
+            label: item.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+          };
+        }
+        return {
+          value: item.code || item.value || item.id,
+          label: item.label || item.name || item.code || item.value,
+        };
+      });
+    }
+  } catch (e) {
+    console.error("Failed to fetch document_type enums:", e);
+  }
+}
+
+const docTypeOptions = computed(() => {
+  if (documentTypeEnums.value.length) {
+    return documentTypeEnums.value;
+  }
+  return [
+    { value: "tax_certificate", label: "Tax ID / Certificate" },
+    { value: "commercial_registry", label: "Commercial ID / Registry" },
+    { value: "trade_license", label: "Trade License" },
+    { value: "owner_passport", label: "Owner Passport / ID" },
+  ];
+});
 
 function handleDocFileChange(e) {
   const f = e.target.files[0];
@@ -1010,7 +1139,7 @@ async function downloadDocument(id, name) {
   if (!id) return;
   try {
     toast("Downloading document...");
-    const res = await get(`/supplier/business/documents/${id}/download`);
+    const res = await get(`/supplier/files/${id}`);
     const fileData = res?.data || res;
     const downloadUrl = fileData?.url || fileData?.data?.url;
     const contentType = fileData?.mimeType || fileData?.contentType || "";
@@ -1050,7 +1179,7 @@ async function downloadDocument(id, name) {
     }
 
     // Fallback if binary stream endpoint
-    const blobRes = await api.get(`/supplier/business/documents/${id}/download`, {
+    const blobRes = await api.get(`/supplier/files/${id}`, {
       responseType: "blob",
     });
     const cType =
@@ -1074,48 +1203,38 @@ async function previewDocument(id, name) {
   if (!id) return;
   try {
     toast("Loading preview...");
-    const res = await get(`/supplier/business/documents/${id}/download`);
-    const fileData = res?.data || res;
-    const downloadUrl = fileData?.url || fileData?.data?.url;
-    const filename =
-      fileData?.filename || fileData?.name || name || `Document-${id}`;
-    const mimeType =
-      fileData?.mimeType || fileData?.contentType || "application/pdf";
+    const res = await get(`/supplier/files/${id}`);
+    const { url, filename, mimeType } = extractFileDetails(res);
 
-    if (downloadUrl) {
-      let blobUrl = null;
+    if (url) {
       try {
-        const fileRes = await fetch(downloadUrl);
+        const fileRes = await fetch(url);
         if (!fileRes.ok) throw new Error("Direct fetch failed");
-        const blob = await fileRes.blob();
-        blobUrl = window.URL.createObjectURL(blob);
+        const arrayBuf = await fileRes.arrayBuffer();
+        const cleanType = mimeType || fileRes.headers.get("content-type") || "image/png";
+        const inlineBlob = new Blob([arrayBuf], { type: cleanType });
+        previewFileUrl.value = window.URL.createObjectURL(inlineBlob);
+        previewFileName.value = filename || name || `File-${id}`;
+        previewFileType.value = cleanType;
+        previewFileId.value = id;
+        return;
       } catch (_) {
-        try {
-          const proxyUrl = getProxyUrl(downloadUrl);
-          const fileRes = await fetch(proxyUrl);
-          const blob = await fileRes.blob();
-          blobUrl = window.URL.createObjectURL(blob);
-        } catch (_) {
-          blobUrl = getProxyUrl(downloadUrl);
-        }
+        previewFileUrl.value = getProxyUrl(url);
+        previewFileName.value = filename || name || `File-${id}`;
+        previewFileType.value = mimeType || "image/png";
+        previewFileId.value = id;
+        return;
       }
-
-      previewFileUrl.value = blobUrl;
-      previewFileName.value = filename;
-      previewFileType.value = mimeType;
-      previewFileId.value = id;
-      return;
     }
 
-    // Fallback if binary stream
-    const blobRes = await api.get(`/supplier/business/documents/${id}/download`, {
+    // Fallback if binary stream endpoint
+    const blobRes = await api.get(`/supplier/files/${id}`, {
       responseType: "blob",
     });
-    const contentType = blobRes.headers["content-type"] || "application/pdf";
-    const blob = new Blob([blobRes.data], { type: contentType });
-    const url = window.URL.createObjectURL(blob);
-    previewFileUrl.value = url;
-    previewFileName.value = filename;
+    const contentType = blobRes.headers["content-type"] || mimeType || "image/png";
+    const inlineBlob = new Blob([blobRes.data], { type: contentType });
+    previewFileUrl.value = window.URL.createObjectURL(inlineBlob);
+    previewFileName.value = name || `File-${id}`;
     previewFileType.value = contentType;
     previewFileId.value = id;
   } catch (e) {
@@ -1319,7 +1438,15 @@ async function fetchBusinessProfile() {
 async function fetchBusinessDocuments() {
   try {
     const res = await get("/supplier/business/documents");
-    const raw = res?.data || res;
+    const payload = res?.data || res;
+    const raw =
+      (Array.isArray(payload) ? payload : null) ||
+      payload?.documents ||
+      payload?.items ||
+      payload?.data ||
+      payload?.sections ||
+      [];
+
     if (Array.isArray(raw)) {
       const flatItems = [];
       raw.forEach((sec) => {
@@ -1327,14 +1454,6 @@ async function fetchBusinessDocuments() {
           flatItems.push(...sec.items);
         } else if (sec && (sec.documentType || sec.type || sec.id)) {
           flatItems.push(sec);
-        }
-      });
-      documentsList.value = flatItems;
-    } else if (raw && Array.isArray(raw.sections)) {
-      const flatItems = [];
-      raw.sections.forEach((sec) => {
-        if (Array.isArray(sec.items)) {
-          flatItems.push(...sec.items);
         }
       });
       documentsList.value = flatItems;
@@ -1353,6 +1472,7 @@ onMounted(async () => {
     await Promise.allSettled([
       fetchBusinessProfile(),
       fetchBusinessDocuments(),
+      fetchDocTypeEnums(),
       financeStore.fetchBankAccounts(),
       lookupStore.fetchCountries(),
       lookupStore.fetchCurrencies(),

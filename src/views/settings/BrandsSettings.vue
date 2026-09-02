@@ -48,7 +48,12 @@
                 <p class="text-xs text-muted-foreground">{{ b.nameAr }}</p>
               </div>
             </div>
-            <Badge :status="b.status">{{ statusLabel(b.status) }}</Badge>
+            <div @click.stop class="flex items-center gap-2">
+              <SwitchToggle
+                :modelValue="b.status === 'active'"
+                @update:modelValue="(val) => toggleBrandStatus(b, val)"
+              />
+            </div>
           </div>
           <!-- Description -->
           <p class="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
@@ -165,6 +170,73 @@
                 class="rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none"
               ></textarea>
             </div>
+
+            <!-- Brand Logo Upload Section -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">
+                Brand Logo (Optional)
+              </label>
+
+              <!-- Upload Preview Container -->
+              <div
+                v-if="logoPreviewUrl || logoFileName"
+                class="p-3 rounded-xl border border-border bg-white-10 flex items-center justify-between gap-3"
+              >
+                <div class="flex items-center gap-3 overflow-hidden">
+                  <img
+                    v-if="logoPreviewUrl"
+                    :src="logoPreviewUrl"
+                    class="size-11 object-cover rounded-lg border border-border shrink-0"
+                    alt="Logo Preview"
+                  />
+                  <div
+                    v-else
+                    class="size-11 rounded-lg border border-border bg-muted flex items-center justify-center shrink-0"
+                  >
+                    <Upload class="size-5 text-muted-foreground" />
+                  </div>
+                  <div class="flex flex-col min-w-0">
+                    <p class="text-xs font-bold text-foreground truncate">
+                      {{ logoFileName }}
+                    </p>
+                    <span v-if="uploadingLogo" class="text-[11px] text-primary flex items-center gap-1 font-medium mt-0.5">
+                      <Loader2 class="size-3 animate-spin" /> Uploading to server...
+                    </span>
+                    <span v-else-if="newBrand.logoFileId" class="text-[11px] text-emerald-600 flex items-center gap-1 font-medium mt-0.5">
+                      <Check class="size-3" /> Logo uploaded
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="clearLogo"
+                  class="size-7 rounded-md hover:bg-muted text-muted-foreground flex items-center justify-center transition-colors shrink-0"
+                  title="Remove logo"
+                >
+                  <X class="size-4" />
+                </button>
+              </div>
+
+              <!-- Upload Dropzone -->
+              <label
+                v-else
+                class="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
+              >
+                <Upload v-if="!uploadingLogo" class="size-5 text-muted-foreground" />
+                <Loader2 v-else class="size-5 text-primary animate-spin" />
+                <span class="text-xs text-muted-foreground font-medium">
+                  {{ uploadingLogo ? "Uploading logo..." : "Upload logo image (PNG, JPG, SVG)" }}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                  class="hidden"
+                  @change="handleLogoUpload"
+                  :disabled="uploadingLogo"
+                />
+              </label>
+            </div>
+
             <div class="flex flex-col gap-1">
               <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">Brand Color (Hex)</label>
               <div class="flex items-center gap-2">
@@ -190,7 +262,7 @@
             </button>
             <button
               @click="handleAddBrand"
-              :disabled="!newBrand.name || !newBrand.nameAr || addingBrand"
+              :disabled="!newBrand.name || !newBrand.nameAr || addingBrand || uploadingLogo"
               class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 transition-colors flex items-center gap-2"
             >
               <Loader2 v-if="addingBrand" class="size-3 animate-spin" />
@@ -201,32 +273,186 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- File Preview Lightbox Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="previewFileUrl"
+        class="fixed inset-0 z-[600] flex items-center justify-center"
+        @click.self="closePreview"
+      >
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div class="relative bg-background rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col max-w-4xl max-h-[90vh] w-full m-4">
+          <div class="flex items-center justify-between px-5 py-3 border-b border-border">
+            <span class="text-sm font-bold truncate">{{ previewFileName }}</span>
+            <button @click="closePreview" class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground">
+              <X class="size-4" />
+            </button>
+          </div>
+          <div class="p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
+            <img v-if="previewFileType.includes('image') || previewFileUrl.match(/\.(png|jpg|jpeg|svg|webp)/i)" :src="previewFileUrl" class="max-w-full max-h-[70vh] object-contain rounded-lg" />
+            <iframe v-else-if="previewFileType.includes('pdf') || previewFileUrl.match(/\.pdf/i)" :src="previewFileUrl" class="w-full h-[70vh] rounded-lg"></iframe>
+            <a v-else :href="previewFileUrl" target="_blank" class="text-primary hover:underline text-sm font-semibold">Open File Link</a>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 <script setup>
 import { ref, computed, reactive, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
-import { Plus, X, Loader2 } from "lucide-vue-next";
+import { Plus, X, Upload, Check, Loader2 } from "lucide-vue-next";
 import { useAppStore } from "@/stores/app";
 import { useBrandStore } from "@/stores/brand";
+import { useApi } from "@/composables/useApi";
 import AppButton from "@/components/ui/AppButton.vue";
 import Badge from "@/components/ui/Badge.vue";
+import SwitchToggle from "@/components/ui/SwitchToggle.vue";
 import ZucciFooter from "@/components/shared/ZucciFooter.vue";
 import SettingsSkeleton from "@/components/settings/SettingsSkeleton.vue";
 
 const router = useRouter();
 const { toast } = useAppStore();
 const brandStore = useBrandStore();
+const { get, upload } = useApi();
+
+const previewFileUrl = ref(null);
+const previewFileName = ref("");
+const previewFileType = ref("");
+
+async function previewDocumentFile(fileId, name = "") {
+  if (!fileId) return;
+  try {
+    toast("Loading preview...");
+    const res = await get(`/supplier/files/${fileId}`);
+    const fileData = res?.data || res || {};
+    const url = fileData.url || fileData.src;
+    const filename = fileData.filename || fileData.originalName || fileData.name || name || `File-${fileId}`;
+    const mimeType = fileData.mimeType || fileData.contentType || "image/png";
+
+    if (url) {
+      try {
+        const response = await fetch(url);
+        const arrayBuf = await response.arrayBuffer();
+        const cleanType = mimeType || response.headers.get("content-type") || "image/png";
+        const inlineBlob = new Blob([arrayBuf], { type: cleanType });
+        previewFileUrl.value = window.URL.createObjectURL(inlineBlob);
+        previewFileName.value = filename;
+        previewFileType.value = cleanType;
+        return;
+      } catch (_) {
+        previewFileUrl.value = url;
+        previewFileName.value = filename;
+        previewFileType.value = mimeType;
+      }
+    } else {
+      toast("Preview URL not available for this file", "error");
+    }
+  } catch (e) {
+    console.error("Failed to load file preview:", e);
+    toast("Failed to load file preview", "error");
+  }
+}
+
+function closePreview() {
+  previewFileUrl.value = null;
+  previewFileName.value = "";
+  previewFileType.value = "";
+}
+
+async function toggleBrandStatus(brandItem, val) {
+  try {
+    const nextStatus = val ? "active" : "inactive";
+    const payload = {
+      status: nextStatus,
+      name: brandItem.name,
+      color: brandItem.color || "#10b981",
+    };
+    if (brandItem.nameAr) payload.nameAr = brandItem.nameAr;
+    if (brandItem.logoFileId || brandItem.logo_file_id) {
+      payload.logoFileId = brandItem.logoFileId || brandItem.logo_file_id;
+    }
+
+    await brandStore.updateBrand(brandItem.id, payload);
+    toast(`Brand status updated to ${nextStatus}`);
+  } catch (e) {
+    console.error("Failed to toggle brand status:", e);
+    toast("Failed to update status", "error");
+  }
+}
 
 const showAddBrand = ref(false);
 const addingBrand = ref(false);
 const loadingBrands = ref(true);
+
+const logoPreviewUrl = ref("");
+const logoFileName = ref("");
+const uploadingLogo = ref(false);
 
 const newBrand = reactive({
   name: "",
   nameAr: "",
   description: "",
   color: "#10b981",
-  fulfillmentModeId: 1
+  logoFileId: null,
+  fulfillmentModeId: 1,
+});
+
+async function handleLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  logoFileName.value = file.name;
+  if (file.type.startsWith("image/")) {
+    logoPreviewUrl.value = URL.createObjectURL(file);
+  } else {
+    logoPreviewUrl.value = "";
+  }
+
+  uploadingLogo.value = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("purpose", "brand_logo");
+
+    const res = await upload("/supplier/files", formData);
+    const fileId = res?.data?.id || res?.data?.fileId || res?.id;
+
+    if (fileId) {
+      newBrand.logoFileId = fileId;
+      toast("Logo uploaded successfully");
+    } else {
+      toast("Failed to get file ID from server", "error");
+    }
+  } catch (err) {
+    console.error("Failed to upload brand logo:", err);
+    toast("Failed to upload brand logo", "error");
+  } finally {
+    uploadingLogo.value = false;
+  }
+}
+
+function clearLogo() {
+  newBrand.logoFileId = null;
+  logoPreviewUrl.value = "";
+  logoFileName.value = "";
+}
+
+function resetNewBrandForm() {
+  newBrand.name = "";
+  newBrand.nameAr = "";
+  newBrand.description = "";
+  newBrand.color = "#10b981";
+  newBrand.logoFileId = null;
+  clearLogo();
+}
+
+watch(showAddBrand, (isOpen) => {
+  if (!isOpen) {
+    resetNewBrandForm();
+  }
 });
 
 const statusLabel = (status) => {
@@ -279,13 +505,17 @@ async function handleAddBrand() {
   if (!newBrand.name || !newBrand.nameAr) return;
   addingBrand.value = true;
   try {
-    await brandStore.createBrand({ ...newBrand });
+    await brandStore.createBrand({
+      name: newBrand.name,
+      nameAr: newBrand.nameAr,
+      description: newBrand.description,
+      color: newBrand.color,
+      logoFileId: newBrand.logoFileId || null,
+      fulfillmentModeId: newBrand.fulfillmentModeId || 1,
+    });
     toast("Brand created successfully!");
     showAddBrand.value = false;
-    newBrand.name = "";
-    newBrand.nameAr = "";
-    newBrand.description = "";
-    newBrand.color = "#10b981";
+    resetNewBrandForm();
   } catch (e) {
     console.error(e);
   } finally {

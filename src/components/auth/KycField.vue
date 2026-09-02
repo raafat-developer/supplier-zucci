@@ -122,8 +122,8 @@
       :type="field.type === 'url' ? 'url' : 'text'"
       :placeholder="field.placeholder"
       class="reg-input"
-      :class="{ '!border-red-500': kycErr && !modelValue[field.key] }"
-      :style="(kycErr && !modelValue[field.key]) ? 'border-color: #ef4444 !important;' : ''"
+      :class="{ '!border-red-500': kycErr && isFieldRequired(field.key) && !modelValue[field.key] }"
+      :style="(kycErr && isFieldRequired(field.key) && !modelValue[field.key]) ? 'border-color: #ef4444 !important;' : ''"
     />
   </div>
 
@@ -144,8 +144,8 @@
       @input="update(field.key, $event.target.value)"
       rows="2"
       class="reg-input resize-none"
-      :class="{ '!border-red-500': kycErr && !modelValue[field.key] }"
-      :style="(kycErr && !modelValue[field.key]) ? 'border-color: #ef4444 !important;' : ''"
+      :class="{ '!border-red-500': kycErr && isFieldRequired(field.key) && !modelValue[field.key] }"
+      :style="(kycErr && isFieldRequired(field.key) && !modelValue[field.key]) ? 'border-color: #ef4444 !important;' : ''"
       :placeholder="field.placeholder"
     ></textarea>
   </div>
@@ -961,7 +961,6 @@ async function onFile(key, e) {
     };
     Object.assign(props.modelValue, state2);
     emit("update:modelValue", state2);
-    toast(`${props.field.label || "File"} uploaded successfully`, "success");
   } catch (error) {
     console.error("File upload error:", error);
     const errData = error.response?.data;

@@ -1,11 +1,12 @@
 <template>
-  <div class="relative inline-block" ref="wrapRef">
+  <div class="relative" :class="[fullWidth ? 'w-full block' : 'inline-block']" ref="wrapRef">
     <button
       type="button"
       :disabled="disabled"
       @click="toggle"
       class="flex items-center justify-between transition-all text-left cursor-pointer focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
       :class="[
+        fullWidth ? 'w-full' : '',
         customClass || 'bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground font-medium outline-none hover:bg-accent transition-colors'
       ]"
     >
@@ -79,6 +80,10 @@ const props = defineProps({
   customClass: {
     type: String,
     default: ''
+  },
+  fullWidth: {
+    type: Boolean,
+    default: false
   }
 })
 

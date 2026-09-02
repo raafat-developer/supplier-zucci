@@ -36,7 +36,7 @@
           <!-- Attachments -->
           <div
             v-if="evt.attachments?.length"
-            class="grid grid-cols-6 gap-2 mt-2"
+            class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-2"
           >
             <div
               v-for="(att, ai) in evt.attachments"

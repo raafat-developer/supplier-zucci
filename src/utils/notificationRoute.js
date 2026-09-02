@@ -64,7 +64,7 @@ export function getValidNotificationUrl(url, router) {
   if (router && typeof router.resolve === "function") {
     try {
       const resolved = router.resolve(trimmed);
-      if (
+      const isValid =
         resolved &&
         resolved.matched &&
         resolved.matched.length > 0 &&
@@ -72,13 +72,17 @@ export function getValidNotificationUrl(url, router) {
         !resolved.matched.some(
           (m) =>
             m.name === "NotFound" ||
-            (m.path && m.path.includes(":pathMatch")),
-        )
-      ) {
+            (m.path && (m.path.includes(":pathMatch") || m.path.includes("catchAll"))),
+        );
+
+      if (isValid) {
         return trimmed;
       }
+
+      // If the route is not registered in the system router, safely fallback to notifications
+      return "/app/notifications";
     } catch (_) {
-      // Ignore resolution errors and fallback below
+      return "/app/notifications";
     }
   }
 

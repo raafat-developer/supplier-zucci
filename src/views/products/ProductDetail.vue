@@ -1,5 +1,38 @@
 <template>
   <div class="flex flex-col gap-4 p-4 bg-white-10">
+    <!-- Skeleton while loading -->
+    <div v-if="loading" class="flex flex-col gap-6 animate-pulse p-2">
+      <!-- Header Skeleton -->
+      <div class="flex items-center justify-between gap-4 pb-4 border-b border-border/40">
+        <div class="flex items-center gap-3">
+          <div class="size-8 rounded-lg bg-muted/60"></div>
+          <div class="flex flex-col gap-2">
+            <div class="h-5 w-48 bg-muted/60 rounded-md"></div>
+            <div class="h-3 w-32 bg-muted/40 rounded-md"></div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <div class="h-8 w-28 bg-muted/60 rounded-lg"></div>
+          <div class="h-8 w-20 bg-muted/60 rounded-lg"></div>
+        </div>
+      </div>
+      <!-- Content Section Skeleton -->
+      <div class="rounded-xl border border-border/60 p-5 bg-white-10 flex flex-col gap-4">
+        <div class="h-4 w-32 bg-muted/60 rounded"></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="h-32 bg-muted/40 rounded-lg border border-border/30"></div>
+          <div class="h-32 bg-muted/40 rounded-lg border border-border/30"></div>
+        </div>
+      </div>
+      <!-- Details Section Skeleton -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="h-64 bg-muted/40 rounded-xl border border-border/40"></div>
+        <div class="h-64 bg-muted/40 rounded-xl border border-border/40"></div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <template v-else>
     <!-- Header Block -->
     <div
       class="flex items-center justify-between border-b border-border/40 pb-4 flex-wrap gap-4"
@@ -30,43 +63,21 @@
                 product.syncedAt ? "· " + formatSyncTime(product?.syncedAt) : ""
               }}
             </span>
-            <!-- Active Status Badge -->
+            <!-- Dynamic Status Badge -->
             <span
-              v-if="product.status === 'active'"
-              class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-semibold text-[10px]"
+              v-if="product.status"
+              class="inline-flex items-center px-2 py-0.5 rounded-full border font-semibold text-[10px]"
+              :class="getProductStatusBadge(product.status).class"
             >
-              Active
+              {{ getProductStatusBadge(product.status).label }}
             </span>
+            <!-- Product Status Badge -->
             <span
-              v-else-if="product.status === 'draft'"
-              class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20 font-semibold text-[10px]"
+              v-if="product.approvalStatus"
+              class="inline-flex items-center px-2 py-0.5 rounded-full border font-semibold text-[10px]"
+              :class="getProductStatusBadge(product.approvalStatus).class"
             >
-              Draft
-            </span>
-            <span
-              v-else
-              class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 font-semibold text-[10px]"
-            >
-              {{ cap(product.status) }}
-            </span>
-            <!-- Approval Status Badge -->
-            <span
-              v-if="product.approvalStatus === 'approved'"
-              class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 font-semibold text-[10px]"
-            >
-              Approved
-            </span>
-            <span
-              v-else-if="product.approvalStatus === 'not_submitted'"
-              class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-500/10 text-slate-700 border border-slate-500/20 font-semibold text-[10px]"
-            >
-              Not Submitted
-            </span>
-            <span
-              v-else
-              class="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 font-semibold text-[10px]"
-            >
-              Pending
+              {{ getProductStatusBadge(product.approvalStatus).label }}
             </span>
           </div>
 
@@ -108,11 +119,12 @@
           v-can="'products.edit'"
           v-if="
             product.approvalStatus !== 'approved' &&
-            product.approvalStatus !== 'pending_review'
+            product.approvalStatus !== 'pending_review' &&
+            product.approvalStatus !== 'pending'
           "
           @click="submitToReview"
           :disabled="submitting || saving"
-          class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-border bg-white-10 text-foreground hover:bg-muted shadow-sm transition-colors shrink-0"
+          class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-border bg-white-10 text-foreground hover:bg-muted shadow-sm transition-colors shrink-0 cursor-pointer"
         >
           {{ submitting ? "Submitting..." : "Submit to review" }}
         </button>
@@ -172,7 +184,8 @@
                 >Synced Content</span
               >
               <button
-                class="text-[10px] font-bold text-primary hover:underline"
+                @click="reSyncProduct"
+                class="text-[10px] font-bold text-primary hover:underline cursor-pointer"
               >
                 Re-sync
               </button>
@@ -458,7 +471,7 @@
                   customClass="w-full rounded-lg border border-border bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
                 />
               </div>
-              <div class="flex flex-col gap-1 col-span-1">
+              <div class="flex flex-col gap-1 col-span-2">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Shipping Weight</label
@@ -469,7 +482,7 @@
                     type="number"
                     min="0"
                     @input="product.weight = Math.max(0, product.weight)"
-                    class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono flex-1 focus:outline-none focus:ring-1 focus:ring-black/30"
+                    class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono flex-1 focus:outline-none"
                   />
                   <AppSelect
                     v-model="weightUnit"
@@ -480,7 +493,7 @@
                   />
                 </div>
               </div>
-              <div class="flex flex-col gap-1 col-span-1">
+              <div class="flex flex-col gap-1 col-span-2">
                 <label
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >HS Code (Customs)</label
@@ -522,16 +535,16 @@
                   class="text-[10px] font-bold text-foreground uppercase tracking-wider"
                   >Tags</label
                 >
-                <div class="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-input bg-white-10 focus-within:ring-1 focus-within:ring-black/30">
+                <div class="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-input bg-white-10 focus-within:border-border focus-within:ring-0">
                   <span
-                    v-for="t in product.tags"
+                    v-for="t in (product.tags || [])"
                     :key="t"
                     class="px-2 py-0.5 bg-muted/60 text-foreground text-xs rounded flex items-center gap-1 font-medium border border-border/40"
                   >
                     {{ t }}
                     <button
                       type="button"
-                      @click="product.tags = product.tags.filter((x) => x !== t)"
+                      @click="product.tags = (product.tags || []).filter((x) => x !== t)"
                       class="hover:text-destructive text-xs font-bold"
                     >
                       ×
@@ -540,7 +553,7 @@
                   <input
                     v-model="tagInput"
                     placeholder="Type and press Enter..."
-                    class="bg-transparent text-xs outline-none flex-1 min-w-[120px]"
+                    class="bg-transparent text-xs outline-none focus:outline-none focus:ring-0 border-none flex-1 min-w-[120px]"
                     @keydown.enter.prevent="addTag"
                   />
                 </div>
@@ -699,14 +712,22 @@
               </div>
             </div>
 
-            <div class="flex items-center gap-2 mt-2">
+            <div class="flex items-center gap-3 mt-2 flex-wrap">
               <button
                 type="button"
-                @click="generateVariants"
-                class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-border bg-white-10 hover:bg-muted/15 shadow-sm"
+                @click="handleGenerateVariantsClick"
+                :class="[
+                  'px-3.5 py-1.5 text-xs font-bold rounded-lg border border-border bg-white-10 hover:bg-muted/15 shadow-sm transition-all',
+                  (!product.markets || !product.markets.length)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'cursor-pointer'
+                ]"
               >
                 Generate Variants from Attributes
               </button>
+              <span v-if="!product.markets || !product.markets.length" class="text-xs text-amber-500 font-semibold">
+                * Select at least 1 market in Market Availability above
+              </span>
             </div>
 
             <!-- Market Tabs -->
@@ -871,70 +892,65 @@
           <!-- Market Tabs for Simple Product -->
           <div
             v-if="activeMarkets.length > 1"
-            class="flex items-center gap-1.5 border-b border-border/30 pb-2"
+            class="flex items-center gap-1.5 border-b border-border/30 pb-2 flex-wrap"
           >
             <button
               v-for="m in activeMarkets"
               :key="m"
               type="button"
               @click="activePriceMarket = m"
-              class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5"
+              class="px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               :class="
                 activePriceMarket === m
                   ? 'bg-foreground text-background shadow-sm'
                   : 'text-muted-foreground hover:bg-muted/10 hover:text-foreground'
               "
             >
+              <span class="text-base select-none">{{ marketInfo[m]?.flag || '🏳️' }}</span>
               {{ m }} ·
               <span class="opacity-60">{{ getMarketCurrency(m) }}</span>
             </button>
           </div>
 
-          <div
-            v-if="!activePriceMarket"
-            class="text-xs text-amber-500 font-semibold p-4 border border-amber-500/20 bg-amber-500/5 rounded-xl"
-          >
-            No active markets configuration found.
-          </div>
-
-          <div
-            v-else-if="product.marketPrices[activePriceMarket]"
-            class="grid grid-cols-3 gap-4"
-          >
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="flex flex-col gap-1.5">
               <label
                 class="text-xs font-bold text-foreground uppercase tracking-wider"
               >
-                Price ({{ getMarketCurrency(activePriceMarket) }})
+                Price ({{ activeMarketCurrency }})
+                <span class="text-destructive">*</span>
               </label>
               <input
-                v-model="product.marketPrices[activePriceMarket].price"
+                v-model="activeMarketPriceObj.price"
                 type="number"
-                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+                placeholder="0.00"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black/30"
               />
             </div>
             <div class="flex flex-col gap-1.5">
               <label
                 class="text-xs font-bold text-foreground uppercase tracking-wider"
               >
-                Compare Price ({{ getMarketCurrency(activePriceMarket) }})
+                Compare Price ({{ activeMarketCurrency }})
               </label>
               <input
-                v-model="product.marketPrices[activePriceMarket].comparePrice"
+                v-model="activeMarketPriceObj.comparePrice"
                 type="number"
-                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+                placeholder="0.00"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black/30"
               />
             </div>
             <div class="flex flex-col gap-1.5">
               <label
                 class="text-xs font-bold text-foreground uppercase tracking-wider"
               >
-                Inventory
+                Inventory / Stock
               </label>
               <input
-                v-model="product.marketPrices[activePriceMarket].inventory"
+                v-model="activeMarketPriceObj.inventory"
                 type="number"
-                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none"
+                placeholder="0"
+                class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-black/30"
               />
             </div>
           </div>
@@ -1123,6 +1139,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <MediaLibrary
       :show="showMediaLib"
@@ -1182,27 +1199,46 @@
                   class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
                 />
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  class="text-xs text-muted-foreground uppercase font-medium"
-                  >Initial Value (English)</label
+              <div class="flex flex-col gap-2 border-t border-border pt-3">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-muted-foreground uppercase font-medium">Attribute Values</label>
+                  <button
+                    type="button"
+                    @click="addProposeAttrValue"
+                    class="text-xs text-primary font-semibold hover:underline"
+                  >
+                    + Add Another Value
+                  </button>
+                </div>
+                <div
+                  v-for="(v, idx) in newAttrForm.values"
+                  :key="idx"
+                  class="p-2.5 rounded-lg border border-border bg-muted/20 flex flex-col gap-2 relative"
                 >
-                <input
-                  v-model="newAttrForm.valueEn"
-                  placeholder="e.g. Silk"
-                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  class="text-xs text-muted-foreground uppercase font-medium"
-                  >Initial Value (Arabic)</label
-                >
-                <input
-                  v-model="newAttrForm.valueAr"
-                  placeholder="e.g. حرير"
-                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                />
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-muted-foreground uppercase">Value #{{ idx + 1 }}</span>
+                    <button
+                      v-if="newAttrForm.values.length > 1"
+                      type="button"
+                      @click="removeProposeAttrValue(idx)"
+                      class="text-xs text-rose-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input
+                      v-model="v.valueEn"
+                      placeholder="Label (EN) e.g. Silk"
+                      class="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                    <input
+                      v-model="v.valueAr"
+                      placeholder="Label (AR) e.g. حرير"
+                      class="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             <div
@@ -1318,7 +1354,19 @@ const newAttrForm = reactive({
   nameAr: "",
   valueEn: "",
   valueAr: "",
+  values: [{ valueEn: "", valueAr: "" }],
 });
+
+function addProposeAttrValue() {
+  if (!Array.isArray(newAttrForm.values)) newAttrForm.values = [];
+  newAttrForm.values.push({ valueEn: "", valueAr: "" });
+}
+
+function removeProposeAttrValue(idx) {
+  if (newAttrForm.values.length > 1) {
+    newAttrForm.values.splice(idx, 1);
+  }
+}
 
 const sizeGuidesList = ref([]);
 const returnPolicies = ref([]);
@@ -1359,7 +1407,7 @@ const cap = (str) =>
 
 const isVariable = computed({
   get: () => product.isVariable,
-  set: (val) => {
+  set: async (val) => {
     product.isVariable = val;
     if (val) {
       const hasRealVariants = product.variants.some(
@@ -1369,7 +1417,34 @@ const isVariable = computed({
         product.variants = [];
       }
     }
+
+    if (product.id) {
+      try {
+        await patch(`/supplier/catalog/products/${product.id}`, {
+          isVariable: val,
+        });
+        toast(`Product structure updated to ${val ? "Variable" : "Simple"}`);
+      } catch (e) {
+        console.error("Failed to update isVariable setting:", e);
+        toast("Failed to update variable setting", "error");
+      }
+    }
   },
+});
+
+const activeMarketPriceObj = computed(() => {
+  const code = activePriceMarket.value || "AE";
+  if (!product.marketPrices) {
+    product.marketPrices = {};
+  }
+  if (!product.marketPrices[code]) {
+    product.marketPrices[code] = {
+      price: product.price || 0,
+      comparePrice: product.comparePrice || null,
+      inventory: product.inventory || 0,
+    };
+  }
+  return product.marketPrices[code];
 });
 const showMediaLib = ref(false);
 const showColorPicker = ref(false),
@@ -1420,7 +1495,47 @@ function formatSyncTime(dateStr) {
   }
 }
 
+function getProductStatusBadge(status) {
+  if (!status) return { label: "", class: "" };
+  const s = String(status).toLowerCase().trim();
+
+  const map = {
+    active: { label: "Active", class: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    approved: { label: "Approved", class: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+    draft: { label: "Draft", class: "bg-slate-500/10 text-slate-700 border-slate-500/20" },
+    inactive: { label: "Inactive", class: "bg-slate-500/10 text-slate-700 border-slate-500/20" },
+    archived: { label: "Archived", class: "bg-slate-500/10 text-slate-700 border-slate-500/20" },
+    pending: { label: "Pending", class: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
+    pending_review: { label: "Pending Review", class: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
+    rejected: { label: "Rejected", class: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+    out_of_stock: { label: "Out of Stock", class: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+  };
+
+  if (map[s]) return map[s];
+
+  const formattedLabel = s
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return {
+    label: formattedLabel,
+    class: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+  };
+}
+
 const tagInput = ref("");
+function addTag() {
+  const val = tagInput.value?.trim();
+  if (!val) return;
+  if (!Array.isArray(product.tags)) {
+    product.tags = [];
+  }
+  if (!product.tags.includes(val)) {
+    product.tags.push(val);
+  }
+  tagInput.value = "";
+}
+
 const careCustom = ref("");
 const careInstructions = ref([]);
 const selectedCareOption = ref("");
@@ -1475,6 +1590,7 @@ watch(
 const descEditor = ref(null);
 const descEditorAr = ref(null);
 const previewFile = ref(null);
+const loading = ref(true);
 const saving = ref(false);
 const submitting = ref(false);
 const activityLog = ref([]);
@@ -1819,31 +1935,63 @@ function openAddVariantDrawer() {
 
 async function submitProposeAttr() {
   try {
-    const code = newAttrForm.nameEn.toLowerCase().replace(/\s+/g, "-");
-    const valCode = newAttrForm.valueEn.toLowerCase().replace(/\s+/g, "-");
+    if (!newAttrForm.nameEn?.trim()) {
+      toast("Attribute name (English) is required", "error");
+      return;
+    }
+
+    const code = newAttrForm.nameEn.trim().toLowerCase().replace(/\s+/g, "-");
+    const nameAr = newAttrForm.nameAr?.trim() || newAttrForm.nameEn.trim();
+
+    const valuesPayload = [];
+
+    if (Array.isArray(newAttrForm.values)) {
+      newAttrForm.values.forEach((v) => {
+        if (!v.valueEn?.trim()) return;
+        const valEn = v.valueEn.trim();
+        const valAr = v.valueAr?.trim() || valEn;
+        const valCode = valEn.toLowerCase().replace(/\s+/g, "-");
+        valuesPayload.push({
+          code: valCode,
+          translations: [
+            { localeId: 1, label: valEn },
+            { localeId: 2, label: valAr },
+          ],
+        });
+      });
+    }
+
+    if (!valuesPayload.length && newAttrForm.valueEn?.trim()) {
+      const valEn = newAttrForm.valueEn.trim();
+      const valAr = newAttrForm.valueAr?.trim() || valEn;
+      const valCode = valEn.toLowerCase().replace(/\s+/g, "-");
+      valuesPayload.push({
+        code: valCode,
+        translations: [
+          { localeId: 1, label: valEn },
+          { localeId: 2, label: valAr },
+        ],
+      });
+    }
+
+    if (!valuesPayload.length) {
+      toast("At least one attribute value is required", "error");
+      return;
+    }
+
     const payload = {
       proposedAttributes: [
         {
           code,
           translations: [
-            { localeId: 1, label: newAttrForm.nameEn },
-            { localeId: 2, label: newAttrForm.nameAr || newAttrForm.nameEn },
+            { localeId: 1, label: newAttrForm.nameEn.trim() },
+            { localeId: 2, label: nameAr },
           ],
-          values: [
-            {
-              code: valCode,
-              translations: [
-                { localeId: 1, label: newAttrForm.valueEn },
-                {
-                  localeId: 2,
-                  label: newAttrForm.valueAr || newAttrForm.valueEn,
-                },
-              ],
-            },
-          ],
+          values: valuesPayload,
         },
       ],
     };
+
     await post("/supplier/catalog/attribute-value-requests", payload);
     toast("Attribute proposal submitted successfully!");
 
@@ -1852,6 +2000,7 @@ async function submitProposeAttr() {
     newAttrForm.nameAr = "";
     newAttrForm.valueEn = "";
     newAttrForm.valueAr = "";
+    newAttrForm.values = [{ valueEn: "", valueAr: "" }];
     await fetchAllAttributes();
   } catch (e) {
     // handled
@@ -1939,12 +2088,25 @@ function buildVariantSku(variant, idx) {
     .toUpperCase();
 }
 
+function handleGenerateVariantsClick() {
+  if (!product.markets || !product.markets.length) {
+    toast("Must select at least 1 market", "error");
+    return;
+  }
+  generateVariants();
+}
+
 async function generateVariants() {
+  if (!product.markets || !product.markets.length) {
+    toast("Must select at least 1 market", "error");
+    return;
+  }
+
   const attrs = variantAttributes.value.filter(
     (a) => a.selectedValues.length > 0,
   );
   if (!attrs.length) {
-    toast("Please select values for at least one attribute");
+    toast("Please select values for at least one attribute", "error");
     return;
   }
 
@@ -2057,15 +2219,6 @@ function toggleCare(tpl) {
   const idx = careInstructions.value.indexOf(tpl);
   if (idx >= 0) careInstructions.value.splice(idx, 1);
   else careInstructions.value.push(tpl);
-}
-
-function addTag() {
-  if (tagInput.value.trim()) {
-    if (!product.tags.includes(tagInput.value.trim())) {
-      product.tags.push(tagInput.value.trim());
-    }
-    tagInput.value = "";
-  }
 }
 
 function onMediaInsert(items) {
@@ -2267,7 +2420,9 @@ async function fetchProductDetails(overrideId) {
   try {
     const res = await get(`/supplier/catalog/products/${productId}`);
     if (res && res.data) {
+
       const data = res.data;
+      console.log(data)
       product.id = data.id;
       product.sku = data.sku;
       product.name = data.translations?.[0]?.name || data.name || "";
@@ -2331,16 +2486,14 @@ async function fetchProductDetails(overrideId) {
       if (data.activityLog && Array.isArray(data.activityLog)) {
         productActivityLog.value = data.activityLog;
       }
-      product.status = statusOptions.value.find(
-        (s) => s.label.toLowerCase() === data.productStatus.toLowerCase(),
-      )?.code;
+      product.status = (data.status || data.productStatus || "draft").toLowerCase();
       if (descEditor.value) {
         descEditor.value.innerHTML = product.description;
       }
       if (descEditorAr.value) {
         descEditorAr.value.innerHTML = product.descriptionAr;
       }
-
+      product.productStatus = data.productStatus ;
       const catId =
         data.primaryCategory?.id || data.categories?.[0]?.category?.id;
       product.category = catId
@@ -2652,6 +2805,19 @@ async function fetchProductDetails(overrideId) {
   }
 }
 
+async function reSyncProduct() {
+  const productId = route.params.id || product.id;
+  if (!productId) return;
+  toast("Re-syncing product details...");
+  try {
+    await fetchProductDetails(productId);
+    toast("Product details re-synced successfully!");
+  } catch (e) {
+    console.error("Failed to re-sync product:", e);
+    toast("Failed to re-sync product details", "error");
+  }
+}
+
 async function saveChanges(shouldRedirect = true) {
   saving.value = true;
   try {
@@ -2693,7 +2859,7 @@ async function saveChanges(shouldRedirect = true) {
 
     await patch(`/supplier/catalog/products/${product.id}`, basicPayload);
 
-    // 2. Save Variants
+    // 2. Save Variants (variable & simple)
     let items = [];
     if (product.isVariable) {
       items = product.variants.map((v, idx) => ({
@@ -2717,26 +2883,28 @@ async function saveChanges(shouldRedirect = true) {
               : v.inventory;
           return {
             marketId: m?.id || code,
+            currencyId: m?.currencyId || 1,
             price: Number(priceVal) || 0,
             compareAtPrice: product.comparePrice
               ? Number(product.comparePrice)
               : null,
-            currencyId: 1,
             stock: Number(stockVal) || 0,
           };
         }),
         sku: v.sku,
+        barcode: v.barcode || null,
+        warehouseId: null,
         attributes:
           v.attributes ||
           [
-            colorAttrId.value && colorValueIdMap.value[v.color.toLowerCase()]
+            colorAttrId.value && colorValueIdMap.value[v.color?.toLowerCase()]
               ? {
                   attributeId: colorAttrId.value,
                   attributeValueId:
                     colorValueIdMap.value[v.color.toLowerCase()],
                 }
               : null,
-            sizeAttrId.value && sizeValueIdMap.value[v.size.toLowerCase()]
+            sizeAttrId.value && sizeValueIdMap.value[v.size?.toLowerCase()]
               ? {
                   attributeId: sizeAttrId.value,
                   attributeValueId: sizeValueIdMap.value[v.size.toLowerCase()],
@@ -2745,33 +2913,37 @@ async function saveChanges(shouldRedirect = true) {
           ].filter(Boolean),
       }));
     } else {
-      const vId = product.variants?.[0]?.id;
-      items = [
-        {
-          id: vId,
-          sortOrder: 0,
-          isActive: true,
-          stock: product.markets.reduce(
-            (sum, code) =>
-              sum + (Number(product.marketPrices?.[code]?.inventory) || 0),
-            0,
-          ),
-          prices: product.markets.map((code) => {
-            const m = marketsLookup.value.find(
-              (market) => market.code === code,
-            );
-            const mp = product.marketPrices?.[code] || {};
-            return {
-              marketId: m?.id || code,
-              price: Number(mp.price) || 0,
-              compareAtPrice: mp.comparePrice ? Number(mp.comparePrice) : null,
-              currencyId: 1,
-              stock: Number(mp.inventory) || 0,
-            };
-          }),
-        },
-      ];
+      const defaultVar = product.variants?.[0] || {};
+      const totalStock = (product.markets || []).reduce((sum, code) => {
+        const mp = product.marketPrices?.[code] || {};
+        return sum + (Number(mp.inventory) || Number(product.inventory) || 0);
+      }, 0);
+
+      const simpleVariantItem = {
+        id: defaultVar.id || undefined,
+        sku: product.sku || defaultVar.sku || "",
+        barcode: product.barcode || defaultVar.barcode || null,
+        isActive: true,
+        prices: (product.markets || []).map((code) => {
+          const m = marketsLookup.value.find((market) => market.code === code);
+          const mp = product.marketPrices?.[code] || {};
+          return {
+            marketId: m?.id || code,
+            currencyId: m?.currencyId || 1,
+            price: Number(mp.price ?? product.price) || 0,
+            compareAtPrice: (mp.comparePrice || product.comparePrice)
+              ? Number(mp.comparePrice || product.comparePrice)
+              : null,
+          };
+        }),
+        stock: totalStock,
+        warehouseId: null,
+      };
+
+      if (!simpleVariantItem.id) delete simpleVariantItem.id;
+      items = [simpleVariantItem];
     }
+
     await patch(`/supplier/catalog/products/${product.id}/variants`, {
       items,
     });
@@ -2804,18 +2976,18 @@ async function saveChanges(shouldRedirect = true) {
 async function submitToReview() {
   submitting.value = true;
   try {
-    // Save current changes first
-    await saveChanges(false);
-
-    // Call catalog bulk action to submit to review
-    await post("/supplier/catalog/products/bulk", {
-      ids: [product.id],
-      action: "submit_for_review",
-    });
+    // Direct submit to review API call
+    await post(`/supplier/catalog/products/${product.id}/submit-for-review`, {});
     toast("Product submitted for review successfully!");
-    product.approvalStatus = "pending";
+
+    // Refetch product details to refresh state & status
+    const productId = route.params.id || product.id;
+    if (productId) {
+      await fetchProductDetails(productId);
+    }
   } catch (e) {
-    // Handled
+    console.error("Error submitting product for review:", e);
+    toast(e?.response?.data?.message || "Failed to submit product for review", "error");
   } finally {
     submitting.value = false;
   }
@@ -2905,15 +3077,20 @@ onMounted(async () => {
   const productId = route.params.id;
   if (!productId || productId === "undefined") return;
 
-  await loadLookups();
-  if (route.params.id !== productId) return;
+  loading.value = true;
+  try {
+    await loadLookups();
+    if (route.params.id !== productId) return;
 
-  await fetchAllAttributes();
-  if (route.params.id !== productId) return;
+    await fetchAllAttributes();
+    if (route.params.id !== productId) return;
 
-  await fetchProductDetails(productId);
-  if (route.params.id !== productId) return;
+    await fetchProductDetails(productId);
+    if (route.params.id !== productId) return;
 
-  await fetchActivity(productId);
+    await fetchActivity(productId);
+  } finally {
+    loading.value = false;
+  }
 });
 </script>

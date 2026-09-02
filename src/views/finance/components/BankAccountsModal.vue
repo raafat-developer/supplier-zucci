@@ -386,21 +386,6 @@
                       <Edit3 class="size-3.5" />
                     </button>
 
-                    <!-- Download confirmation letter -->
-                    <button
-                      v-if="
-                        bank.hasConfirmationLetter ||
-                        bank.has_confirmation_letter
-                      "
-                      @click="
-                        financeStore.downloadBankConfirmationLetter(bank.id)
-                      "
-                      class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-border/60 hover:bg-muted/20 text-foreground inline-flex items-center gap-1"
-                      title="Download confirmation letter"
-                    >
-                      <FileText class="size-3" /> Letter
-                    </button>
-
                     <!-- Set default button -->
                     <button
                       v-if="!bank.is_default && bank.status === 'verified'"

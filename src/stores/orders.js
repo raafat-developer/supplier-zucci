@@ -7,7 +7,7 @@ export const useOrdersStore = defineStore('orders', () => {
 
   const orders = ref([])
   const totalOrders = ref(0)
-  const tabs = ref({})
+  const tabs = ref([])
   const stats = ref(null)
   const currentOrder = ref(null)
   const couriers = ref([])
@@ -26,7 +26,7 @@ export const useOrdersStore = defineStore('orders', () => {
       const res = await get('/supplier/orders', params)
       orders.value = res.data || []
       totalOrders.value = res.meta?.total || 0
-      tabs.value = res.tabs || {}
+      tabs.value = Array.isArray(res.tabs) ? res.tabs : []
       return res
     } catch (e) {
       console.error('Error fetching supplier orders:', e)

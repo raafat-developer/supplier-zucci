@@ -123,7 +123,7 @@
           <SettingsRow
             icon="KeyRound"
             label="Change my password"
-            @click="showChangePw = true"
+            @click="openPasswordModal"
           />
           <SettingsRow
             icon="Shield"
@@ -283,6 +283,13 @@ const pwForm = reactive({
   newPassword: "",
   confirmPassword: "",
 });
+
+function openPasswordModal() {
+  pwForm.currentPassword = "";
+  pwForm.newPassword = "";
+  pwForm.confirmPassword = "";
+  showChangePw.value = true;
+}
 
 watch(showChangePw, (open) => {
   if (open) {

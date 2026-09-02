@@ -262,11 +262,19 @@
                 <!-- Right: Brand Access & Permissions -->
                 <div class="flex flex-col gap-4">
                   <div>
-                    <p
-                      class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2"
-                    >
-                      Brand Access
-                    </p>
+                    <div class="flex items-center justify-between mb-2">
+                      <p
+                        class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
+                      >
+                        Brand Access
+                      </p>
+                      <span
+                        v-if="!hasBrandSelected"
+                        class="text-[10px] text-amber-500 font-medium"
+                      >
+                        * Select at least 1 brand
+                      </span>
+                    </div>
                     <div
                       class="rounded-xl border bg-white-10 overflow-hidden divide-y divide-border/50"
                     >
@@ -588,6 +596,10 @@ const invite = reactive({
 
 const sendingInvite = ref(false);
 
+const hasBrandSelected = computed(() => {
+  return Object.values(invite.brands).some(Boolean);
+});
+
 const isInviteValid = computed(() => {
   const fName = (invite.firstName || "").trim();
   const lName = (invite.lastName || "").trim();
@@ -600,7 +612,8 @@ const isInviteValid = computed(() => {
     lName.length > 0 &&
     email.length > 0 &&
     emailRegex.test(email) &&
-    role.length > 0
+    role.length > 0 &&
+    hasBrandSelected.value
   );
 });
 

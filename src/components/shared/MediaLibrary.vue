@@ -109,6 +109,7 @@
                 >
                   <input
                     type="checkbox"
+                    hidden
                     :checked="isSelected(f)"
                     @change="toggleSelect(f)"
                     class="size-4 rounded border-border cursor-pointer accent-[#3dda84]"
@@ -209,9 +210,9 @@
 <script setup>
 import { ref, computed, onMounted, watch} from 'vue'
 import { X, Upload, FileText, Check, Grid3x3, List } from 'lucide-vue-next'
-import { FILES } from '@/data/mock'
 import { useApi } from '@/composables/useApi'
 import AppSelect from "@/components/ui/AppSelect.vue"
+import { useAppStore } from '@/stores/app'
 
 const props = defineProps({
   show: Boolean,
@@ -223,8 +224,8 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'insert'])
 
-import { useAppStore } from '@/stores/app'
 const { toast } = useAppStore()
+const { get, upload, del } = useApi()
 
 const search = ref('')
 const typeFilter = ref(props.defaultType || props.acceptOnly || 'image')
@@ -232,6 +233,7 @@ const typeFilter = ref(props.defaultType || props.acceptOnly || 'image')
 watch(() => props.show, (isOpen) => {
   if (isOpen) {
     typeFilter.value = props.defaultType || props.acceptOnly || 'image'
+    fetchMedia()
   }
 })
 
@@ -252,6 +254,79 @@ const typeFilters = [
   { value: 'file', label: 'Documents' },
   { value: 'other', label: 'Others' }
 ]
+
+function mapFileObject(file) {
+  if (!file) return null
+  let type = 'other'
+  const mime = (file.mimeType || file.contentType || '').toLowerCase()
+  const name = file.name || file.filename || ''
+
+  if (mime.startsWith('image/')) {
+    type = 'image'
+  } else if (mime.startsWith('video/')) {
+    type = 'video'
+  } else if (
+    mime.includes('pdf') ||
+    mime.includes('document') ||
+    mime.includes('sheet') ||
+    mime.includes('excel') ||
+    mime.includes('msword')
+  ) {
+    type = 'file'
+  } else {
+    const ext = name.split('.').pop().toLowerCase()
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+      type = 'image'
+    } else if (['mp4', 'mov', 'avi', 'webm', 'mkv'].includes(ext)) {
+      type = 'video'
+    } else if (
+      ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'ppt', 'pptx'].includes(ext)
+    ) {
+      type = 'file'
+    }
+  }
+
+  let sizeStr = '0 B'
+  const s = file.size || file.sizeBytes
+  if (s) {
+    if (typeof s === 'number') {
+      if (s >= 1024 * 1024) {
+        sizeStr = (s / (1024 * 1024)).toFixed(1) + ' MB'
+      } else if (s >= 1024) {
+        sizeStr = (s / 1024).toFixed(1) + ' KB'
+      } else {
+        sizeStr = s + ' B'
+      }
+    } else {
+      sizeStr = String(s)
+    }
+  }
+
+  let dateStr = 'Uploaded'
+  const dateVal = file.createdAt || file.created_at || file.date
+  if (dateVal) {
+    const d = new Date(dateVal)
+    if (!isNaN(d.getTime())) {
+      dateStr = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    } else {
+      dateStr = String(dateVal)
+    }
+  }
+
+  return {
+    id: file.id || file.fileId,
+    name,
+    type,
+    size: sizeStr,
+    src: file.url || file.src || '',
+    date: dateStr,
+    raw: file
+  }
+}
 
 const dateOptions = computed(() => {
   const dates = new Set()
@@ -303,33 +378,33 @@ function toggleAll(checked) {
   }
 }
 
-function handleBulkAction() {
+async function handleBulkAction() {
   if (!bulkAction.value || !selected.value.length) { bulkAction.value = ''; return }
   if (bulkAction.value === 'delete') {
-    const ids = selected.value.map(s => s.id)
-    allFiles.value = allFiles.value.filter(f => !ids.includes(f.id))
-    selected.value = []
+    const count = selected.value.length
+    try {
+      for (const s of selected.value) {
+        await del(`/supplier/files/${s.id}`)
+      }
+      toast(`Successfully deleted ${count} files`, 'success')
+      const ids = selected.value.map(s => s.id)
+      allFiles.value = allFiles.value.filter(f => !ids.includes(f.id))
+      selected.value = []
+    } catch (e) {
+      toast('Failed to delete some files', 'error')
+    }
   }
   bulkAction.value = ''
 }
 
 async function fetchMedia() {
   try {
-    const res = await get('/supplier/media?page=1')
+    const res = await get('/supplier/files', { page: 1, perPage: 100, fileCategoryId: 1 })
     if (res && res.data) {
-      allFiles.value = res.data.map(f => ({
-        id: f.id,
-        name: f.filename,
-        type: f.mimeType?.startsWith('image') ? 'image' : f.mimeType?.startsWith('video') ? 'video' : 'file',
-        size: (f.sizeBytes / 1024 / 1024).toFixed(1) + ' MB',
-        src: f.url,
-        date: 'Uploaded'
-      }))
-    } else {
-      allFiles.value = [...FILES]
+      allFiles.value = res.data.map(mapFileObject).filter(Boolean)
     }
   } catch (e) {
-    allFiles.value = [...FILES]
+    console.error('Failed to fetch media:', e)
   }
 }
 
@@ -364,21 +439,18 @@ async function addFile(f) {
   try {
     const formData = new FormData()
     formData.append('file', f)
+    formData.append('fileCategoryId', 1)
+    toast(`Uploading ${f.name}...`)
     const res = await upload('/supplier/files', formData)
     if (res && res.data) {
-      allFiles.value.unshift({
-        id: res.data.id,
-        name: res.data.filename,
-        type: res.data.mimeType?.startsWith('image') ? 'image' : res.data.mimeType?.startsWith('video') ? 'video' : 'file',
-        size: (res.data.sizeBytes / 1024 / 1024).toFixed(1) + ' MB',
-        src: res.data.url,
-        date: 'Just now'
-      })
+      const mapped = mapFileObject(res.data)
+      if (mapped) allFiles.value.unshift(mapped)
+    } else {
+      await fetchMedia()
     }
+    toast(`Successfully uploaded ${f.name}`, 'success')
   } catch (err) {
-    const id = Date.now() + Math.random()
-    const type = f.type.startsWith('image') ? 'image' : f.type.startsWith('video') ? 'video' : f.type.includes('pdf') ? 'file' : 'other'
-    allFiles.value.unshift({ id, name: f.name, type, size: (f.size / 1024 / 1024).toFixed(1) + ' MB', src: URL.createObjectURL(f), date: 'Just now' })
+    toast(`Failed to upload ${f.name}`, 'error')
   }
 }
 

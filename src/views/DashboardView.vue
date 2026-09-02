@@ -23,9 +23,9 @@
       <div
         v-for="c in kpiCards"
         :key="c.label"
-        class="rounded-xl border bg-white-10 p-5 flex flex-col gap-3"
+        class="rounded-xl border bg-white-10 p-5 flex flex-col justify-between"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between mb-5">
           <p
             class="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
           >
@@ -42,41 +42,34 @@
         <!-- Multi-market breakdown rows -->
         <div
           v-if="isMultiMarket && c.markets && c.markets.length"
-          class="flex flex-col gap-1.5 mt-1 flex-1"
+          class="flex flex-col flex-1 mb-4"
         >
-          <p class="text-xl font-bold tracking-tight mb-1" :class="{ 'invisible': c.hideTotal }">{{ c.value }}</p>
-          <div
-            v-for="m in c.markets"
-            :key="m.code"
-            class="flex items-center justify-between text-xs"
-          >
-            <span class="text-muted-foreground flex items-center gap-1.5">
-              <img
-                v-if="m.flagUrl"
-                :src="m.flagUrl"
-                :alt="m.code"
-                class="size-4 rounded-full object-cover shrink-0"
-              />
-              <span v-else>{{ m.flag }}</span>
-              <span>{{ m.name }}</span>
-            </span>
-            <span class="font-semibold text-foreground">{{ m.value }}</span>
+          <p v-if="!c.hideTotal" class="text-xl font-bold tracking-tight mb-3">{{ c.value }}</p>
+          <div class="flex flex-col flex-1 gap-2.5 py-1">
+            <div
+              v-for="m in c.markets"
+              :key="m.code"
+              class="flex items-center justify-between text-xs py-1 hover:bg-muted/10 rounded px-1 -mx-1 transition-colors"
+            >
+              <span class="text-muted-foreground flex items-center gap-2">
+                <img
+                  v-if="m.flagUrl"
+                  :src="m.flagUrl"
+                  :alt="m.code"
+                  class="size-4 rounded-full object-cover shrink-0"
+                />
+                <span v-else class="text-sm leading-none">{{ m.flag }}</span>
+                <span class="font-medium">{{ m.name }}</span>
+              </span>
+              <span class="font-semibold font-mono text-foreground text-right">{{ m.value }}</span>
+            </div>
           </div>
         </div>
 
         <!-- Single market standard display -->
-        <p v-else class="text-2xl font-bold tracking-tight">{{ c.value }}</p>
+        <p v-else class="text-2xl font-bold tracking-tight flex-1 mb-4">{{ c.value }}</p>
 
-        <div class="flex items-center justify-between">
-          <span
-            class="inline-flex items-center gap-0.5 text-xs font-semibold rounded-full px-2 py-0.5"
-            :class="deltaClass(c)"
-          >
-            {{
-              c.delta.startsWith("+") ? "↑" : c.delta.startsWith("-") ? "↓" : ""
-            }}
-            {{ c.delta }}
-          </span>
+        <div class="flex items-center justify-end mt-auto pt-2">
           <span class="text-[11px] text-muted-foreground">{{ c.sub }}</span>
         </div>
       </div>
@@ -770,7 +763,7 @@ const kpiCards = computed(() => {
   if (dashboardData.value?.kpis) {
     const k = dashboardData.value.kpis;
 
-    const mapMarkets = (markets) => {
+    const mapMarkets = (markets, isCurrency = true) => {
       if (!markets || !Array.isArray(markets)) return [];
       return markets.map((m) => ({
         code: m.market,
@@ -778,7 +771,7 @@ const kpiCards = computed(() => {
         flagUrl: flagUrl(m.market),
         name: m.name || nameMap[m.market] || m.market,
         value:
-          m.currency !== undefined
+          isCurrency && m.currency !== undefined
             ? formatCurrency(m.value, m.currency)
             : m.value,
       }));
@@ -807,17 +800,7 @@ const kpiCards = computed(() => {
         icon: TrendingUp,
         sub: periodSub,
         pos: true,
-        markets: mapMarkets(k.netRevenue?.markets),
-      },
-      {
-        key: "orders",
-        label: "Total Orders",
-        value: k.totalOrders?.value ?? k.totalOrders?.total ?? 0,
-        delta: bd.value.kpis.ordDelta || "+0%",
-        icon: Package,
-        sub: periodSub,
-        pos: true,
-        markets: mapMarkets(k.totalOrders?.markets),
+        markets: mapMarkets(k.netRevenue?.markets, true),
       },
       {
         key: "aov",
@@ -834,6 +817,16 @@ const kpiCards = computed(() => {
         markets: mapMarkets(k.averageOrderValue?.markets),
       },
       {
+        key: "orders",
+        label: "Total Orders",
+        value: k.totalOrders?.value ?? k.totalOrders?.total ?? 0,
+        delta: bd.value.kpis.ordDelta || "+0%",
+        icon: Package,
+        sub: periodSub,
+        pos: true,
+        markets: mapMarkets(k.totalOrders?.markets, false),
+      },
+      {
         key: "returnRate",
         label: "Return Rate",
         value: `${k.returnRate?.value ?? 0}%`,
@@ -841,7 +834,7 @@ const kpiCards = computed(() => {
         icon: RotateCcw,
         sub: periodSub,
         pos: false,
-        markets: mapMarkets(k.returnRate?.markets),
+        markets: mapMarkets(k.returnRate?.markets, false),
       },
     ];
   }
@@ -875,16 +868,6 @@ const kpiCards = computed(() => {
       markets: getMarketsForKpi("revenue"),
     },
     {
-      key: "orders",
-      label: "Total Orders",
-      value: k.orders,
-      delta: k.ordDelta,
-      icon: Package,
-      sub: "last 30 days",
-      pos: true,
-      markets: getMarketsForKpi("orders"),
-    },
-    {
       key: "aov",
       label: "Avg. Order Value",
       value: k.aov,
@@ -894,6 +877,16 @@ const kpiCards = computed(() => {
       sub: "last 30 days",
       pos: true,
       markets: getMarketsForKpi("aov"),
+    },
+    {
+      key: "orders",
+      label: "Total Orders",
+      value: k.orders,
+      delta: k.ordDelta,
+      icon: Package,
+      sub: "last 30 days",
+      pos: true,
+      markets: getMarketsForKpi("orders"),
     },
     {
       key: "returnRate",
@@ -997,7 +990,7 @@ const activeStores = computed(() => {
 });
 
 const recentOrdersDisplay = computed(() => {
-  if (dashboardData.value?.recentOrders && dashboardData.value.recentOrders.length) {
+  if (dashboardData.value && Array.isArray(dashboardData.value.recentOrders)) {
     return dashboardData.value.recentOrders.map((o) => {
       const mcode = o.market || "AE";
       const flag = marketFlag(mcode) || flagMap[mcode] || mcode;
@@ -1024,34 +1017,8 @@ const recentOrdersDisplay = computed(() => {
       };
     });
   }
-  if (ordersStore.orders && ordersStore.orders.length) {
-    return ordersStore.orders.slice(0, 5).map((o) => {
-      const mcode = o.market || o.marketCode || "AE";
-      const flag = marketFlag(mcode) || flagMap[mcode] || mcode;
-      return {
-        id: o.id || o.number,
-        date:
-          o.orderedAtDisplay ||
-          (o.orderedAt
-            ? new Date(o.orderedAt).toLocaleDateString([], {
-                month: "short",
-                day: "numeric",
-              })
-            : "—"),
-        market: flag,
-        flagUrl: flagUrl(mcode),
-        city: o.shippingAddress?.city || o.city || "—",
-        gmv: o.total
-          ? formatCurrency(o.total, o.currency)
-          : o.gmv
-            ? "AED " + o.gmv
-            : "—",
-        status: o.status?.fulfillmentStatus?.label || o.status || "—",
-        delivery: o.status?.deliveryStatus?.label || o.delivery || "—",
-      };
-    });
-  }
-  return bd.value.recentOrders || [];
+  
+  return [];
 });
 
 const attentionItems = computed(() => {
@@ -1224,10 +1191,6 @@ function drawSparklines() {
 async function loadAllData() {
   await Promise.all([
     fetchDashboard(),
-    ordersStore.fetchOrders({ perPage: 100 }).catch(() => {}),
-    fetchNextPayout(),
-    fetchConnectedStores(),
-    fetchProductCounts(),
   ]);
 }
 

@@ -48,9 +48,9 @@
       <Section title="Preferences">
         <InfoRow
           label="Language"
-          value="English"
+          :value="user.language === 'ar' ? 'Arabic (AR) — العربية' : 'English (EN)'"
           editable
-          @edit="editField('Language', 'English')"
+          @edit="showLangPicker = true"
         />
         <InfoRow
           label="Timezone"
@@ -68,7 +68,7 @@
               Last changed 30 days ago
             </p>
           </div>
-          <AppButton variant="outline" size="sm" @click="showChangePw = true"
+          <AppButton variant="outline" size="sm" @click="openPasswordModal"
             >Change Password</AppButton
           >
         </div>
@@ -112,6 +112,42 @@
               </button>
               <button
                 @click="saveField"
+                class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+      <!-- Language Picker -->
+      <Transition name="modal">
+        <div
+          v-if="showLangPicker"
+          class="fixed inset-0 z-[500] flex items-center justify-center"
+          @click.self="showLangPicker = false"
+        >
+          <div class="absolute inset-0 bg-white/35 backdrop-blur-sm" />
+          <div
+            class="relative bg-background rounded-xl border bg-white-10 shadow-2xl p-5"
+            style="width: 90vw; max-width: 420px"
+          >
+            <h3 class="text-base font-semibold mb-4">Select Language</h3>
+            <AppSelect
+              v-model="selectedLang"
+              :options="languageOptions"
+              placeholder="Select Language…"
+              fullWidth
+            />
+            <div class="flex items-center justify-end gap-2 mt-4">
+              <button
+                @click="showLangPicker = false"
+                class="rounded-lg border bg-white-10 px-4 py-2 text-sm hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                @click="saveLanguage"
                 class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
                 Save
@@ -209,12 +245,13 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, watch } from "vue";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 import Section from "@/components/settings/SettingsSection.vue";
 import InfoRow from "@/components/settings/InfoRow.vue";
 import AppButton from "@/components/ui/AppButton.vue";
+import AppSelect from "@/components/ui/AppSelect.vue";
 import SearchableSelect from "@/components/ui/SearchableSelect.vue";
 import OtpPopup from "@/components/shared/OtpPopup.vue";
 import ZucciFooter from "@/components/shared/ZucciFooter.vue";
@@ -224,11 +261,15 @@ const { toast } = useAppStore();
 const authStore = useAuthStore();
 
 const user = reactive({
+  firstName: "",
+  lastName: "",
   name: "",
   email: "",
   phone: "",
   role: "",
-  timezone: "",
+  timezone: "Africa/Cairo",
+  language: "en",
+  localeId: 1,
 });
 
 const loadingProfile = ref(true);
@@ -239,12 +280,29 @@ const otpDest = ref("");
 const editingField = ref(null);
 const showTzPicker = ref(false);
 const selectedTz = ref("Africa/Cairo");
+const showLangPicker = ref(false);
+const selectedLang = ref("en");
 const showChangePw = ref(false);
 const pendingUpdate = ref(null);
 
 const currentPassword = ref("");
 const password = ref("");
 const passwordConfirmation = ref("");
+
+function openPasswordModal() {
+  currentPassword.value = "";
+  password.value = "";
+  passwordConfirmation.value = "";
+  showChangePw.value = true;
+}
+
+watch(showChangePw, (open) => {
+  if (open) {
+    currentPassword.value = "";
+    password.value = "";
+    passwordConfirmation.value = "";
+  }
+});
 
 const timezoneOptions = [
   "Africa/Cairo",
@@ -286,14 +344,33 @@ function getUtcOffset(tz) {
   }
 }
 
+function editTimezone() {
+  selectedTz.value = user.timezone || "Africa/Cairo";
+  showTzPicker.value = true;
+}
+
 onMounted(async () => {
   loadingProfile.value = true;
   try {
     const data = await authStore.fetchProfile();
     if (data) {
       Object.assign(user, data);
-      user.name = `${data.firstName || ""} ${data.lastName || ""}`.trim() || data.email?.split("@")[0] || "";
-      selectedTz.value = data.timezone || "Africa/Cairo";
+      user.firstName = data.firstName || "";
+      user.lastName = data.lastName || "";
+      user.name =
+        `${data.firstName || ""} ${data.lastName || ""}`.trim() ||
+        data.email?.split("@")[0] ||
+        "";
+      user.timezone = data.timezone || "Africa/Cairo";
+      selectedTz.value = user.timezone;
+
+      const langCode =
+        data.lang ||
+        data.language ||
+        (data.localeId === 2 || data.locale === "ar" ? "ar" : "en");
+      selectedLang.value = langCode;
+      user.language = langCode;
+      user.localeId = data.localeId || (langCode === "ar" ? 2 : 1);
     }
   } catch (e) {
     console.error("Failed to fetch profile:", e);
@@ -313,16 +390,21 @@ async function saveField() {
       const parts = f.value.trim().split(/\s+/);
       const firstName = parts[0] || "";
       const lastName = parts.slice(1).join(" ") || "";
-      await authStore.updateProfile({ firstName, lastName });
+      await authStore.updateProfile({
+        firstName,
+        lastName,
+        localeId: user.localeId || (user.language === "ar" ? 2 : 1),
+        timezone: user.timezone || selectedTz.value || "Africa/Cairo",
+        lang: user.language || "en",
+        language: user.language || "en",
+      });
+      user.firstName = firstName;
+      user.lastName = lastName;
       user.name = f.value;
       toast("Name updated successfully!");
     } else if (f.label === "Email" || f.label === "Mobile") {
       const type = f.label === "Email" ? "email" : "phone";
       await startOtpVerify(type, f.value);
-    } else if (f.label === "Language") {
-      const localeId = f.value === "Arabic" ? 2 : 1;
-      await authStore.updateProfile({ localeId });
-      toast("Language preference updated!");
     }
   } catch (e) {
     console.error(e);
@@ -330,9 +412,38 @@ async function saveField() {
   editingField.value = null;
 }
 
+async function saveLanguage() {
+  try {
+    const langCode = selectedLang.value;
+    const localeId = langCode === "ar" ? 2 : 1;
+    await authStore.updateProfile({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      timezone: user.timezone || selectedTz.value || "Africa/Cairo",
+      localeId: localeId,
+      lang: langCode,
+      language: langCode,
+      locale: langCode,
+    });
+    user.language = langCode;
+    user.localeId = localeId;
+    toast("Language preference updated!");
+    showLangPicker.value = false;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 async function saveTimezone() {
   try {
-    await authStore.updateProfile({ timezone: selectedTz.value });
+    await authStore.updateProfile({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      timezone: selectedTz.value,
+      localeId: user.localeId || (user.language === "ar" ? 2 : 1),
+      lang: user.language || "en",
+      language: user.language || "en",
+    });
     user.timezone = selectedTz.value;
     toast("Timezone updated successfully!");
     showTzPicker.value = false;

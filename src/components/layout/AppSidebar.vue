@@ -544,11 +544,14 @@ import {
   Boxes,
 } from "lucide-vue-next";
 
+import { useApi } from "@/composables/useApi";
+
 const store = useAppStore();
 const brandStore = useBrandStore();
 const authStore = useAuthStore();
 const lookupStore = useLookupStore();
 const ordersStore = useOrdersStore();
+const { get } = useApi();
 const router = useRouter();
 const route = useRoute();
 
@@ -693,6 +696,7 @@ onMounted(() => {
   document.addEventListener("click", onClickOutside);
   lookupStore.fetchLifecycleStatuses();
   ordersStore.fetchOrders({ page: 1, limit: 1 });
+  fetchProductTabs();
 });
 onBeforeUnmount(() => document.removeEventListener("click", onClickOutside));
 
@@ -775,149 +779,115 @@ const rawNavItems = [
   },
 ];
 
+const productTabs = ref(null);
+
+async function fetchProductTabs() {
+  try {
+    const res = await get("/supplier/catalog/products", { perPage: 1 });
+    if (res && res.tabs) {
+      productTabs.value = res.tabs;
+    }
+  } catch (e) {
+    console.warn("Could not fetch product tabs:", e);
+  }
+}
+
+function formatTabKeyLabel(key, isOrders = false) {
+  if (key === "all") return isOrders ? "All Orders" : "All Products";
+  if (key === "pendingReview" || key === "pending_review") return "Pending Review";
+  if (key === "outOfStock" || key === "out_of_stock") return "Out of Stock";
+  if (key === "issues-return" || key === "issues_return") return "Issues / Returns";
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]/g, " ")
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+function getOrderTabIcon(key) {
+  const k = String(key).toLowerCase();
+  if (k.includes("pending") || k.includes("new")) return Clock;
+  if (k.includes("process")) return Loader2;
+  if (k.includes("late")) return AlertTriangle;
+  if (k.includes("ship")) return Truck;
+  if (k.includes("fulfill") || k.includes("deliver")) return CheckCircle;
+  if (k.includes("return") || k.includes("issue")) return RotateCcw;
+  if (k.includes("cancel")) return Ban;
+  if (k.includes("complete")) return Check;
+  if (k.includes("close")) return Archive;
+  return Layers;
+}
+
 const orderStatusItems = computed(() => {
-  const list = [
-    {
-      route: "/app/orders",
-      label: "All Orders",
-      icon: Layers,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=pending",
-      label: "Pending",
-      icon: Clock,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=processing",
-      label: "Processing",
-      icon: Loader2,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=late",
-      label: "Late",
-      icon: AlertTriangle,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=shipped",
-      label: "Shipped",
-      icon: Truck,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=fulfilled",
-      label: "Fulfilled",
-      icon: CheckCircle,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=returns",
-      label: "Returns",
-      icon: RotateCcw,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=cancelled",
-      label: "Cancelled",
-      icon: Ban,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=completed",
-      label: "Completed",
-      icon: Check,
-      permission: "orders.view",
-    },
-    {
-      route: "/app/orders?status=closed",
-      label: "Closed",
-      icon: Archive,
-      permission: "orders.view",
-    },
-  ];
+  const list = ordersStore.tabs || [];
+  if (!Array.isArray(list) || !list.length) {
+    return [
+      { route: "/app/orders", label: "All Orders", icon: Layers, permission: "orders.view" }
+    ];
+  }
 
-  const knownKeys = new Set([
-    "all",
-    "pending",
-    "processing",
-    "late",
-    "shipped",
-    "fulfilled",
-    "returns",
-    "cancelled",
-    "completed",
-    "closed",
-  ]);
-
-  const extraKeys = Object.keys(ordersStore.tabs || {}).filter(
-    (k) => !knownKeys.has(k.toLowerCase())
-  );
-
-  extraKeys.forEach((key) => {
-    let icon = Layers;
-    const k = key.toLowerCase();
-    if (k.includes("deliver")) icon = PackageCheck;
-    else if (k.includes("reject")) icon = XCircle;
-
-    const label =
-      key.charAt(0).toUpperCase() + key.slice(1).replace(/[_-]/g, " ");
-
-    list.push({
-      route: `/app/orders?status=${key}`,
-      label,
-      icon,
-      permission: "orders.view",
-    });
-  });
-
-  return list;
+  return list.map((item) => ({
+    route: item.tab === "all" ? "/app/orders" : `/app/orders?status=${item.tab}`,
+    label: item.tab === "all" ? "All Orders" : item.label,
+    icon: getOrderTabIcon(item.tab || item.code),
+    permission: "orders.view",
+  }));
 });
 
 const productLifecycleItems = computed(() => {
-  return [
-    {
+  const tabsObj = productTabs.value || {};
+  const keys = Object.keys(tabsObj);
+
+  const preferredOrder = [
+    "all",
+    "draft",
+    "pendingReview",
+    "pending_review",
+    "active",
+    "rejected",
+    "archived",
+    "outOfStock",
+    "out_of_stock",
+  ];
+
+  const sortedKeys = keys.slice().sort((a, b) => {
+    const idxA = preferredOrder.indexOf(a);
+    const idxB = preferredOrder.indexOf(b);
+    if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+    if (idxA !== -1) return -1;
+    if (idxB !== -1) return 1;
+    return 0;
+  });
+
+  const addedRoutes = new Set();
+  const list = [];
+
+  if (sortedKeys.length) {
+    sortedKeys.forEach((key) => {
+      let routeStatus = key;
+      if (key === "all") routeStatus = "";
+      if (key === "pendingReview") routeStatus = "pending_review";
+      if (key === "outOfStock") routeStatus = "out_of_stock";
+
+      const routePath = routeStatus ? `/app/products?status=${routeStatus}` : "/app/products";
+      if (addedRoutes.has(routePath)) return;
+      addedRoutes.add(routePath);
+
+      list.push({
+        route: routePath,
+        label: formatTabKeyLabel(key, false),
+        permission: "products.view",
+      });
+    });
+  } else {
+    list.push({
       route: "/app/products",
       label: "All Products",
       permission: "products.view",
-    },
-    {
-      route: "/app/products?status=draft",
-      label: "Draft",
-      permission: "products.view",
-    },
-    {
-      route: "/app/products?status=pending_review",
-      label: "Pending Review",
-      permission: "products.view",
-    },
-    {
-      route: "/app/products?status=active",
-      label: "Active",
-      permission: "products.view",
-    },
-    {
-      route: "/app/products?status=rejected",
-      label: "Rejected",
-      permission: "products.view",
-    },
-    {
-      route: "/app/products?status=archived",
-      label: "Archived",
-      permission: "products.view",
-    },
-    {
-      route: "/app/products?status=out_of_stock",
-      label: "Out of Stock",
-      permission: "products.view",
-    },
-    {
-      route: "/app/products?status=suspended",
-      label: "Suspended",
-      permission: "products.view",
-    },
+    });
+  }
+
+  list.push(
     {
       route: "/app/products/shopify",
       label: "Shopify",
@@ -927,8 +897,10 @@ const productLifecycleItems = computed(() => {
       route: "/app/products/size-charts",
       label: "Size Chart",
       permission: "products.view",
-    },
-  ];
+    }
+  );
+
+  return list;
 });
 
 const navItems = computed(() => {
@@ -1029,13 +1001,32 @@ function isActive(path) {
   return route.path === path;
 }
 
+const SIDEBAR_LEGACY_STATUS = {
+  pending: "new",
+  returns: "issues-return",
+  fulfilled: "delivered",
+  cancelled: "canceled",
+};
+
+function normalizeSidebarStatus(status) {
+  if (!status || status === "all") return "all";
+  return SIDEBAR_LEGACY_STATUS[status] || status;
+}
+
 function isChildActive(childRoute) {
   const [path, queryStr] = childRoute.split("?");
   if (route.path !== path) return false;
+
+  const currentStatus = normalizeSidebarStatus(route.query.status || route.query.tab);
+
   if (!queryStr) {
-    return !route.query.status || route.query.status === "all";
+    return currentStatus === "all";
   }
   const urlParams = new URLSearchParams(queryStr);
+  const targetStatus = urlParams.get("status");
+  if (targetStatus) {
+    return currentStatus === normalizeSidebarStatus(targetStatus);
+  }
   for (const [key, val] of urlParams.entries()) {
     if (route.query[key] !== val) return false;
   }

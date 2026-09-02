@@ -210,7 +210,6 @@ async function handleVerifyOtp() {
   loading.value = true;
   try {
     await authStore.verifyOtp(otpValue.value);
-    toast("Signed in successfully", "success");
     try {
       const statusRes = await authStore.getOnboardingStatus();
       if (

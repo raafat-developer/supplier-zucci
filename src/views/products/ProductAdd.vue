@@ -20,11 +20,11 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <AppSelect
+        <!-- <AppSelect
           v-model="publishStatus"
           :options="publishStatusOptions"
           customClass="rounded-lg border border-border/80 bg-white-10 px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-black/20"
-        />
+        /> -->
         <button
           @click="$router.push('/app/products')"
           class="px-4 py-1.5 text-xs font-semibold rounded-lg border border-border/80 bg-white-10 hover:bg-muted/10 text-foreground transition-colors shrink-0"
@@ -32,11 +32,11 @@
           Cancel
         </button>
         <button
-          @click="publishStatus === 'draft' ? saveDraft() : submitProduct()"
+          @click="publishStatus === 'draft' ? submitProduct() : submitProduct()"
           :disabled="!isFormValid || saving || submitting"
           class="px-5 py-1.5 text-xs font-bold rounded-lg transition-all shrink-0 flex items-center gap-1.5"
           :class="
-            !isFormValid || saving || submitting
+            saving || submitting
               ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
               : 'bg-black text-white hover:bg-black/90 cursor-pointer shadow-sm'
           "
@@ -372,18 +372,18 @@
           <input
             v-model="form.tagsInput"
             placeholder="Type and press Enter..."
-            class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm w-full focus:outline-none focus:ring-1 focus:ring-black/30"
+            class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm w-full outline-none focus:outline-none focus:ring-0 focus:border-border"
             @keydown.enter.prevent="addTag"
           />
-          <div class="flex flex-wrap gap-1.5 mt-2" v-if="form.tags.length">
+          <div class="flex flex-wrap gap-1.5 mt-2" v-if="form.tags && form.tags.length">
             <span
-              v-for="t in form.tags"
+              v-for="t in (form.tags || [])"
               :key="t"
               class="px-2.5 py-0.5 bg-muted/40 text-foreground text-xs rounded-md flex items-center gap-1 border border-border/40 font-semibold"
             >
               {{ t }}
               <button
-                @click="form.tags = form.tags.filter((x) => x !== t)"
+                @click="form.tags = (form.tags || []).filter((x) => x !== t)"
                 class="hover:text-destructive text-sm font-bold"
               >
                 ×
@@ -936,27 +936,46 @@
                   class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
                 />
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  class="text-xs text-muted-foreground uppercase font-medium"
-                  >Initial Value (English)</label
+              <div class="flex flex-col gap-2 border-t border-border pt-3">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs text-muted-foreground uppercase font-medium">Attribute Values</label>
+                  <button
+                    type="button"
+                    @click="addProposeAttrValue"
+                    class="text-xs text-primary font-semibold hover:underline"
+                  >
+                    + Add Another Value
+                  </button>
+                </div>
+                <div
+                  v-for="(v, idx) in newAttrForm.values"
+                  :key="idx"
+                  class="p-2.5 rounded-lg border border-border bg-muted/20 flex flex-col gap-2 relative"
                 >
-                <input
-                  v-model="newAttrForm.valueEn"
-                  placeholder="e.g. Silk"
-                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label
-                  class="text-xs text-muted-foreground uppercase font-medium"
-                  >Initial Value (Arabic)</label
-                >
-                <input
-                  v-model="newAttrForm.valueAr"
-                  placeholder="e.g. حرير"
-                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
-                />
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-muted-foreground uppercase">Value #{{ idx + 1 }}</span>
+                    <button
+                      v-if="newAttrForm.values.length > 1"
+                      type="button"
+                      @click="removeProposeAttrValue(idx)"
+                      class="text-xs text-rose-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input
+                      v-model="v.valueEn"
+                      placeholder="Label (EN) e.g. Silk"
+                      class="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                    <input
+                      v-model="v.valueAr"
+                      placeholder="Label (AR) e.g. حرير"
+                      class="rounded-lg border border-input bg-background px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             <div
@@ -1176,7 +1195,19 @@ const newAttrForm = reactive({
   nameAr: "",
   valueEn: "",
   valueAr: "",
+  values: [{ valueEn: "", valueAr: "" }],
 });
+
+function addProposeAttrValue() {
+  if (!Array.isArray(newAttrForm.values)) newAttrForm.values = [];
+  newAttrForm.values.push({ valueEn: "", valueAr: "" });
+}
+
+function removeProposeAttrValue(idx) {
+  if (newAttrForm.values.length > 1) {
+    newAttrForm.values.splice(idx, 1);
+  }
+}
 
 const showProposeValue = ref(false);
 const activeProposeAttr = ref(null);
@@ -1257,6 +1288,8 @@ const form = reactive({
   tagsInput: "",
   images: [],
   inventory: "",
+  tags: [],
+  tagsInput: "",
   barcode: "",
   sizeGuideId: null,
   careInstructionId: null,
@@ -1388,6 +1421,18 @@ const sizeOptionsForPicker = computed(() => {
     label: label,
   }));
 });
+
+function addTag() {
+  const val = form.tagsInput?.trim();
+  if (!val) return;
+  if (!Array.isArray(form.tags)) {
+    form.tags = [];
+  }
+  if (!form.tags.includes(val)) {
+    form.tags.push(val);
+  }
+  form.tagsInput = "";
+}
 
 function execCmd(cmd) {
   document.execCommand(cmd, false, null);
@@ -1581,31 +1626,63 @@ function openProposeValueModal(vAttr) {
 
 async function submitProposeAttr() {
   try {
-    const code = newAttrForm.nameEn.toLowerCase().replace(/\s+/g, "-");
-    const valCode = newAttrForm.valueEn.toLowerCase().replace(/\s+/g, "-");
+    if (!newAttrForm.nameEn?.trim()) {
+      toast("Attribute name (English) is required", "error");
+      return;
+    }
+
+    const code = newAttrForm.nameEn.trim().toLowerCase().replace(/\s+/g, "-");
+    const nameAr = newAttrForm.nameAr?.trim() || newAttrForm.nameEn.trim();
+
+    const valuesPayload = [];
+
+    if (Array.isArray(newAttrForm.values)) {
+      newAttrForm.values.forEach((v) => {
+        if (!v.valueEn?.trim()) return;
+        const valEn = v.valueEn.trim();
+        const valAr = v.valueAr?.trim() || valEn;
+        const valCode = valEn.toLowerCase().replace(/\s+/g, "-");
+        valuesPayload.push({
+          code: valCode,
+          translations: [
+            { localeId: 1, label: valEn },
+            { localeId: 2, label: valAr },
+          ],
+        });
+      });
+    }
+
+    if (!valuesPayload.length && newAttrForm.valueEn?.trim()) {
+      const valEn = newAttrForm.valueEn.trim();
+      const valAr = newAttrForm.valueAr?.trim() || valEn;
+      const valCode = valEn.toLowerCase().replace(/\s+/g, "-");
+      valuesPayload.push({
+        code: valCode,
+        translations: [
+          { localeId: 1, label: valEn },
+          { localeId: 2, label: valAr },
+        ],
+      });
+    }
+
+    if (!valuesPayload.length) {
+      toast("At least one attribute value is required", "error");
+      return;
+    }
+
     const payload = {
       proposedAttributes: [
         {
           code,
           translations: [
-            { localeId: 1, label: newAttrForm.nameEn },
-            { localeId: 2, label: newAttrForm.nameAr || newAttrForm.nameEn },
+            { localeId: 1, label: newAttrForm.nameEn.trim() },
+            { localeId: 2, label: nameAr },
           ],
-          values: [
-            {
-              code: valCode,
-              translations: [
-                { localeId: 1, label: newAttrForm.valueEn },
-                {
-                  localeId: 2,
-                  label: newAttrForm.valueAr || newAttrForm.valueEn,
-                },
-              ],
-            },
-          ],
+          values: valuesPayload,
         },
       ],
     };
+
     await post("/supplier/catalog/attribute-value-requests", payload);
     toast("Attribute proposal submitted successfully!");
 
@@ -1614,6 +1691,7 @@ async function submitProposeAttr() {
     newAttrForm.nameAr = "";
     newAttrForm.valueEn = "";
     newAttrForm.valueAr = "";
+    newAttrForm.values = [{ valueEn: "", valueAr: "" }];
     await fetchAllAttributes();
   } catch (e) {
     // handled
@@ -1856,14 +1934,6 @@ function isDuplicateVariantBarcode(variantIndex, marketCode) {
     }
   }
   return false;
-}
-
-function addTag() {
-  if (form.tagsInput.trim()) {
-    if (!form.tags.includes(form.tagsInput.trim()))
-      form.tags.push(form.tagsInput.trim());
-    form.tagsInput = "";
-  }
 }
 
 function onMediaInsert(items) {

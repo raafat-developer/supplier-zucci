@@ -31,7 +31,15 @@
           </p>
         </div>
       </div>
-      <div class="flex items-center">
+      <div class="flex items-center gap-3">
+        <button
+          v-can="'settings.brands.edit'"
+          @click="openEditBrandModal"
+          class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-xs font-semibold text-foreground flex items-center gap-1.5 transition-colors cursor-pointer"
+        >
+          <Pencil class="size-3.5 text-muted-foreground" />
+          Edit Brand
+        </button>
         <SwitchToggle
           :modelValue="brand.status === 'active'"
           @update:modelValue="toggleStatus"
@@ -273,7 +281,7 @@
         <div
           v-if="editingSocial"
           class="fixed inset-0 z-[500] flex items-center justify-center"
-          @click.self="editingSocial = null"
+          @click.self="closeSocialModal"
         >
           <div class="absolute inset-0 bg-white/35 backdrop-blur-sm" />
           <div
@@ -295,21 +303,31 @@
                 v-if="editingSocial.key === 'whatsapp'"
                 v-model="socialEditValue"
                 countryCode="EG"
+                @input="socialError = ''"
               />
               <input
                 v-else
                 v-model="socialEditValue"
                 type="url"
                 placeholder="https://"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                class="rounded-lg border px-3 py-2 text-sm transition-colors"
+                :class="
+                  socialError
+                    ? 'border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500'
+                    : 'border-input bg-background'
+                "
+                @input="socialError = ''"
               />
+              <p v-if="socialError" class="text-xs text-red-500 font-medium mt-0.5">
+                {{ socialError }}
+              </p>
             </div>
             <div class="flex items-center justify-end gap-2 mt-4">
               <AppButton
                 variant="outline"
                 size="sm"
                 :disabled="savingSocial"
-                @click="editingSocial = null"
+                @click="closeSocialModal"
                 >Cancel</AppButton
               >
               <AppButton
@@ -446,6 +464,211 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Edit Brand Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showEditBrand"
+          class="fixed inset-0 z-[500] flex items-center justify-center"
+          @click.self="showEditBrand = false"
+        >
+          <div class="absolute inset-0 bg-white/35 backdrop-blur-sm" />
+          <div
+            class="relative bg-background rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col"
+            style="width: 90vw; max-width: 480px; max-height: 85vh"
+          >
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <h3 class="text-base font-semibold">Edit Brand</h3>
+              <button
+                @click="showEditBrand = false"
+                class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground"
+              >
+                <X class="size-4" />
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+              <div class="flex flex-col gap-1">
+                <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">Brand Name (English)</label>
+                <input
+                  v-model="editBrandForm.name"
+                  placeholder="e.g. Zeylan"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">Brand Name (Arabic)</label>
+                <input
+                  v-model="editBrandForm.nameAr"
+                  placeholder="e.g. زيلان"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">Status</label>
+                <select
+                  v-model="editBrandForm.status"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm capitalize cursor-pointer"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <!-- Brand Logo Upload Section -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">
+                  Brand Logo
+                </label>
+
+                <!-- Upload Preview Container -->
+                <div
+                  v-if="editLogoPreviewUrl || editLogoFileName"
+                  class="p-3 rounded-xl border border-border bg-white-10 flex items-center justify-between gap-3"
+                >
+                  <div class="flex items-center gap-3 overflow-hidden">
+                    <img
+                      v-if="editLogoPreviewUrl"
+                      :src="editLogoPreviewUrl"
+                      class="size-11 object-cover rounded-lg border border-border shrink-0"
+                      alt="Logo Preview"
+                    />
+                    <div
+                      v-else
+                      class="size-11 rounded-lg border border-border bg-muted flex items-center justify-center shrink-0"
+                    >
+                      <Upload class="size-5 text-muted-foreground" />
+                    </div>
+                    <div class="flex flex-col min-w-0">
+                      <p class="text-xs font-bold text-foreground truncate">
+                        {{ editLogoFileName || "Logo" }}
+                      </p>
+                      <span v-if="uploadingEditLogo" class="text-[11px] text-primary flex items-center gap-1 font-medium mt-0.5">
+                        <Loader2 class="size-3 animate-spin" /> Uploading to server...
+                      </span>
+                      <span v-else-if="editBrandForm.logoFileId" class="text-[11px] text-emerald-600 flex items-center gap-1 font-medium mt-0.5">
+                        <Check class="size-3" /> Logo uploaded
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    @click="clearEditLogo"
+                    class="size-7 rounded-md hover:bg-muted text-muted-foreground flex items-center justify-center transition-colors shrink-0"
+                    title="Remove logo"
+                  >
+                    <X class="size-4" />
+                  </button>
+                </div>
+
+                <!-- Upload Dropzone -->
+                <label
+                  v-else
+                  class="border-2 border-dashed border-border rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                >
+                  <Upload v-if="!uploadingEditLogo" class="size-5 text-muted-foreground" />
+                  <Loader2 v-else class="size-5 text-primary animate-spin" />
+                  <span class="text-xs text-muted-foreground font-medium">
+                    {{ uploadingEditLogo ? "Uploading logo..." : "Upload logo image (PNG, JPG, SVG)" }}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                    class="hidden"
+                    @change="handleEditLogoUpload"
+                    :disabled="uploadingEditLogo"
+                  />
+                </label>
+              </div>
+
+              <div class="flex flex-col gap-1">
+                <label class="text-xs text-muted-foreground font-medium uppercase tracking-wider font-semibold">Brand Color (Hex)</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="color"
+                    v-model="editBrandForm.color"
+                    class="size-8 rounded border border-input cursor-pointer"
+                  />
+                  <input
+                    v-model="editBrandForm.color"
+                    placeholder="#0f172a"
+                    class="rounded-lg border border-input bg-background px-3 py-2 text-sm font-mono w-28"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border shrink-0">
+              <button
+                @click="showEditBrand = false"
+                class="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                @click="handleSaveBrand"
+                :disabled="!editBrandForm.name || savingBrand || uploadingEditLogo"
+                class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 disabled:opacity-40 transition-colors flex items-center gap-2"
+              >
+                <Loader2 v-if="savingBrand" class="size-3 animate-spin" />
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- File Preview Lightbox Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="previewFileUrl"
+          class="fixed inset-0 z-[600] flex items-center justify-center"
+          @click.self="closePreview"
+        >
+          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            class="relative bg-background rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col max-w-4xl max-h-[90vh] w-full m-4"
+          >
+            <div
+              class="flex items-center justify-between px-5 py-3 border-b border-border"
+            >
+              <span class="text-sm font-bold truncate">{{ previewFileName }}</span>
+              <button
+                @click="closePreview"
+                class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground"
+              >
+                <X class="size-4" />
+              </button>
+            </div>
+            <div class="p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
+              <img
+                v-if="
+                  previewFileType.includes('image') ||
+                  previewFileUrl.match(/\.(png|jpg|jpeg|svg|webp)/i)
+                "
+                :src="previewFileUrl"
+                class="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+              <iframe
+                v-else-if="
+                  previewFileType.includes('pdf') || previewFileUrl.match(/\.pdf/i)
+                "
+                :src="previewFileUrl"
+                class="w-full h-[70vh] rounded-lg"
+              ></iframe>
+              <a
+                v-else
+                :href="previewFileUrl"
+                target="_blank"
+                class="text-primary hover:underline text-sm font-semibold"
+                >Open File Link</a
+              >
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -464,6 +687,8 @@ import {
   RefreshCw,
   Upload,
   X,
+  Pencil,
+  Check,
 } from "lucide-vue-next";
 import { useBrandStore } from "@/stores/brand";
 import { useAppStore } from "@/stores/app";
@@ -473,6 +698,7 @@ import SettingsSkeleton from "@/components/settings/SettingsSkeleton.vue";
 import SwitchToggle from "@/components/ui/SwitchToggle.vue";
 import AppButton from "@/components/ui/AppButton.vue";
 import PhoneInput from "@/components/ui/PhoneInput.vue";
+import { reactive } from "vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -485,6 +711,19 @@ const loading = ref(false);
 const uploadingAsset = ref(false);
 const savingSocial = ref(false);
 
+const showEditBrand = ref(false);
+const savingBrand = ref(false);
+const editBrandForm = reactive({
+  name: "",
+  nameAr: "",
+  color: "#0f172a",
+  status: "active",
+  logoFileId: null,
+});
+const editLogoPreviewUrl = ref("");
+const editLogoFileName = ref("");
+const uploadingEditLogo = ref(false);
+
 const previewFileUrl = ref(null);
 const previewFileName = ref("");
 const previewFileType = ref("");
@@ -493,6 +732,7 @@ const previewFileId = ref("");
 const syncing = ref(null);
 const editingSocial = ref(null);
 const socialEditValue = ref("");
+const socialError = ref("");
 
 // Disconnect confirm dialog state
 const showConfirmDisconnect = ref(false);
@@ -580,39 +820,162 @@ onMounted(async () => {
   await fetchBrandDetail();
 });
 
+function openEditBrandModal() {
+  editBrandForm.name = brand.value.name || "";
+  editBrandForm.nameAr = brand.value.nameAr || "";
+  editBrandForm.color = brand.value.color || "#0f172a";
+  editBrandForm.status = brand.value.status || "active";
+  editBrandForm.logoFileId = brand.value.logoFileId || brand.value.logo_file_id || null;
+  editLogoPreviewUrl.value = brand.value.logoUrl || brand.value.logo || brand.value.logo_url || "";
+  editLogoFileName.value = editLogoPreviewUrl.value ? "Current Logo" : "";
+  showEditBrand.value = true;
+}
+
+async function handleEditLogoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  editLogoFileName.value = file.name;
+  if (file.type.startsWith("image/")) {
+    editLogoPreviewUrl.value = URL.createObjectURL(file);
+  } else {
+    editLogoPreviewUrl.value = "";
+  }
+
+  uploadingEditLogo.value = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("purpose", "brand_logo");
+
+    const res = await upload("/supplier/files", formData);
+    const fileId = res?.data?.id || res?.data?.fileId || res?.id;
+
+    if (fileId) {
+      editBrandForm.logoFileId = fileId;
+      toast("Logo uploaded successfully");
+    } else {
+      toast("Failed to get file ID from server", "error");
+    }
+  } catch (err) {
+    console.error("Failed to upload brand logo:", err);
+    toast("Failed to upload brand logo", "error");
+  } finally {
+    uploadingEditLogo.value = false;
+  }
+}
+
+function clearEditLogo() {
+  editBrandForm.logoFileId = null;
+  editLogoPreviewUrl.value = "";
+  editLogoFileName.value = "";
+}
+
+async function handleSaveBrand() {
+  if (!editBrandForm.name) {
+    toast("Brand name is required", "error");
+    return;
+  }
+  savingBrand.value = true;
+  try {
+    const payload = {
+      status: editBrandForm.status,
+      name: editBrandForm.name,
+      color: editBrandForm.color,
+    };
+    if (editBrandForm.nameAr) payload.nameAr = editBrandForm.nameAr;
+    if (editBrandForm.logoFileId) payload.logoFileId = editBrandForm.logoFileId;
+
+    await brandStore.updateBrand(brand.value.id, payload);
+    toast("Brand updated successfully!");
+    showEditBrand.value = false;
+    await fetchBrandDetail();
+  } catch (e) {
+    console.error("Failed to update brand:", e);
+    toast("Failed to update brand", "error");
+  } finally {
+    savingBrand.value = false;
+  }
+}
+
 async function toggleStatus(val) {
   try {
     const nextStatus = val ? "active" : "inactive";
-    await brandStore.updateBrand(brand.value.id, {
+    const payload = {
       status: nextStatus,
       name: brand.value.name,
-      color: brand.value.color,
-    });
+      color: brand.value.color || "#0f172a",
+    };
+    if (brand.value.nameAr) payload.nameAr = brand.value.nameAr;
+    const logoId = brand.value.logoFileId || brand.value.logo_file_id;
+    if (logoId) payload.logoFileId = logoId;
+
+    await brandStore.updateBrand(brand.value.id, payload);
     if (apiBrand.value) apiBrand.value.status = nextStatus;
     toast(`Brand status updated to ${nextStatus}`);
   } catch (e) {
     console.error(e);
+    toast("Failed to update status", "error");
   }
 }
 
 function editSocial(s) {
   editingSocial.value = s;
   socialEditValue.value = brand.value.social?.[s.key] || "";
+  socialError.value = "";
+}
+
+function closeSocialModal() {
+  editingSocial.value = null;
+  socialError.value = "";
 }
 
 async function saveSocial() {
   if (!editingSocial.value || savingSocial.value) return;
+  socialError.value = "";
+
+  const rawValue = (socialEditValue.value || "").trim();
+  if (!rawValue) {
+    socialError.value = "This field is required.";
+    return;
+  }
+
+  const key = editingSocial.value.key;
+  let finalValue = rawValue;
+
+  if (key === "whatsapp") {
+    const phoneRegex = /^[\d\s+\-()]{6,}$/;
+    if (!phoneRegex.test(rawValue)) {
+      socialError.value = "Please enter a valid phone number.";
+      return;
+    }
+  } else {
+    let urlToTest = rawValue;
+    if (!/^https?:\/\//i.test(urlToTest)) {
+      urlToTest = "https://" + urlToTest;
+    }
+    try {
+      const parsed = new URL(urlToTest);
+      if (!parsed.hostname || !parsed.hostname.includes(".")) {
+        throw new Error("Invalid domain");
+      }
+      finalValue = urlToTest;
+    } catch (_) {
+      socialError.value = "Please enter a valid URL.";
+      return;
+    }
+  }
+
   savingSocial.value = true;
   try {
-    const key = editingSocial.value.key;
-    const value = socialEditValue.value;
     const currentSocials = { ...(brand.value.social || {}) };
-    currentSocials[key] = value;
+    currentSocials[key] = finalValue;
     await brandStore.updateBrandSocials(brand.value.id, currentSocials);
     if (!brand.value.social) brand.value.social = {};
-    brand.value.social[key] = value;
+    brand.value.social[key] = finalValue;
     toast(`${editingSocial.value.label} updated!`);
     editingSocial.value = null;
+    socialError.value = "";
   } catch (e) {
     console.error(e);
   } finally {
@@ -769,36 +1132,38 @@ async function previewAsset(fileId, name) {
   if (!fileId) return;
   try {
     toast("Loading preview...");
-    const res = await get(
-      `/supplier/brands/${brand.value.id}/assets/${fileId}`,
-    );
+    const res = await get(`/supplier/files/${fileId}`);
     const { url, filename, mimeType } = extractFileDetails(res);
 
-    if (!url) {
-      toast("Preview not available.", "error");
-      return;
-    }
-
-    let blobUrl = null;
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Direct fetch failed");
-      const blob = await response.blob();
-      blobUrl = window.URL.createObjectURL(blob);
-    } catch (_) {
+    if (url) {
       try {
-        const proxyUrl = getProxyUrl(url);
-        const response = await fetch(proxyUrl);
-        const blob = await response.blob();
-        blobUrl = window.URL.createObjectURL(blob);
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Direct fetch failed");
+        const arrayBuf = await response.arrayBuffer();
+        const cleanType = mimeType || response.headers.get("content-type") || "image/png";
+        const inlineBlob = new Blob([arrayBuf], { type: cleanType });
+        previewFileUrl.value = window.URL.createObjectURL(inlineBlob);
+        previewFileName.value = filename || name || `File-${fileId}`;
+        previewFileType.value = cleanType;
+        previewFileId.value = fileId;
+        return;
       } catch (_) {
-        blobUrl = getProxyUrl(url);
+        previewFileUrl.value = getProxyUrl(url);
+        previewFileName.value = filename || name || `File-${fileId}`;
+        previewFileType.value = mimeType || "image/png";
+        previewFileId.value = fileId;
+        return;
       }
     }
 
-    previewFileUrl.value = blobUrl;
-    previewFileName.value = filename || name || `Asset-${fileId}`;
-    previewFileType.value = mimeType || "application/octet-stream";
+    // Fallback if binary stream endpoint
+    const blobRes = await api.get(`/supplier/files/${fileId}`, { responseType: "blob" });
+    const contentType =
+      blobRes.headers["content-type"] || mimeType || "image/png";
+    const inlineBlob = new Blob([blobRes.data], { type: contentType });
+    previewFileUrl.value = window.URL.createObjectURL(inlineBlob);
+    previewFileName.value = name || `File-${fileId}`;
+    previewFileType.value = contentType;
     previewFileId.value = fileId;
   } catch (e) {
     console.error("Failed to load asset preview:", e);
@@ -819,16 +1184,9 @@ function closePreview() {
 async function downloadAsset(fileId, name) {
   if (!fileId) return;
   try {
-    toast("Downloading asset...");
-    const res = await get(
-      `/supplier/brands/${brand.value.id}/assets/${fileId}`,
-    );
+    toast("Downloading document...");
+    const res = await get(`/supplier/files/${fileId}`);
     const { url, filename, mimeType } = extractFileDetails(res);
-
-    if (!url) {
-      toast("Download link not found.", "error");
-      return;
-    }
 
     const contentType = mimeType || "";
     let ext = "";
@@ -837,23 +1195,43 @@ async function downloadAsset(fileId, name) {
     else if (contentType.includes("jpeg") || contentType.includes("jpg"))
       ext = ".jpg";
 
-    let targetName = filename || name || `asset-${fileId}`;
+    let targetName = filename || name || `document-${fileId}`;
     if (ext && !targetName.toLowerCase().endsWith(ext)) {
       targetName += ext;
     }
 
-    // Force file blob download (never open in new tab)
-    let blob;
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Direct fetch failed");
-      blob = await response.blob();
-    } catch (_) {
-      const proxyUrl = getProxyUrl(url);
-      const response = await fetch(proxyUrl);
-      blob = await response.blob();
+    if (url) {
+      // Force file blob download (never open in new tab)
+      let blob;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("Direct fetch failed");
+        blob = await response.blob();
+      } catch (_) {
+        const proxyUrl = getProxyUrl(url);
+        const response = await fetch(proxyUrl);
+        blob = await response.blob();
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = targetName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      return;
     }
 
+    // Fallback if binary stream endpoint
+    const blobRes = await api.get(
+      `/supplier/files/${fileId}`,
+      { responseType: "blob" },
+    );
+    const cType =
+      blobRes.headers["content-type"] || "application/octet-stream";
+    const blob = new Blob([blobRes.data], { type: cType });
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;
@@ -863,8 +1241,8 @@ async function downloadAsset(fileId, name) {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(blobUrl);
   } catch (e) {
-    console.error("Failed to download brand asset:", e);
-    toast("Failed to download brand asset.", "error");
+    console.error("Failed to download document:", e);
+    toast("Failed to download document.", "error");
   }
 }
 </script>
