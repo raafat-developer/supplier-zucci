@@ -198,40 +198,46 @@
             style="width: 90vw; max-width: 420px"
           >
             <h3 class="text-base font-semibold mb-4">Change Password</h3>
-            <div class="flex flex-col gap-3">
-              <input
-                v-model="pwForm.currentPassword"
-                type="password"
-                placeholder="Current password"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-              <input
-                v-model="pwForm.newPassword"
-                type="password"
-                placeholder="New password"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-              <input
-                v-model="pwForm.confirmPassword"
-                type="password"
-                placeholder="Confirm new password"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-            <div class="flex items-center justify-end gap-2 mt-4">
-              <button
-                @click="showChangePw = false"
-                class="rounded-lg border bg-white-10 px-4 py-2 text-sm hover:bg-accent transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="handleUpdatePassword"
-                class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
-              >
-                Update Password
-              </button>
-            </div>
+            <form @submit.prevent="handleUpdatePassword" autocomplete="off">
+              <div class="flex flex-col gap-3">
+                <input
+                  v-model="pwForm.currentPassword"
+                  type="password"
+                  placeholder="Current password"
+                  autocomplete="new-password"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  v-model="pwForm.newPassword"
+                  type="password"
+                  placeholder="New password"
+                  autocomplete="new-password"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  v-model="pwForm.confirmPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  autocomplete="new-password"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div class="flex items-center justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  @click="showChangePw = false"
+                  class="rounded-lg border bg-white-10 px-4 py-2 text-sm hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  Update Password
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </Transition>
@@ -247,6 +253,7 @@ import {
   reactive,
   ref,
   watch,
+  nextTick,
 } from "vue";
 import { useRouter } from "vue-router";
 import {
@@ -291,11 +298,20 @@ function openPasswordModal() {
   showChangePw.value = true;
 }
 
-watch(showChangePw, (open) => {
+watch(showChangePw, async (open) => {
   if (open) {
     pwForm.currentPassword = "";
     pwForm.newPassword = "";
     pwForm.confirmPassword = "";
+    await nextTick();
+    pwForm.currentPassword = "";
+    pwForm.newPassword = "";
+    pwForm.confirmPassword = "";
+    setTimeout(() => {
+      pwForm.currentPassword = "";
+      pwForm.newPassword = "";
+      pwForm.confirmPassword = "";
+    }, 50);
   }
 });
 

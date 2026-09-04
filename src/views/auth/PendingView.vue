@@ -1,87 +1,32 @@
 <template>
-  <div
-    style="
-      position: relative;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      background: #0a0a0a;
-      overflow: hidden;
-    "
-  >
+  <div class="relative min-h-screen flex flex-col bg-[#0a0a0a] overflow-x-hidden">
     <video
-      style="
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        z-index: 0;
-        pointer-events: none;
-      "
+      class="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
       autoplay
       muted
       loop
       playsinline
       src="/uploads/bg-video.mp4"
     />
-    <div
-      style="
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.55);
-        z-index: 1;
-      "
-    />
+    <div class="absolute inset-0 bg-black/55 z-1" />
 
     <!-- Topbar -->
     <div
-      style="
-        position: relative;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem 2rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(8px);
-        background: rgba(0, 0, 0, 0.2);
-      "
+      class="relative z-10 flex items-center justify-between px-4 py-3 sm:px-8 sm:py-4 border-b border-white/10 backdrop-blur-md bg-black/20"
     >
-      <div style="display: flex; align-items: center; gap: 0.5rem">
+      <div class="flex items-center gap-2">
         <Logo fillText="#fff" />
       </div>
       <button
         @click="handleSignOut"
-        style="
-          font-size: 0.875rem;
-          color: rgba(255, 255, 255, 0.7);
-          padding: 0.375rem 0.875rem;
-          border-radius: 0.5rem;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(8px);
-          cursor: pointer;
-          transition: background 150ms;
-        "
+        class="text-xs sm:text-sm text-white/70 hover:text-white px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-lg border border-white/20 bg-white/10 backdrop-blur-md cursor-pointer transition-colors duration-150"
       >
         Sign out
       </button>
     </div>
 
     <!-- Content -->
-    <div
-      style="
-        position: relative;
-        z-index: 10;
-        flex: 1;
-        padding: 2rem;
-        max-width: 960px;
-        margin: 0 auto;
-        width: 100%;
-        box-sizing: border-box;
-      "
-    >
+    <div class="relative z-10 flex-1 p-4 sm:p-6 md:p-8 max-w-[960px] mx-auto w-full box-border">
       <!-- Loading indicator -->
       <div
         v-if="loadingStatus"
@@ -94,316 +39,156 @@
       <template v-else>
         <!-- Status header -->
         <div
-          style="
-            display: flex;
-            align-items: flex-start;
-            gap: 1.25rem;
-            margin-bottom: 1.5rem;
-            padding: 1.25rem;
-            border-radius: 1rem;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(16px);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
-          "
+          class="flex flex-row items-start gap-4 sm:gap-5 mb-5 md:mb-6 p-4 sm:p-5 rounded-2xl bg-white/10 border border-white/[0.18] backdrop-blur-xl shadow-[0_4px_24px_rgba(0,0,0,0.12)]"
         >
           <div
-            :style="{
-              width: '3rem',
-              height: '3rem',
-              borderRadius: '50%',
-              background: isRejected ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)',
-              border: `1px solid ${isRejected ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }"
+            :class="[
+              'w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shrink-0 border',
+              isRejected
+                ? 'bg-red-500/25 border-red-500/40'
+                : 'bg-amber-500/25 border-amber-500/40'
+            ]"
           >
-            <AlertCircle v-if="isRejected" style="color: #ef4444; width: 1.25rem; height: 1.25rem" />
-            <Clock v-else style="color: #fbbf24; width: 1.25rem; height: 1.25rem" />
+            <AlertCircle v-if="isRejected" class="text-red-500 w-5 h-5" />
+            <Clock v-else class="text-amber-400 w-5 h-5" />
           </div>
-          <div style="flex: 1">
-            <h1
-              style="
-                font-size: 1.25rem;
-                font-weight: 700;
-                color: white;
-                margin: 0 0 0.25rem;
-              "
-            >
+          <div class="flex-1 min-w-0">
+            <h1 class="text-lg sm:text-[1.25rem] font-bold text-white mb-1 leading-snug">
               {{ onboardingData.entity?.display_name || "Application" }}
               {{ isRejected ? "Rejected" : "Under Review" }}
             </h1>
-            <p
-              style="
-                font-size: 0.875rem;
-                color: rgba(255, 255, 255, 0.65);
-                margin: 0 0 0.75rem;
-              "
-            >
+            <p class="text-xs sm:text-sm text-white/65 mb-3 leading-relaxed">
               Your application was received on
-              <strong style="color: white">{{ formattedSubmittedDate }}</strong
-              >. Our team typically reviews applications within
-              <strong style="color: white"
-                >{{ onboardingData.review_sla_business_days || 3 }} business
-                days</strong
-              >.
+              <strong class="text-white">{{ formattedSubmittedDate }}</strong>.
+              Our team typically reviews applications within
+              <strong class="text-white">
+                {{ onboardingData.review_sla_business_days || 3 }} business days
+              </strong>.
             </p>
             <span
-              :style="{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.375rem',
-                background: isRejected ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                color: isRejected ? '#f87171' : '#fbbf24',
-                border: `1px solid ${isRejected ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-                borderRadius: '9999px',
-                padding: '0.2rem 0.75rem',
-                fontSize: '0.75rem',
-                fontWeight: '700'
-              }"
+              :class="[
+                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border',
+                isRejected
+                  ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                  : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+              ]"
             >
               <span
-                :style="{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  background: isRejected ? '#ef4444' : '#fbbf24',
-                  display: 'inline-block'
-                }"
+                :class="[
+                  'w-1.5 h-1.5 rounded-full inline-block',
+                  isRejected ? 'bg-red-500' : 'bg-amber-400'
+                ]"
               ></span>
               {{ formatStatusLabel(onboardingData.status) }}
             </span>
           </div>
         </div>
 
-        <!-- 2-col grid -->
-        <div
-          style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem"
-        >
+        <!-- 2-Column Grid Layout on desktop (md+) & single column on mobile -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
           <!-- Checklist -->
           <div
-            style="
-              grid-column: 1;
-              grid-row: 1;
-              border-radius: 1rem;
-              background: rgba(255, 255, 255, 0.1);
-              border: 1px solid rgba(255, 255, 255, 0.18);
-              backdrop-filter: blur(16px);
-              overflow: hidden;
-              display: flex;
-              flex-direction: column;
-            "
+            class="md:col-start-1 md:row-start-1 rounded-2xl bg-white/10 border border-white/[0.18] backdrop-blur-xl overflow-hidden flex flex-col shadow-xl"
           >
-            <div
-              style="
-                padding: 0.875rem 1.25rem;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-              "
-            >
-              <p
-                style="
-                  font-size: 0.6875rem;
-                  font-weight: 700;
-                  text-transform: uppercase;
-                  letter-spacing: 0.08em;
-                  color: rgba(255, 255, 255, 0.5);
-                  margin: 0;
-                "
-              >
+            <div class="px-4 py-3.5 sm:px-5 border-b border-white/[0.12]">
+              <p class="text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-white/50 m-0">
                 Application Checklist
               </p>
             </div>
-            <div style="flex: 1; display: flex; flex-direction: column;">
+            <div class="flex-1 flex flex-col divide-y divide-white/[0.08]">
               <div
                 v-for="item in checklist"
                 :key="item.code || item.label"
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 0.875rem;
-                  padding: 0.65rem 1.25rem;
-                  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                  flex: 1;
-                "
+                class="flex flex-row items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 flex-1"
               >
-                <div
-                  :style="{
-                    width: '1.375rem',
-                    height: '1.375rem',
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background:
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <div
+                    :class="[
+                      'w-5 h-5 rounded-full shrink-0 flex items-center justify-center border',
                       item.state === 'done'
-                        ? 'rgba(61,218,132,0.2)'
+                        ? 'bg-[#3dda84]/20 border-[#3dda84]/40'
                         : item.state === 'pending'
-                          ? 'rgba(245,158,11,0.15)'
-                          : 'rgba(239,68,68,0.15)',
-                    border: `1px solid ${item.state === 'done' ? 'rgba(61,218,132,0.4)' : item.state === 'pending' ? 'rgba(245,158,11,0.35)' : 'rgba(239,68,68,0.35)'}`,
-                  }"
-                >
-                  <Check
-                    v-if="item.state === 'done'"
-                    style="width: 10px; height: 10px; color: #3dda84"
-                  />
-                  <Clock
-                    v-else-if="item.state === 'pending'"
-                    style="width: 9px; height: 9px; color: #fbbf24"
-                  />
-                  <X
-                    v-else
-                    style="width: 10px; height: 10px; color: #ef4444"
-                  />
+                          ? 'bg-amber-500/15 border-amber-500/35'
+                          : 'bg-red-500/15 border-red-500/35'
+                    ]"
+                  >
+                    <Check v-if="item.state === 'done'" class="w-2.5 h-2.5 text-[#3dda84]" />
+                    <Clock v-else-if="item.state === 'pending'" class="w-2.25 h-2.25 text-amber-400" />
+                    <X v-else class="w-2.5 h-2.5 text-red-500" />
+                  </div>
+                  <span
+                    :class="[
+                      'text-[0.8125rem] font-medium flex-1',
+                      item.state === 'done'
+                        ? 'text-white/90'
+                        : item.state === 'pending'
+                          ? 'text-white/70'
+                          : 'text-white/55'
+                    ]"
+                  >
+                    {{ item.label }}
+                  </span>
                 </div>
-                <span
-                  :style="{
-                    flex: 1,
-                    fontSize: '0.8125rem',
-                    color:
-                      item.state === 'done'
-                        ? 'rgba(255,255,255,0.9)'
-                        : item.state === 'pending'
-                          ? 'rgba(255,255,255,0.7)'
-                          : 'rgba(255,255,255,0.55)',
-                  }"
-                  >{{ item.label }}</span
-                >
-                <span
-                  v-if="item.state === 'pending'"
-                  style="
-                    font-size: 0.625rem;
-                    font-weight: 700;
-                    color: #fbbf24;
-                    background: rgba(245, 158, 11, 0.15);
-                    border: 1px solid rgba(245, 158, 11, 0.3);
-                    border-radius: 9999px;
-                    padding: 0.15rem 0.5rem;
-                  "
-                  >Pending Review</span
-                >
-                <button
-                  v-else-if="item.state === 'missing' && missingDocs.length > 0"
-                  type="button"
-                  @click="showUploadModal = true"
-                  style="
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    color: #3dda84;
-                    background: rgba(61, 218, 132, 0.12);
-                    border: 1px solid rgba(61, 218, 132, 0.4);
-                    border-radius: 0.5rem;
-                    padding: 0.25rem 0.75rem;
-                    cursor: pointer;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 0.25rem;
-                    transition: all 150ms;
-                  "
-                  class="hover:bg-[#3dda84]/20 hover:border-[#3dda84]/60"
-                >
-                  <span>Upload missing docs</span>
-                </button>
+
+                <div class="flex items-center shrink-0">
+                  <span
+                    v-if="item.state === 'pending'"
+                    class="text-[0.625rem] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded-full px-2 py-0.5"
+                  >
+                    Pending Review
+                  </span>
+                  <button
+                    v-else-if="item.state === 'missing' && missingDocs.length > 0"
+                    type="button"
+                    @click="showUploadModal = true"
+                    class="text-xs font-semibold text-[#3dda84] bg-[#3dda84]/12 hover:bg-[#3dda84]/20 border border-[#3dda84]/40 hover:border-[#3dda84]/60 rounded-lg px-3 py-1 transition-colors cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <span>Upload missing docs</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Timeline -->
           <div
-            style="
-              grid-column: 2;
-              grid-row: 1;
-              border-radius: 1rem;
-              background: rgba(255, 255, 255, 0.1);
-              border: 1px solid rgba(255, 255, 255, 0.18);
-              backdrop-filter: blur(16px);
-              overflow: hidden;
-            "
+            class="md:col-start-2 md:row-start-1 rounded-2xl bg-white/10 border border-white/[0.18] backdrop-blur-xl overflow-hidden shadow-xl"
           >
-            <div
-              style="
-                padding: 0.875rem 1.25rem;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-              "
-            >
-              <p
-                style="
-                  font-size: 0.6875rem;
-                  font-weight: 700;
-                  text-transform: uppercase;
-                  letter-spacing: 0.08em;
-                  color: rgba(255, 255, 255, 0.5);
-                  margin: 0;
-                "
-              >
+            <div class="px-4 py-3.5 sm:px-5 border-b border-white/[0.12]">
+              <p class="text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-white/50 m-0">
                 What Happens Next
               </p>
             </div>
-            <div
-              style="
-                padding: 1.25rem;
-                display: flex;
-                flex-direction: column;
-                gap: 1rem;
-              "
-            >
+            <div class="p-4 sm:p-5 flex flex-col gap-4">
               <div
                 v-for="s in timeline"
                 :key="s.step || s.title"
-                style="display: flex; gap: 1rem; align-items: flex-start"
+                class="flex gap-4 items-start"
               >
                 <div
-                  :style="{
-                    width: '1.75rem',
-                    height: '1.75rem',
-                    borderRadius: '50%',
-                    flexShrink: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.6875rem',
-                    fontWeight: '700',
-                    background:
-                      s.state === 'done'
-                        ? 'rgba(61,218,132,0.25)'
-                        : s.state === 'active'
-                          ? 'rgba(245,158,11,0.2)'
-                          : 'rgba(255,255,255,0.08)',
-                    border: `1px solid ${s.state === 'done' ? 'rgba(61,218,132,0.5)' : s.state === 'active' ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.15)'}`,
-                    color:
-                      s.state === 'done'
-                        ? '#3dda84'
-                        : s.state === 'active'
-                          ? '#fbbf24'
-                          : 'rgba(255,255,255,0.4)',
-                  }"
+                  :class="[
+                    'w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-[0.6875rem] font-bold border',
+                    s.state === 'done'
+                      ? 'bg-[#3dda84]/25 border-[#3dda84]/50 text-[#3dda84]'
+                      : s.state === 'active'
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                        : 'bg-white/8 border-white/15 text-white/40'
+                  ]"
                 >
                   {{ s.state === "done" ? "✓" : s.step || s.n }}
                 </div>
-                <div style="flex: 1; padding-top: 0.125rem">
+                <div class="flex-1 pt-0.5 min-w-0">
                   <p
-                    :style="{
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      margin: '0 0 0.25rem',
-                      color:
-                        s.state === 'done' || s.state === 'active'
-                          ? 'white'
-                          : 'rgba(255,255,255,0.5)',
-                    }"
+                    :class="[
+                      'text-sm font-semibold mb-1 m-0',
+                      s.state === 'done' || s.state === 'active'
+                        ? 'text-white'
+                        : 'text-white/50'
+                    ]"
                   >
                     {{ s.title }}
                   </p>
-                  <p
-                    style="
-                      font-size: 0.8125rem;
-                      color: rgba(255, 255, 255, 0.45);
-                      margin: 0;
-                    "
-                  >
+                  <p class="text-[0.8125rem] text-white/45 leading-relaxed m-0">
                     {{ s.desc }}
                   </p>
                 </div>
@@ -414,48 +199,24 @@
           <!-- Action Required / Upload Missing Docs -->
           <div
             v-if="missingDocs.length > 0"
-            style="
-              grid-column: 1;
-              grid-row: 2;
-              border-radius: 1rem;
-              background: rgba(239, 68, 68, 0.1);
-              border: 1px solid rgba(239, 68, 68, 0.25);
-              backdrop-filter: blur(12px);
-              padding: 1.25rem;
-            "
+            class="md:col-start-1 md:row-start-2 rounded-2xl bg-red-500/10 border border-red-500/25 backdrop-blur-md p-4 sm:p-5 shadow-xl"
           >
-            <p
-              style="
-                font-size: 0.8125rem;
-                font-weight: 700;
-                color: #fca5a5;
-                margin: 0 0 0.625rem;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-              "
-            >
-              <Clock style="width: 14px; height: 14px; color: #fca5a5" />
+            <p class="text-[0.8125rem] font-bold text-red-300 mb-2.5 flex items-center gap-2 m-0">
+              <Clock class="w-3.5 h-3.5 text-red-300 shrink-0" />
               <span>Action Required</span>
             </p>
-            <p
-              style="
-                font-size: 0.8125rem;
-                color: rgba(255, 255, 255, 0.65);
-                margin: 0 0 0.875rem;
-              "
-            >
+            <p class="text-[0.8125rem] text-white/65 mb-3.5 m-0">
               The following documents are missing:
             </p>
 
-            <ul class="space-y-2 mb-5">
+            <ul class="space-y-2 mb-5 p-0 list-none">
               <li
                 v-for="doc in missingDocs"
                 :key="doc.document_type_id || doc.code"
                 class="flex items-center gap-2 text-xs font-medium text-white/90"
               >
                 <span class="text-red-400 font-bold text-sm">✕</span>
-                <span>{{ doc.label || doc.code }}</span>
+                <span class="break-words">{{ doc.label || doc.code }}</span>
               </li>
             </ul>
 
@@ -471,86 +232,41 @@
           <!-- Partnership Manager Card -->
           <div
             v-if="partnershipManager"
-            style="
-              grid-column: 2;
-              grid-row: 2;
-              border-radius: 1rem;
-              background: rgba(255, 255, 255, 0.1);
-              border: 1px solid rgba(255, 255, 255, 0.18);
-              backdrop-filter: blur(16px);
-              padding: 1.25rem;
-              display: flex;
-              align-items: center;
-              gap: 1rem;
-              color: white;
-            "
+            class="md:col-start-2 md:row-start-2 rounded-2xl bg-white/10 border border-white/[0.18] backdrop-blur-xl p-4 sm:p-5 flex items-center justify-between gap-4 text-white shadow-xl"
           >
-            <img
-              :src="
-                partnershipManager.avatar_url ||
-                'https://i.pravatar.cc/150?img=38'
-              "
-              style="
-                width: 2.75rem;
-                height: 2.75rem;
-                border-radius: 50%;
-                object-fit: cover;
-                flex-shrink: 0;
-                border: 2px solid rgba(255, 255, 255, 0.25);
-              "
-              :alt="partnershipManager.name"
-            />
-            <div style="flex: 1; min-width: 0">
-              <p style="font-size: 0.875rem; font-weight: 600; margin: 0">
-                {{ partnershipManager.name }}
-              </p>
-              <p
-                style="
-                  font-size: 0.75rem;
-                  color: rgba(255, 255, 255, 0.5);
-                  margin: 0.125rem 0 0;
+            <div class="flex items-center gap-3.5 min-w-0 flex-1">
+              <img
+                :src="
+                  partnershipManager.avatar_url ||
+                  'https://i.pravatar.cc/150?img=38'
                 "
-              >
-                {{ partnershipManager.title }} · Responds in
-                {{ partnershipManager.response_sla_hours || 2 }}h
-              </p>
+                class="w-11 h-11 rounded-full object-cover shrink-0 border-2 border-white/25"
+                :alt="partnershipManager.name"
+              />
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold truncate m-0 leading-snug">
+                  {{ partnershipManager.name }}
+                </p>
+                <p class="text-xs text-white/50 truncate m-0 mt-0.5">
+                  {{ partnershipManager.title }} · Responds in
+                  {{ partnershipManager.response_sla_hours || 2 }}h
+                </p>
+              </div>
             </div>
-            <div style="display: flex; gap: 0.5rem">
+            <div class="flex items-center gap-2 shrink-0">
               <button
                 @click="showMessageModal = true"
                 title="Message Partnership Manager"
-                style="
-                  width: 2.25rem;
-                  height: 2.25rem;
-                  border-radius: 0.5rem;
-                  border: 1px solid rgba(255, 255, 255, 0.2);
-                  background: rgba(255, 255, 255, 0.1);
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  color: white;
-                "
+                class="w-9 h-9 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 cursor-pointer flex items-center justify-center text-white transition-colors"
               >
-                <MessageSquare style="width: 14px; height: 14px" />
+                <MessageSquare class="w-3.5 h-3.5" />
               </button>
               <button
                 @click="showBookingModal = true"
                 title="Book a Call"
-                style="
-                  width: 2.25rem;
-                  height: 2.25rem;
-                  border-radius: 0.5rem;
-                  border: 1px solid rgba(255, 255, 255, 0.2);
-                  background: rgba(255, 255, 255, 0.1);
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  color: white;
-                "
+                class="w-9 h-9 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 cursor-pointer flex items-center justify-center text-white transition-colors"
               >
-                <Calendar style="width: 14px; height: 14px" />
+                <Calendar class="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

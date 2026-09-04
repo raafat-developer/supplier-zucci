@@ -542,6 +542,8 @@ import {
   Ruler,
   PackageCheck,
   Boxes,
+  LayoutList,
+  PackageX,
 } from "lucide-vue-next";
 
 import { useApi } from "@/composables/useApi";
@@ -745,16 +747,55 @@ const rawNavItems = [
       {
         route: "/app/products",
         label: "All Products",
+        icon: LayoutList,
         permission: "products.view",
       },
       {
-        route: "/app/products/shopify",
-        label: "Shopify",
+        route: "/app/products?status=active",
+        label: "Active",
+        icon: CheckCircle,
+        permission: "products.view",
+      },
+      {
+        route: "/app/products?status=pending_review",
+        label: "Pending Review",
+        icon: Clock,
+        permission: "products.view",
+      },
+      {
+        route: "/app/products?status=draft",
+        label: "Draft",
+        icon: FileText,
+        permission: "products.view",
+      },
+      {
+        route: "/app/products?status=rejected",
+        label: "Rejected",
+        icon: XCircle,
+        permission: "products.view",
+      },
+      {
+        route: "/app/products?status=out_of_stock",
+        label: "Out of Stock",
+        icon: PackageX,
+        permission: "products.view",
+      },
+      {
+        route: "/app/products?status=suspended",
+        label: "Suspended",
+        icon: Ban,
+        permission: "products.view",
+      },
+      {
+        route: "/app/products?status=archived",
+        label: "Archived",
+        icon: Archive,
         permission: "products.view",
       },
       {
         route: "/app/products/size-charts",
-        label: "Size Chart",
+        label: "Size Charts",
+        icon: Ruler,
         permission: "products.view",
       },
     ],
@@ -818,6 +859,21 @@ function getOrderTabIcon(key) {
   return Layers;
 }
 
+function getProductStatusIcon(key) {
+  const k = String(key).toLowerCase();
+  if (k === "all" || k === "all products" || k === "") return LayoutList;
+  if (k.includes("active") || k.includes("approved")) return CheckCircle;
+  if (k.includes("pending")) return Clock;
+  if (k.includes("draft")) return FileText;
+  if (k.includes("reject")) return XCircle;
+  if (k.includes("outofstock") || k.includes("out_of_stock") || k.includes("stock")) return PackageX;
+  if (k.includes("suspend")) return Ban;
+  if (k.includes("archive")) return Archive;
+  if (k.includes("shopify")) return ShopifyIcon;
+  if (k.includes("size") || k.includes("chart")) return Ruler;
+  return LayoutList;
+}
+
 const orderStatusItems = computed(() => {
   const list = ordersStore.tabs || [];
   if (!Array.isArray(list) || !list.length) {
@@ -840,14 +896,15 @@ const productLifecycleItems = computed(() => {
 
   const preferredOrder = [
     "all",
-    "draft",
+    "active",
     "pendingReview",
     "pending_review",
-    "active",
+    "draft",
     "rejected",
-    "archived",
     "outOfStock",
     "out_of_stock",
+    "suspended",
+    "archived",
   ];
 
   const sortedKeys = keys.slice().sort((a, b) => {
@@ -876,26 +933,34 @@ const productLifecycleItems = computed(() => {
       list.push({
         route: routePath,
         label: formatTabKeyLabel(key, false),
+        icon: getProductStatusIcon(key),
         permission: "products.view",
       });
     });
   } else {
-    list.push({
-      route: "/app/products",
-      label: "All Products",
-      permission: "products.view",
-    });
+    list.push(
+      { route: "/app/products", label: "All Products", icon: LayoutList, permission: "products.view" },
+      { route: "/app/products?status=active", label: "Active", icon: CheckCircle, permission: "products.view" },
+      { route: "/app/products?status=pending_review", label: "Pending Review", icon: Clock, permission: "products.view" },
+      { route: "/app/products?status=draft", label: "Draft", icon: FileText, permission: "products.view" },
+      { route: "/app/products?status=rejected", label: "Rejected", icon: XCircle, permission: "products.view" },
+      { route: "/app/products?status=out_of_stock", label: "Out of Stock", icon: PackageX, permission: "products.view" },
+      { route: "/app/products?status=suspended", label: "Suspended", icon: Ban, permission: "products.view" },
+      { route: "/app/products?status=archived", label: "Archived", icon: Archive, permission: "products.view" },
+    );
   }
 
   list.push(
     {
       route: "/app/products/shopify",
       label: "Shopify",
+      icon: ShopifyIcon,
       permission: "products.view",
     },
     {
       route: "/app/products/size-charts",
-      label: "Size Chart",
+      label: "Size Charts",
+      icon: Ruler,
       permission: "products.view",
     }
   );

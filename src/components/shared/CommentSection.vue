@@ -1,11 +1,11 @@
 <template>
-  <div :class="hideList ? '' : 'rounded-xl border bg-white-10 overflow-hidden'">
-    <div v-if="!hideList" class="px-5 py-3 border-b border-border">
+  <div :class="hideList ? '' : 'rounded-xl border bg-white-10 relative'">
+    <div v-if="!hideList" class="px-5 py-3 border-b border-border rounded-t-xl">
       <h3 class="text-sm font-semibold">Activity & Comments</h3>
     </div>
     <!-- Timeline -->
     <div v-if="!hideList && comments.length" class="p-5 flex flex-col gap-4">
-      <div v-for="(evt, i) in comments" :key="i" class="flex gap-3">
+      <div v-for="(evt, i) in comments" :key="evt.id || evt.commentId || i" class="flex gap-3">
         <div
           class="size-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
           :class="
@@ -14,17 +14,27 @@
               : 'bg-primary text-primary-foreground'
           "
         >
-          {{ evt.system ? "⚡" : evt.initials }}
+          {{ evt.system ? "⚡" : (evt.initials || getInitials(evt.author || evt.userName || evt.user?.name || evt.authorName)) }}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-semibold">{{ evt.author }}</span
-            ><span class="text-xs text-muted-foreground">{{ evt.time }}</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold">{{ evt.author || evt.userName || evt.user?.name || evt.authorName || 'User' }}</span>
+              <span class="text-xs text-muted-foreground">{{ evt.time || evt.createdAtDisplay || formatDate(evt.createdAt) }}</span>
+            </div>
+            <button
+              v-if="evt.id || evt.commentId"
+              @click="$emit('delete-comment', evt.id || evt.commentId)"
+              class="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
+              title="Delete comment"
+            >
+              <Trash2 class="size-3.5" />
+            </button>
           </div>
           <div
             class="text-sm text-muted-foreground mt-0.5 leading-relaxed w-full"
           >
-            <template v-for="(part, pi) in parseMentions(evt.text)" :key="pi">
+            <template v-for="(part, pi) in parseMentions(evt.text || evt.content)" :key="pi">
               <span v-if="part.type === 'text'">{{ part.value }}</span>
               <span
                 v-else
@@ -36,7 +46,7 @@
           <!-- Attachments -->
           <div
             v-if="evt.attachments?.length"
-            class="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-2"
+            class="grid grid-cols-6 gap-2 mt-2"
           >
             <div
               v-for="(att, ai) in evt.attachments"
@@ -45,8 +55,8 @@
               class="aspect-square rounded-lg border border-border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
             >
               <img
-                v-if="att.type === 'image'"
-                :src="att.src"
+                v-if="att.type === 'image' || att.mimeType?.startsWith('image')"
+                :src="att.src || att.url"
                 class="w-full h-full object-cover"
               />
               <div
@@ -61,12 +71,12 @@
       </div>
     </div>
     <!-- Input -->
-    <div :class="hideList ? 'py-1' : 'px-5 py-3 border-t border-border'">
+    <div :class="hideList ? 'py-1' : 'px-5 py-3 border-t border-border rounded-b-xl'">
       <div class="flex items-start gap-3">
         <div
           class="size-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
         >
-          RA
+          {{ currentUserInitials }}
         </div>
         <div class="flex-1 relative">
           <div
@@ -80,18 +90,18 @@
           />
           <!-- Mention dropdown -->
           <div
-            v-if="mentionOpen"
-            class="absolute left-0 bottom-full mb-1 w-56 rounded-lg border border-border bg-background shadow-lg overflow-hidden z-50 anim-down"
+            v-if="mentionOpen && filteredUsers.length"
+            class="absolute left-0 bottom-full mb-1 w-56 max-h-52 overflow-y-auto rounded-lg border border-border bg-background shadow-xl z-[100] anim-down"
           >
             <button
               v-for="u in filteredUsers"
-              :key="u.name"
+              :key="u.id || u.name"
               @click="insertMention(u)"
               class="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
             >
               <div
                 class="size-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
-                :style="{ background: u.color }"
+                :style="{ background: u.color || '#4f46e5' }"
               >
                 {{ u.initials }}
               </div>
@@ -125,10 +135,10 @@
             </div>
             <button
               @click="submit"
-              :disabled="!hasContent"
+              :disabled="!hasContent || submitting"
               class="rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold hover:bg-primary/90 disabled:opacity-40 transition-colors"
             >
-              Send
+              {{ submitting ? "Sending..." : "Send" }}
             </button>
           </div>
         </div>
@@ -144,9 +154,9 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { FileText, Paperclip } from "lucide-vue-next";
-import { TEAM_MEMBERS } from "@/data/mock";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { FileText, Paperclip, Trash2 } from "lucide-vue-next";
+import { useAuthStore } from "@/stores/auth";
 import { useApi } from "@/composables/useApi";
 import MediaLibrary from "./MediaLibrary.vue";
 
@@ -154,9 +164,10 @@ const props = defineProps({
   initialComments: { type: Array, default: () => [] },
   hideList: { type: Boolean, default: false },
 });
-const emit = defineEmits(["preview", "comment-added"]);
+const emit = defineEmits(["preview", "comment-added", "delete-comment"]);
 
-const { get } = useApi();
+const { get, upload: uploadFile } = useApi();
+const authStore = useAuthStore();
 
 const comments = ref([...props.initialComments]);
 const inputEl = ref(null);
@@ -165,15 +176,52 @@ const mentionQuery = ref("");
 const pendingFiles = ref([]);
 const openMediaLib = ref(false);
 const hasContent = ref(false);
+const submitting = ref(false);
 
-const users = ref(
-  TEAM_MEMBERS.map((m) => ({
-    id: m.id,
-    name: m.name,
-    initials: m.initials,
-    color: m.color,
-  })),
+const currentUserInitials = computed(() => {
+  const u = authStore.user;
+  if (!u) return "US";
+  const name =
+    u.name || `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || "User";
+  return (
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "US"
+  );
+});
+
+watch(
+  () => props.initialComments,
+  (newVal) => {
+    comments.value = [...(newVal || [])];
+  },
+  { deep: true, immediate: true },
 );
+
+function getInitials(name) {
+  if (!name) return "US";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function formatDate(d) {
+  if (!d) return "Just now";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return d;
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+const users = ref([]);
 const filteredUsers = computed(() => {
   const q = mentionQuery.value.toLowerCase();
   return users.value.filter((u) => u.name.toLowerCase().includes(q));
@@ -195,21 +243,33 @@ function parseMentions(text) {
       parts.push({ type: "text", value: text.slice(currentIdx, atIdx) });
     }
 
-    let matchedUser = null;
+    let matchedName = null;
     for (const u of users.value) {
       const name = u.name;
       if (text.startsWith(name, atIdx + 1)) {
         const nextCharIdx = atIdx + 1 + name.length;
         if (nextCharIdx >= text.length || /\s|[.,!?]/.test(text[nextCharIdx])) {
-          matchedUser = u;
+          matchedName = u.name;
           break;
         }
       }
     }
 
-    if (matchedUser) {
-      parts.push({ type: "mention", value: matchedUser.name });
-      currentIdx = atIdx + 1 + matchedUser.name.length;
+    if (!matchedName) {
+      const remaining = text.slice(atIdx + 1);
+      const match = remaining.match(/^([A-Z][a-zA-Z0-9\u00C0-\u017F]*(?:\s+[A-Z][a-zA-Z0-9\u00C0-\u017F]*){0,1})/);
+      if (match && match[1]) {
+        const potential = match[1];
+        const nextCharIdx = atIdx + 1 + potential.length;
+        if (nextCharIdx >= text.length || /\s|[.,!?]/.test(text[nextCharIdx])) {
+          matchedName = potential;
+        }
+      }
+    }
+
+    if (matchedName) {
+      parts.push({ type: "mention", value: matchedName });
+      currentIdx = atIdx + 1 + matchedName.length;
     } else {
       parts.push({ type: "text", value: "@" });
       currentIdx = atIdx + 1;
@@ -220,53 +280,50 @@ function parseMentions(text) {
 
 let fetchTimeout = null;
 
-async function fetchUsers(q = "") {
+function fetchUsers(q = "") {
   if (fetchTimeout) clearTimeout(fetchTimeout);
   fetchTimeout = setTimeout(async () => {
     try {
       let res = await get("/supplier/orders/timeline-users", { q });
-      if (!res || !res.data || !res.data.length) {
+      if (
+        !res ||
+        (!res.data?.length &&
+          !res.members?.length &&
+          (!Array.isArray(res) || !res.length))
+      ) {
         res = await get("/supplier/team", { q });
       }
-      if (res && (res.data || res.members || Array.isArray(res))) {
-        const rawList = res.data || res.members || (Array.isArray(res) ? res : []);
-        if (rawList.length) {
-          const apiUsers = rawList.map((u) => {
-            const name =
-              u.name ||
-              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-              u.fullName ||
-              u.email ||
-              "User";
-            return {
-              id: u.id,
-              name: name,
-              initials:
-                u.initials ||
-                name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2) ||
-                "US",
-              color: u.color || "#4f46e5",
-            };
-          });
-          const existingNames = new Set(
-            apiUsers.map((u) => u.name.toLowerCase()),
-          );
-          const fallbackUsers = TEAM_MEMBERS.map((m) => ({
-            id: m.id,
-            name: m.name,
-            initials: m.initials,
-            color: m.color,
-          })).filter((m) => !existingNames.has(m.name.toLowerCase()));
-          users.value = [...apiUsers, ...fallbackUsers];
-        }
+      const rawList =
+        res?.data || res?.members || (Array.isArray(res) ? res : []);
+      if (rawList && rawList.length) {
+        users.value = rawList.map((u) => {
+          const name =
+            u.name ||
+            `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+            u.fullName ||
+            u.email ||
+            "User";
+          return {
+            id: u.id,
+            name: name,
+            initials:
+              u.initials ||
+              name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2) ||
+              "US",
+            color: u.color || "#4f46e5",
+          };
+        });
+      } else {
+        users.value = [];
       }
     } catch (e) {
       console.error("Failed to fetch timeline users:", e);
+      users.value = [];
     }
   }, 150);
 }
@@ -275,15 +332,29 @@ function onInput() {
   const text = inputEl.value?.textContent || "";
   hasContent.value = text.trim().length > 0 || pendingFiles.value.length > 0;
 
-  const atIdx = text.lastIndexOf("@");
-  if (atIdx !== -1 && (atIdx === 0 || text[atIdx - 1] === " ")) {
-    const q = text.slice(atIdx + 1);
-    mentionOpen.value = true;
-    mentionQuery.value = q;
-    fetchUsers(q);
-  } else {
-    mentionOpen.value = false;
+  const sel = window.getSelection();
+  let textBeforeCursor = text;
+  if (sel && sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    const prefixNode = range.startContainer;
+    if (prefixNode && prefixNode.nodeType === Node.TEXT_NODE) {
+      textBeforeCursor = prefixNode.textContent.slice(0, range.startOffset);
+    }
   }
+
+  const lastAt = textBeforeCursor.lastIndexOf("@");
+  if (lastAt !== -1 && (lastAt === 0 || textBeforeCursor[lastAt - 1] === " ")) {
+    const q = textBeforeCursor.slice(lastAt + 1);
+    if (!q.includes(" ")) {
+      mentionQuery.value = q;
+      mentionOpen.value = true;
+      fetchUsers(q);
+      return;
+    }
+  }
+
+  mentionOpen.value = false;
+  if (fetchTimeout) clearTimeout(fetchTimeout);
 }
 
 onMounted(() => {
@@ -321,18 +392,57 @@ function onPaste(e) {
 
 function insertMention(user) {
   const el = inputEl.value;
+  if (!el) return;
   const text = el.textContent || "";
-  const atIdx = text.lastIndexOf("@");
-  el.textContent = text.slice(0, atIdx) + "@" + user.name + " ";
-  mentionOpen.value = false;
-  // Move cursor to end
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  range.collapse(false);
   const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-  el.focus();
+  let offset = text.length;
+
+  if (sel && sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    const prefixNode = range.startContainer;
+    if (prefixNode && prefixNode.nodeType === Node.TEXT_NODE) {
+      offset = range.startOffset;
+    }
+  }
+
+  const textBefore = text.slice(0, offset);
+  const textAfter = text.slice(offset);
+  const lastAt = textBefore.lastIndexOf("@");
+
+  const mentionText = "@" + user.name + " ";
+  let newBefore = "";
+
+  if (lastAt !== -1) {
+    newBefore = textBefore.slice(0, lastAt) + mentionText;
+  } else {
+    newBefore = text + mentionText;
+  }
+
+  const cursorTarget = newBefore.length;
+  const fullText = newBefore + textAfter.replace(/^\s*/, "");
+  el.textContent = fullText;
+
+  mentionOpen.value = false;
+
+  nextTick(() => {
+    const range = document.createRange();
+    const selection = window.getSelection();
+    el.focus();
+
+    if (el.childNodes.length > 0) {
+      const textNode = el.childNodes[0];
+      const safeOffset = Math.min(cursorTarget, textNode.textContent.length);
+      range.setStart(textNode, safeOffset);
+      range.setEnd(textNode, safeOffset);
+    } else {
+      range.selectNodeContents(el);
+      range.collapse(false);
+    }
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+
   hasContent.value = true;
 }
 
@@ -348,23 +458,61 @@ function onMediaInsert(items) {
   hasContent.value = true;
 }
 
-function submit() {
+async function submit() {
   const text = (inputEl.value?.textContent || "").trim();
   if (!text && !pendingFiles.value.length) return;
-  const newComment = {
-    system: false,
-    author: "Reem Aboughattas",
-    initials: "RA",
-    time: "Just now",
-    text: text || "(attachment)",
-    attachments: pendingFiles.value.length
-      ? [...pendingFiles.value]
-      : undefined,
-  };
-  comments.value.push(newComment);
-  emit("comment-added", newComment);
-  inputEl.value.textContent = "";
-  pendingFiles.value = [];
-  hasContent.value = false;
+
+  submitting.value = true;
+  try {
+    const attachments = [];
+    for (const f of pendingFiles.value) {
+      if (f.file) {
+        const formData = new FormData();
+        formData.append("file", f.file);
+        const res = await uploadFile("/supplier/files", formData);
+        if (res && res.data) {
+          attachments.push({
+            id: res.data.id,
+            name: res.data.name || f.name,
+            url: res.data.url || res.data.src || f.src,
+            mimeType: res.data.mimeType || "image/png",
+          });
+        }
+      } else if (f.id) {
+        attachments.push({
+          id: f.id,
+          name: f.name,
+          url: f.url || f.src,
+          mimeType: f.mimeType || f.type || "image/png",
+        });
+      }
+    }
+
+    const mentions = [];
+    if (text) {
+      for (const u of users.value) {
+        if (u.name && text.includes(`@${u.name}`)) {
+          mentions.push(u.id || u.name);
+        }
+      }
+    }
+
+    const payload = {
+      text: text || "Checking fulfillment status with ops.",
+      visibilityId: 2,
+      mentions: mentions,
+      attachments: attachments,
+    };
+
+    emit("comment-added", payload);
+
+    if (inputEl.value) inputEl.value.textContent = "";
+    pendingFiles.value = [];
+    hasContent.value = false;
+  } catch (e) {
+    console.error("Error preparing comment:", e);
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>

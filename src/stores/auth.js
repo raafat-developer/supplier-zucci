@@ -129,6 +129,21 @@ export const useAuthStore = defineStore('auth', () => {
     brands.value = list
     localStorage.setItem('zsc-brands', JSON.stringify(list))
     setCookie('zsc-brands', JSON.stringify(list), 7)
+
+    if (list.length > 0) {
+      const currentBrandId = localStorage.getItem('zsc-current-brand-id')
+      const exists = list.some(
+        (brand) =>
+          String(brand.id || brand.slug) === String(currentBrandId) ||
+          String(brand.slug || brand.id) === String(currentBrandId)
+      )
+      if (!currentBrandId || !exists) {
+        const firstBrandId = list[0].id || list[0].slug || list[0].uuid || ''
+        if (firstBrandId) {
+          localStorage.setItem('zsc-current-brand-id', firstBrandId)
+        }
+      }
+    }
   }
 
   function hasPermission(permissionName) {
@@ -192,6 +207,10 @@ export const useAuthStore = defineStore('auth', () => {
     const resData = response.data?.data || response.data
     const tokenVal = resData?.token || resData?.access_token || resData?.jwt
 
+    if (resData?.brands) {
+      setBrands(resData.brands)
+    }
+
     if (tokenVal) {
       setToken(tokenVal)
       try {
@@ -220,10 +239,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (resData?.markets) {
       setMarkets(resData.markets)
-    }
-
-    if (resData?.brands) {
-      setBrands(resData.brands)
     }
 
     setLoginChallengeId(null)
@@ -485,6 +500,8 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.removeItem('zsc-permissions')
       localStorage.removeItem('zsc-markets')
       localStorage.removeItem('zsc-brands')
+      localStorage.removeItem('zsc-current-brand-id')
+      removeCookie('zsc-current-brand-id')
       router.push('/login')
     }
   }

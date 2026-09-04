@@ -20,11 +20,11 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <!-- <AppSelect
+        <AppSelect
           v-model="publishStatus"
           :options="publishStatusOptions"
           customClass="rounded-lg border border-border/80 bg-white-10 px-2.5 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-black/20"
-        /> -->
+        />
         <button
           @click="$router.push('/app/products')"
           class="px-4 py-1.5 text-xs font-semibold rounded-lg border border-border/80 bg-white-10 hover:bg-muted/10 text-foreground transition-colors shrink-0"
@@ -32,17 +32,17 @@
           Cancel
         </button>
         <button
-          @click="publishStatus === 'draft' ? submitProduct() : submitProduct()"
-          :disabled="!isFormValid || saving || submitting"
-          class="px-5 py-1.5 text-xs font-bold rounded-lg transition-all shrink-0 flex items-center gap-1.5"
+          @click="handleSaveOrSubmit"
+          :disabled="saving || submitting"
+          class="px-5 py-1.5 text-xs font-bold rounded-lg transition-all shrink-0 flex items-center gap-1.5 cursor-pointer"
           :class="
             saving || submitting
               ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-              : 'bg-black text-white hover:bg-black/90 cursor-pointer shadow-sm'
+              : 'bg-black text-white hover:bg-black/90 shadow-sm'
           "
         >
           <Loader2 v-if="saving || submitting" class="size-3.5 animate-spin" />
-          {{ saving || submitting ? "Processing..." : "Add Product" }}
+          {{ saving || submitting ? "Processing..." : (publishStatus === 'draft' ? 'Save Draft' : 'Save & Submit') }}
         </button>
       </div>
     </div>
@@ -816,9 +816,10 @@
               class="flex items-center justify-between text-xs font-bold text-foreground"
             >
               <span>Page Title</span>
-              <span class="text-muted-foreground font-normal">0 / 70</span>
+              <span class="text-muted-foreground font-normal">{{ form.seoTitleEn?.length || 0 }} / 70</span>
             </div>
             <input
+              v-model="form.seoTitleEn"
               placeholder="SEO page title"
               class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black/30"
             />
@@ -828,9 +829,10 @@
               class="flex items-center justify-between text-xs font-bold text-foreground"
             >
               <span>Meta Description</span>
-              <span class="text-muted-foreground font-normal">0 / 320</span>
+              <span class="text-muted-foreground font-normal">{{ form.seoDescriptionEn?.length || 0 }} / 320</span>
             </div>
             <textarea
+              v-model="form.seoDescriptionEn"
               placeholder="SEO meta description"
               class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-black/30"
             />
@@ -850,9 +852,10 @@
               dir="rtl"
             >
               <span>عنوان الصفحة</span>
-              <span class="text-muted-foreground font-normal">0 / 70</span>
+              <span class="text-muted-foreground font-normal">{{ form.seoTitleAr?.length || 0 }} / 70</span>
             </div>
             <input
+              v-model="form.seoTitleAr"
               placeholder="SEO عنوان الصفحة"
               dir="rtl"
               class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-black/30 text-right"
@@ -864,9 +867,10 @@
               dir="rtl"
             >
               <span>وصف ميتا</span>
-              <span class="text-muted-foreground font-normal">0 / 320</span>
+              <span class="text-muted-foreground font-normal">{{ form.seoDescriptionAr?.length || 0 }} / 320</span>
             </div>
             <textarea
+              v-model="form.seoDescriptionAr"
               placeholder="وصف ميتا"
               dir="rtl"
               class="rounded-lg border border-input bg-white-10 px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-black/30 text-right"
@@ -992,7 +996,7 @@
                 size="sm"
                 type="button"
                 @click="submitProposeAttr"
-                :disabled="!newAttrForm.nameEn || !newAttrForm.valueEn"
+                :disabled="!newAttrForm.nameEn?.trim() || !(newAttrForm.valueEn?.trim() || newAttrForm.values?.some(v => v.valueEn?.trim()))"
                 >Submit Proposal</AppButton
               >
             </div>
@@ -1273,6 +1277,11 @@ const form = reactive({
   nameEn: "",
   nameAr: "",
   description: "",
+  descriptionAr: "",
+  seoTitleEn: "",
+  seoDescriptionEn: "",
+  seoTitleAr: "",
+  seoDescriptionAr: "",
   category: "",
   brand: "",
   sku: "",
@@ -1288,8 +1297,6 @@ const form = reactive({
   tagsInput: "",
   images: [],
   inventory: "",
-  tags: [],
-  tagsInput: "",
   barcode: "",
   sizeGuideId: null,
   careInstructionId: null,
@@ -1448,6 +1455,7 @@ function validateStep(s) {
   }
   if (s === 2) {
     if (!form.isVariable) {
+      if (!form.sku.trim()) errs.push("SKU is required");
       const enabledM = markets.value.filter((m) => m.enabled);
       if (!enabledM.length) {
         errs.push("Please enable at least one market availability");
@@ -1488,9 +1496,7 @@ function validateStep(s) {
       }
     }
   }
-  if (s === 4) {
-    if (!form.sku.trim()) errs.push("SKU is required");
-  }
+
   if (s === 5) {
     if (!form.weight || Number(form.weight) <= 0)
       errs.push("Weight must be greater than 0");
@@ -1505,6 +1511,7 @@ const isFormValid = computed(() => {
   if (!form.brand) return false;
 
   if (!form.isVariable) {
+    if (!form.sku || !form.sku.trim()) return false;
     const enabledM = markets.value.filter((m) => m.enabled);
     if (!enabledM.length) return false;
     for (const m of enabledM) {
@@ -1533,7 +1540,7 @@ const isFormValid = computed(() => {
     }
   }
 
-  if (!form.sku || !form.sku.trim()) return false;
+
   if (!form.weight || Number(form.weight) <= 0) return false;
 
   return true;
@@ -2010,12 +2017,17 @@ function buildPayload() {
   const translations = [
     {
       localeId: 1,
-      name: form.nameEn,
-      description: form.description,
+      name: form.nameEn || "Untitled Draft",
+      description: form.description || "",
+      seoTitle: form.seoTitleEn || null,
+      seoDescription: form.seoDescriptionEn || null,
     },
     {
       localeId: 2,
-      name: form.nameAr || form.nameEn,
+      name: form.nameAr || form.nameEn || "Untitled Draft",
+      description: form.descriptionAr || null,
+      seoTitle: form.seoTitleAr || null,
+      seoDescription: form.seoDescriptionAr || null,
     },
   ];
 
@@ -2036,66 +2048,113 @@ function buildPayload() {
       sortOrder: idx,
     }));
 
-    variants = form.variants.map((v) => ({
-      sku: v.sku,
-      attributes: (v.attributes || []).map((a) => ({
-        attributeId: a.attributeId,
-        attributeValueId: a.attributeValueId,
-      })),
-      prices: enabledM.map((m) => {
-        const mp = v.prices?.[m.code] || {};
-        return {
-          marketId: m.id,
-          currencyId: m.currencyId || 1,
-          price: Number(mp.price) || 0,
-          compareAtPrice: mp.comparePrice ? Number(mp.comparePrice) : null,
-          stock: Number(mp.inventory) || 0,
-          barcode: mp.barcode || null,
-        };
-      }),
-      stock: enabledM.reduce(
-        (sum, m) => sum + (Number(v.prices?.[m.code]?.inventory) || 0),
-        0,
-      ),
-      barcode: v.barcode || null,
-    }));
-  } else {
-    variants = [
-      {
-        sku: form.sku,
-        attributes: [],
+    variants = form.variants.map((v, idx) => {
+      const item = {
+        sku: v.sku,
+        sortOrder: idx,
+        isActive: true,
+        commissionPct: 15,
+        attributes: (v.attributes || [])
+          .map((a) => ({
+            attributeId: a.attributeId || a.id,
+            attributeValueId: a.attributeValueId || a.valueId || a.id,
+          }))
+          .filter((a) => a.attributeId && a.attributeValueId),
         prices: enabledM.map((m) => {
-          const mp = form.marketPrices?.[m.code] || {};
+          const mp = v.prices?.[m.code] || {};
+          const marketObj = lookupStore.markets?.find(
+            (lk) => lk.id === m.id || lk.code === m.code,
+          );
+          const currencyId =
+            m.currencyId ||
+            m.currency_id ||
+            m.currency?.id ||
+            marketObj?.currencyId ||
+            marketObj?.currency_id ||
+            marketObj?.currency?.id ||
+            "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3d0001";
           return {
             marketId: m.id,
-            currencyId: m.currencyId || 1,
+            currencyId,
             price: Number(mp.price) || 0,
+            costPrice: mp.costPrice ? Number(mp.costPrice) : null,
             compareAtPrice: mp.comparePrice ? Number(mp.comparePrice) : null,
             stock: Number(mp.inventory) || 0,
           };
         }),
         stock: enabledM.reduce(
-          (sum, m) =>
-            sum + (Number(form.marketPrices?.[m.code]?.inventory) || 0),
+          (sum, m) => sum + (Number(v.prices?.[m.code]?.inventory) || 0),
           0,
         ),
-        barcode: form.barcode || null,
-      },
-    ];
+        barcode: v.barcode || (v.prices && Object.values(v.prices).find((p) => p.barcode)?.barcode) || null,
+      };
+      if (v.warehouseId || form.warehouseId) {
+        item.warehouseId = v.warehouseId || form.warehouseId;
+      }
+      return item;
+    });
+  } else {
+    const simpleVarItem = {
+      sku: form.sku,
+      sortOrder: 0,
+      isActive: true,
+      commissionPct: 15,
+      attributes: [],
+      prices: enabledM.map((m) => {
+        const mp = form.marketPrices?.[m.code] || {};
+        const marketObj = lookupStore.markets?.find(
+          (lk) => lk.id === m.id || lk.code === m.code,
+        );
+        const currencyId =
+          m.currencyId ||
+          m.currency_id ||
+          m.currency?.id ||
+          marketObj?.currencyId ||
+          marketObj?.currency_id ||
+          marketObj?.currency?.id ||
+          "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3d0001";
+        return {
+          marketId: m.id,
+          currencyId,
+          price: Number(mp.price) || 0,
+          costPrice: mp.costPrice ? Number(mp.costPrice) : null,
+          compareAtPrice: mp.comparePrice ? Number(mp.comparePrice) : null,
+          stock: Number(mp.inventory) || 0,
+        };
+      }),
+      stock: enabledM.reduce(
+        (sum, m) =>
+          sum + (Number(form.marketPrices?.[m.code]?.inventory) || 0),
+        0,
+      ),
+      barcode: form.barcode || null,
+    };
+    if (form.warehouseId) {
+      simpleVarItem.warehouseId = form.warehouseId;
+    }
+    variants = [simpleVarItem];
   }
 
   return {
+    saveAsDraft: publishStatus.value === "draft",
+    submitForReview: publishStatus.value === "pending_review",
     brandId: form.brand || currentBrandDbId.value,
     sku: form.sku,
     isVariable: form.isVariable,
     shippingWeight: Number(form.weight) || 0,
-    shippingWeightUnit: form.weightUnit,
+    shippingUnitId:
+      typeof form.weightUnit === "number"
+        ? form.weightUnit
+        : weightUnits.value.find(
+            (u) => u.id === form.weightUnit || u.code === form.weightUnit,
+          )?.id || 1,
     tags: form.tags,
     markets: enabledM.map((m) => m.id),
     categoryIds,
+    categoryId: categoryIds.length ? categoryIds[categoryIds.length - 1] : null,
     sizeGuideId: form.sizeGuideId || null,
     hsCode: form.hsCode || null,
-    countryOfOrigin: form.countryOfOrigin || null,
+    countryOfOriginId: form.countryOfOrigin || null,
     careInstructionId: form.careInstructionId || null,
     returnPolicyId: form.returnPolicyId || null,
     fulfillmentModeId: form.fulfillmentModeId || null,
@@ -2106,7 +2165,17 @@ function buildPayload() {
   };
 }
 
+async function handleSaveOrSubmit() {
+  if (publishStatus.value === "draft") {
+    await saveDraft();
+  } else {
+    await submitProduct();
+  }
+}
+
 async function saveDraft() {
+  errors.value = [];
+  submitted.value = false;
   saving.value = true;
   try {
     await post("/supplier/catalog/products", buildPayload());
@@ -2136,10 +2205,20 @@ async function submitProduct() {
   submitting.value = true;
   try {
     const res = await post("/supplier/catalog/products", buildPayload());
-    if (res && res.data && res.data.id) {
-      await post(`/supplier/catalog/products/${res.data.id}/submit-for-review`);
+    const data = res?.data || res;
+    const createdId = data?.id || data?.productId || data?.data?.id;
+
+    if (createdId) {
+      try {
+        await post(`/supplier/catalog/products/${createdId}/submit-for-review`, {});
+        toast("Product created and submitted for review!");
+      } catch (err) {
+        console.error("Failed to submit for review:", err);
+        toast("Product saved, but failed to submit for review.", "error");
+      }
+    } else {
+      toast("Product added successfully!");
     }
-    toast("Product submitted for review!");
     router.push("/app/products");
   } catch (e) {
     // Error handled by axios interceptor

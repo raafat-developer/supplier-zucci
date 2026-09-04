@@ -171,13 +171,22 @@
                 class="flex items-center justify-between text-[10px] text-muted-foreground font-medium mt-0.5"
               >
                 <span>{{ getExt(f.name) }} · {{ f.size }}</span>
-                <button
-                  @click.stop="handlePreview(f)"
-                  class="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                  title="Preview"
-                >
-                  <Eye class="size-3.5" />
-                </button>
+                <div class="flex items-center gap-1" @click.stop>
+                  <button
+                    @click="downloadFile(f)"
+                    class="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                    title="Download"
+                  >
+                    <DownloadIcon class="size-3.5" />
+                  </button>
+                  <button
+                    @click="handlePreview(f)"
+                    class="size-5 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                    title="Preview"
+                  >
+                    <Eye class="size-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -205,7 +214,7 @@
                 <th>Type</th>
                 <th>Size</th>
                 <th>Date</th>
-                <th class="w-10"></th>
+                <th class="w-16"></th>
               </tr>
             </thead>
             <tbody>
@@ -249,13 +258,22 @@
                 <td class="text-sm">{{ f.size }}</td>
                 <td class="text-sm text-muted-foreground">{{ f.date }}</td>
                 <td @click.stop>
-                  <button
-                    @click="handlePreview(f)"
-                    class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground transition-colors"
-                    title="Preview"
-                  >
-                    <Eye class="size-4" />
-                  </button>
+                  <div class="flex items-center gap-1">
+                    <button
+                      @click="downloadFile(f)"
+                      class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground transition-colors"
+                      title="Download"
+                    >
+                      <DownloadIcon class="size-4" />
+                    </button>
+                    <button
+                      @click="handlePreview(f)"
+                      class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground transition-colors"
+                      title="Preview"
+                    >
+                      <Eye class="size-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="!filtered.length">
@@ -358,10 +376,19 @@
               <p class="text-xs text-muted-foreground flex-1">
                 {{ preview.size }} · {{ preview.date }}
               </p>
+              <a
+                v-if="preview.src"
+                :href="preview.src"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors text-foreground"
+              >
+                <ExternalLink class="size-3.5" /> Open in new tab
+              </a>
               <AppButton
                 variant="outline"
                 size="sm"
-                @click="toast('Downloading...')"
+                @click="downloadFile(preview)"
                 ><DownloadIcon class="size-3.5" /> Download</AppButton
               >
               <AppButton
@@ -391,6 +418,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  ExternalLink,
 } from "lucide-vue-next";
 import { useAppStore } from "@/stores/app";
 import { useApi } from "@/composables/useApi";
@@ -401,8 +429,143 @@ import ZucciFooter from "@/components/shared/ZucciFooter.vue";
 import { useBrandStore } from "@/stores/brand";
 
 const { toast } = useAppStore();
-const { get, upload, del } = useApi();
+const { get, upload, del, api } = useApi();
 const brandStore = useBrandStore();
+
+function getProxyUrl(url) {
+  if (!url) return url;
+  if (typeof url !== "string") return url;
+  if (url.startsWith("/s3-uploads")) return url;
+  if (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    try {
+      const urlObj = new URL(url, window.location.origin);
+      if (urlObj.hostname.includes("amazonaws.com")) {
+        return "/s3-uploads" + urlObj.pathname + urlObj.search;
+      }
+    } catch (err) {
+      console.error("Failed to parse S3 URL:", err);
+    }
+  }
+  return url;
+}
+
+async function triggerBrowserDownload(url, fileName) {
+  if (!url) return;
+
+  const targetUrl = getProxyUrl(url);
+
+  try {
+    const response = await fetch(targetUrl);
+    if (response.ok) {
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+      return;
+    }
+  } catch (e) {
+    console.warn("Direct blob download failed through proxy, trying raw fetch:", e);
+  }
+
+  try {
+    const response = await fetch(url);
+    if (response.ok) {
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+      return;
+    }
+  } catch (e) {
+    console.warn("Direct raw fetch failed:", e);
+  }
+
+  if (/\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url) || (url && url.includes("image"))) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = targetUrl;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = fileName || "download";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+        }
+      });
+      return;
+    } catch (e) {
+      console.warn("Canvas image download failed:", e);
+    }
+  }
+
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = targetUrl;
+  document.body.appendChild(iframe);
+  setTimeout(() => {
+    try {
+      document.body.removeChild(iframe);
+    } catch (_) {}
+  }, 60000);
+}
+
+async function downloadFile(file) {
+  if (!file) return;
+  const fileId = file.id;
+  const fileName = file.name || `file-${fileId}`;
+
+  try {
+    toast(`Downloading ${fileName}...`);
+    let fileUrl = file.src;
+
+    if (fileId) {
+      try {
+        const res = await get(`/supplier/files/${fileId}`);
+        const fileData = res?.data || res;
+        if (fileData?.url) fileUrl = fileData.url;
+        else if (fileData?.data?.url) fileUrl = fileData.data.url;
+      } catch (err) {
+        console.warn("Failed to fetch file details, using existing src:", err);
+      }
+    }
+
+    if (fileUrl) {
+      triggerBrowserDownload(fileUrl, fileName);
+    } else {
+      toast("File URL not found.", "error");
+    }
+  } catch (e) {
+    console.error("Failed to download file:", e);
+    toast("Failed to download file.", "error");
+  }
+}
 
 const search = ref("");
 const viewMode = ref("grid");
@@ -571,13 +734,13 @@ async function handleBulkAction() {
     return;
   }
   if (bulkAction.value === "download") {
-    selected.value.forEach((id) => {
+    toast(`Downloading ${selected.value.length} files...`);
+    for (const id of selected.value) {
       const file = allFiles.value.find((f) => f.id === id);
       if (file) {
-        toast("Downloading " + file.name + "...");
+        await downloadFile(file);
       }
-    });
-    toast(`Downloading ${selected.value.length} files...`, "success");
+    }
   } else if (bulkAction.value === "delete") {
     const count = selected.value.length;
     try {

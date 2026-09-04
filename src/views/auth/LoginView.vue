@@ -142,9 +142,17 @@ watch(
 );
 
 function toStep(n) {
-  if (n === 2 && !email.value) {
-    loginError.value = "Please enter your email address";
-    return;
+  if (n === 2) {
+    const trimmedEmail = (email.value || "").trim();
+    if (!trimmedEmail) {
+      loginError.value = "Please enter your email address";
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      loginError.value = "Please enter a valid email address";
+      return;
+    }
   }
   loginError.value = "";
   if (n === 2) {

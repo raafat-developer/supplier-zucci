@@ -15,7 +15,14 @@ export default defineConfig({
         target: 'https://zucci-staging-uploads.s3.amazonaws.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/s3-uploads/, '')
+        rewrite: (path) => path.replace(/^\/s3-uploads/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('authorization');
+            proxyReq.removeHeader('x-brand-id');
+            proxyReq.removeHeader('cookie');
+          });
+        }
       }
     }
   }

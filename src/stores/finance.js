@@ -7,6 +7,7 @@ export const useFinanceStore = defineStore('finance', () => {
 
   const summary = ref(null)
   const payouts = ref([])
+  const tabs = ref([])
   const meta = ref({ page: 1, per_page: 25, total: 0, last_page: 1 })
 
   const currentPayout = ref(null)
@@ -46,6 +47,7 @@ export const useFinanceStore = defineStore('finance', () => {
     try {
       const res = await get('/supplier/finance/payouts', params)
       payouts.value = res.data || []
+      tabs.value = res.tabs || []
       meta.value = res.meta || {
         page: params.page || 1,
         per_page: params.per_page || 25,
@@ -280,6 +282,7 @@ export const useFinanceStore = defineStore('finance', () => {
   return {
     summary,
     payouts,
+    tabs,
     meta,
     currentPayout,
     payoutOrders,

@@ -49,12 +49,12 @@
     <!-- Main Content -->
     <template v-else-if="currentOrder">
       <!-- Top Section: Title & Date + Account Manager Card -->
-      <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 class="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight">
-            {{ currentOrder.number || ('#' + currentOrder.id) }}
+          <h1 class="text-2xl font-extrabold text-foreground tracking-tight">
+            {{ ('#' + currentOrder.id) }}
           </h1>
-          <p class="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">
+          <p class="text-sm text-muted-foreground mt-1 font-medium">
             {{ currentOrder.orderedAtDisplay || formatDateOnly(currentOrder.orderedAt) }}
           </p>
         </div>
@@ -64,13 +64,13 @@
       </div>
 
       <!-- Action Buttons Row -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+      <div class="flex items-center justify-between gap-3 flex-wrap pt-1">
         <!-- Left Buttons -->
-        <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+        <div class="flex items-center gap-2 flex-wrap">
           <button
             v-can="'orders.edit'"
             @click="showUploadEvidence = true"
-            class="w-full xs:w-auto flex-1 sm:flex-initial px-4 py-2 rounded-lg border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+            class="px-4 py-2 rounded-lg border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <Upload class="size-3.5 text-muted-foreground" />
             Upload return evidence
@@ -79,7 +79,7 @@
             v-can="'orders.approve'"
             v-if="(currentOrder.fulfillmentStatus === 'pending' || currentOrder.status?.fulfillmentStatus?.code === 'PENDING')"
             @click="confirmReceipt"
-            class="w-full xs:w-auto flex-1 sm:flex-initial px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+            class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <CheckCircle class="size-3.5" />
             Confirm receipt
@@ -87,11 +87,11 @@
         </div>
 
         <!-- Right Buttons -->
-        <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+        <div class="flex items-center gap-2 flex-wrap">
           <button
             v-can="'orders.export'"
             @click="printOrder"
-            class="w-full xs:w-auto flex-1 sm:flex-initial px-4 py-2 rounded-lg border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+            class="px-4 py-2 rounded-lg border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <Printer class="size-3.5 text-muted-foreground" />
             Print order
@@ -100,10 +100,10 @@
       </div>
 
       <!-- Status Badges Row -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div class="flex flex-wrap items-center gap-2 text-xs w-full sm:w-auto">
+      <div class="flex items-center justify-between gap-4 flex-wrap pt-1">
+        <div class="flex items-center gap-2 flex-wrap text-xs">
           <!-- Fulfillment status pill -->
-          <div class="inline-flex items-center justify-between sm:justify-start gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium text-xs flex-1 xs:flex-initial">
+          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium">
             <span>Fulfillment status</span>
             <span class="rounded-full bg-emerald-500/15 text-emerald-700 font-bold px-2 py-0.5 text-[11px] capitalize">
               {{ currentOrder.status?.fulfillmentStatus?.label || statusLabel(currentOrder.fulfillmentStatus) || "Fulfilled" }}
@@ -111,7 +111,7 @@
           </div>
 
           <!-- Delivery status pill -->
-          <div class="inline-flex items-center justify-between sm:justify-start gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium text-xs flex-1 xs:flex-initial">
+          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium">
             <span>Delivery status</span>
             <span class="rounded-full bg-blue-500/15 text-blue-700 font-bold px-2 py-0.5 text-[11px] capitalize">
               {{ currentOrder.deliveryStatus || currentOrder.status?.shipmentStatus?.label || "Delivered" }}
@@ -119,7 +119,7 @@
           </div>
 
           <!-- Payment status pill -->
-          <div class="inline-flex items-center justify-between sm:justify-start gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium text-xs flex-1 xs:flex-initial">
+          <div class="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/20 px-3.5 py-1 text-muted-foreground font-medium">
             <span>Payment status</span>
             <span class="rounded-full bg-amber-500/15 text-amber-700 font-bold px-2 py-0.5 text-[11px] capitalize">
               {{ currentOrder.paymentStatus || "Authorized" }}
@@ -128,19 +128,19 @@
         </div>
 
         <!-- Right Side Badge -->
-        <div class="inline-flex items-center justify-center sm:justify-start gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 text-xs text-emerald-700 font-bold w-full sm:w-auto">
+        <div class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 text-xs text-emerald-700 font-bold">
           <span class="uppercase">{{ currentOrder.status?.fulfillmentStatus?.label || currentOrder.fulfillmentStatus || 'FULFILLED' }}</span>
           <span class="font-normal text-muted-foreground">on {{ currentOrder.fulfilledAtDisplay || currentOrder.orderedAtDisplay || formatDateOnly(currentOrder.orderedAt) }}</span>
         </div>
       </div>
 
       <!-- Fulfillment Progress Stepper -->
-      <div v-if="currentOrder.fulfillmentProgress && currentOrder.fulfillmentProgress.length" class="rounded-xl border border-border bg-white-10 p-4 sm:p-5 shadow-2xs overflow-hidden">
+      <div v-if="currentOrder.fulfillmentProgress && currentOrder.fulfillmentProgress.length" class="rounded-xl border border-border bg-white-10 p-5 shadow-2xs">
         <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
           FULFILLMENT PROGRESS
         </p>
-        <div class="overflow-x-auto pb-3 pt-1 px-1 -mx-1 scrollbar-thin">
-          <div class="relative flex items-center justify-between w-full min-w-[620px] sm:min-w-[680px] px-4">
+        <div class="overflow-x-auto pb-1">
+          <div class="relative flex items-center justify-between w-full min-w-[680px] px-2">
             <div
               v-for="(step, idx) in currentOrder.fulfillmentProgress"
               :key="step.code || step.index"
@@ -176,7 +176,7 @@
 
               <!-- Step Label -->
               <span
-                class="text-[10px] sm:text-[11px] font-semibold mt-2.5 max-w-[90px] sm:max-w-[100px] leading-snug break-words px-1"
+                class="text-[11px] font-semibold mt-2.5 max-w-[100px] leading-snug"
                 :class="
                   step.isDone || step.state === 'done' || step.isCurrent
                     ? 'text-foreground font-bold'
@@ -199,35 +199,35 @@
           <div
             v-for="item in (currentOrder.items && currentOrder.items.length ? currentOrder.items : mockItems)"
             :key="item.id || item.sku"
-            class="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-muted/10 transition-colors"
+            class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-muted/10 transition-colors"
           >
-            <div class="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+            <div class="flex items-center gap-3.5 min-w-0">
               <img
                 :src="item.imageUrl || item.image || item.thumbnail || 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&w=900&q=80'"
                 :alt="item.name"
-                class="size-12 rounded-lg object-cover bg-muted border border-border shrink-0 mt-0.5 sm:mt-0"
+                class="size-12 rounded-lg object-cover bg-muted border border-border shrink-0"
               />
-              <div class="min-w-0 flex-1">
-                <p class="text-xs sm:text-sm font-bold text-foreground break-words leading-snug">
+              <div class="min-w-0">
+                <p class="text-sm font-bold text-foreground truncate">
                   {{ item.name }}
                 </p>
-                <p class="text-[11px] sm:text-xs text-muted-foreground mt-0.5 font-mono break-all">
+                <p class="text-xs text-muted-foreground mt-0.5 font-mono">
                   SKU: {{ item.sku }}
                 </p>
               </div>
             </div>
 
-            <div class="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40 w-full sm:w-auto">
-              <span v-if="item.status?.fulfillmentStatus?.label" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 shrink-0">
+            <div class="flex items-center gap-4 shrink-0 justify-between md:justify-end">
+              <span v-if="item.status?.fulfillmentStatus?.label" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
                 {{ item.status.fulfillmentStatus.label }}
               </span>
-              <div class="text-right font-mono ml-auto sm:ml-0">
-                <div class="text-[11px] sm:text-xs text-muted-foreground">
+              <div class="text-right font-mono">
+                <span class="text-xs text-muted-foreground mr-2">
                   {{ item.unitPriceFormatted || ((item.currency || currentOrder.currency || 'USD') + ' ' + formatNumber(item.unitPrice || item.price)) }} × {{ item.qty || item.quantity || 1 }}
-                </div>
-                <div class="text-xs sm:text-sm font-bold text-foreground">
+                </span>
+                <span class="text-sm font-bold text-foreground">
                   {{ item.lineTotalFormatted || ((item.currency || currentOrder.currency || 'USD') + ' ' + formatNumber(item.lineTotal || (item.unitPrice * (item.qty || 1)))) }}
-                </div>
+                </span>
               </div>
             </div>
           </div>
@@ -239,68 +239,56 @@
         <p class="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2.5">
           INVOICE BREAKDOWN
         </p>
-        <div class="rounded-xl border border-border bg-white-10 overflow-hidden divide-y divide-border/60 text-xs sm:text-sm">
+        <div class="rounded-xl border border-border bg-white-10 overflow-hidden divide-y divide-border/60 text-sm">
           <!-- Subtotal -->
-          <div class="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-muted-foreground hover:bg-muted/10 transition-colors">
-            <div class="flex items-center gap-3 sm:gap-8 min-w-0">
-              <span class="w-20 sm:w-28 shrink-0 font-medium text-foreground">Subtotal</span>
-              <span v-if="currentOrder.invoice?.subtotal?.label && currentOrder.invoice.subtotal.label.toLowerCase() !== 'subtotal'" class="text-xs font-medium truncate">
-                {{ currentOrder.invoice.subtotal.label }}
-              </span>
-              <span v-else class="text-xs font-medium truncate">
-                {{ (currentOrder.items || []).length }} item(s)
-              </span>
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Subtotal</span>
+              <span class="text-xs font-medium">{{ currentOrder.invoice?.subtotal?.label || ((currentOrder.items || []).length + ' item(s)') }}</span>
             </div>
-            <span class="font-mono font-semibold text-foreground shrink-0 ml-auto">
-              {{ cleanPriceText(currentOrder.invoice?.subtotal?.formatted) || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.subtotal?.amount || currentOrder.gmv)) }}
+            <span class="font-mono font-semibold text-foreground shrink-0">
+              {{ currentOrder.invoice?.subtotal?.formatted || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.subtotal?.amount || currentOrder.gmv)) }}
             </span>
           </div>
 
           <!-- Discount -->
-          <div class="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-muted-foreground hover:bg-muted/10 transition-colors">
-            <div class="flex items-center gap-3 sm:gap-8 min-w-0">
-              <span class="w-20 sm:w-28 shrink-0 font-medium text-foreground">Discount</span>
-              <span v-if="currentOrder.invoice?.discount?.label && currentOrder.invoice.discount.label.toLowerCase() !== 'discount'" class="text-xs font-medium truncate">
-                {{ currentOrder.invoice.discount.label }}
-              </span>
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Discount</span>
+              <span class="text-xs font-medium">{{ currentOrder.invoice?.discount?.label || 'Discount' }}</span>
             </div>
-            <span class="font-mono font-semibold text-rose-500 shrink-0 ml-auto">
-              {{ cleanPriceText(currentOrder.invoice?.discount?.formatted) || ('-' + (currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.discount?.amount || 0)) }}
+            <span class="font-mono font-semibold text-rose-500 shrink-0">
+              {{ currentOrder.invoice?.discount?.formatted || ('-' + (currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.discount?.amount || 0)) }}
             </span>
           </div>
 
           <!-- Shipping -->
-          <div class="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-muted-foreground hover:bg-muted/10 transition-colors">
-            <div class="flex items-center gap-3 sm:gap-8 min-w-0">
-              <span class="w-20 sm:w-28 shrink-0 font-medium text-foreground">Shipping</span>
-              <span v-if="currentOrder.invoice?.shipping?.label && currentOrder.invoice.shipping.label.toLowerCase() !== 'shipping'" class="text-xs font-medium truncate">
-                {{ currentOrder.invoice.shipping.label }}
-              </span>
-              <span v-else class="text-xs font-medium truncate">Standard delivery</span>
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Shipping</span>
+              <span class="text-xs font-medium">{{ currentOrder.invoice?.shipping?.label || 'Standard delivery' }}</span>
             </div>
-            <span class="font-mono font-semibold text-foreground shrink-0 ml-auto">
-              {{ cleanPriceText(currentOrder.invoice?.shipping?.formatted) || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.shipping?.amount || 0)) }}
+            <span class="font-mono font-semibold text-foreground shrink-0">
+              {{ currentOrder.invoice?.shipping?.formatted || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.shipping?.amount || 0)) }}
             </span>
           </div>
 
           <!-- Taxes -->
-          <div class="px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-muted-foreground hover:bg-muted/10 transition-colors">
-            <div class="flex items-center gap-3 sm:gap-8 min-w-0">
-              <span class="w-20 sm:w-28 shrink-0 font-medium text-foreground">Taxes</span>
-              <span v-if="currentOrder.invoice?.taxes?.label && currentOrder.invoice.taxes.label.toLowerCase() !== 'taxes'" class="text-xs font-medium truncate">
-                {{ currentOrder.invoice.taxes.label }}
-              </span>
+          <div class="px-5 py-3.5 flex items-center justify-between gap-4 text-muted-foreground hover:bg-muted/10 transition-colors">
+            <div class="flex items-center gap-8 min-w-0">
+              <span class="w-28 shrink-0 font-medium text-foreground">Taxes</span>
+              <span class="text-xs font-medium">{{ currentOrder.invoice?.taxes?.label || 'Taxes' }}</span>
             </div>
-            <span class="font-mono font-semibold text-foreground shrink-0 ml-auto">
-              {{ cleanPriceText(currentOrder.invoice?.taxes?.formatted) || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.taxes?.amount || 0)) }}
+            <span class="font-mono font-semibold text-foreground shrink-0">
+              {{ currentOrder.invoice?.taxes?.formatted || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.taxes?.amount || 0)) }}
             </span>
           </div>
 
           <!-- Total -->
-          <div class="px-4 sm:px-5 py-4 flex items-center justify-between gap-4 font-bold text-xs sm:text-sm bg-muted/5">
+          <div class="px-5 py-4 flex items-center justify-between gap-4 font-bold text-sm bg-muted/5">
             <span class="text-foreground font-bold">Total</span>
-            <span class="font-mono font-bold text-foreground shrink-0 ml-auto">
-              {{ cleanPriceText(currentOrder.invoice?.total?.formatted) || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.total?.amount || currentOrder.gmv)) }}
+            <span class="font-mono font-bold text-foreground shrink-0">
+              {{ currentOrder.invoice?.total?.formatted || ((currentOrder.currency || 'USD') + ' ' + formatNumber(currentOrder.invoice?.total?.amount || currentOrder.gmv)) }}
             </span>
           </div>
         </div>
@@ -360,12 +348,13 @@
           <CommentSection
             :initialComments="currentOrder.comments && currentOrder.comments.length ? currentOrder.comments : defaultComments"
             @comment-added="handlePostComment"
+            @delete-comment="handleDeleteComment"
             @preview="previewFile = $event"
           />
         </div>
 
         <!-- Timeline History -->
-        <div class="flex flex-col gap-4 pl-2 border-l-2 border-border/40 ml-2 sm:ml-4 py-2">
+        <div class="flex flex-col gap-4 pl-2 border-l-2 border-border/40 ml-4 py-2">
           <div
             v-for="group in (currentOrder.timeline && currentOrder.timeline.length ? currentOrder.timeline : defaultTimeline)"
             :key="group.date"
@@ -375,20 +364,20 @@
             <div
               v-for="(e, i) in group.events"
               :key="i"
-              class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2 text-xs py-1"
+              class="flex items-center justify-between text-xs py-1"
             >
-              <div class="flex items-center gap-2 text-foreground font-medium flex-wrap min-w-0">
-                <span class="size-1.5 rounded-full bg-slate-400 shrink-0"></span>
-                <span v-html="e.text" class="break-words"></span>
+              <div class="flex items-center gap-2 text-foreground font-medium">
+                <span class="size-1.5 rounded-full bg-slate-400"></span>
+                <span v-html="e.text"></span>
                 <button
                   v-if="e.btn"
                   @click="toast('Opening email...')"
-                  class="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded bg-black text-white ml-1 shrink-0"
+                  class="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded bg-black text-white ml-2"
                 >
                   {{ e.btn }}
                 </button>
               </div>
-              <span class="text-muted-foreground font-mono text-[11px] sm:text-xs pl-3.5 sm:pl-0 shrink-0">{{ e.time }}</span>
+              <span class="text-muted-foreground font-mono">{{ e.time }}</span>
             </div>
           </div>
         </div>
@@ -733,13 +722,43 @@ const defaultComments = ref([]);
 const defaultTimeline = ref([]);
 
 const newCommentText = ref('');
-function handlePostComment(commentObj) {
-  if (!currentOrder.value) return;
-  if (!currentOrder.value.comments) currentOrder.value.comments = [];
-  if (commentObj && typeof commentObj === 'object') {
-    currentOrder.value.comments.push(commentObj);
+async function handlePostComment(payload) {
+  if (!currentOrder.value?.id) return;
+  try {
+    loading.value.action = true;
+    await ordersStore.postTimelineComment(currentOrder.value.id, payload);
+    toast("Comment posted successfully");
+  } catch (e) {
+    console.error("Error posting timeline comment:", e);
+    toast(e.response?.data?.message || "Failed to post comment", "error");
+  } finally {
+    loading.value.action = false;
   }
-  toast('Comment posted successfully');
+}
+
+async function handleDeleteComment(commentId) {
+  if (!currentOrder.value?.id || !commentId) return;
+  triggerConfirm({
+    title: "Delete Comment",
+    message: "Are you sure you want to delete this comment? This action cannot be undone.",
+    btnText: "Delete",
+    variant: "destructive",
+    action: async () => {
+      try {
+        loading.value.action = true;
+        await ordersStore.deleteTimelineComment(
+          currentOrder.value.id,
+          commentId,
+        );
+        toast("Comment deleted successfully");
+      } catch (e) {
+        console.error("Error deleting timeline comment:", e);
+        toast(e.response?.data?.message || "Failed to delete comment", "error");
+      } finally {
+        loading.value.action = false;
+      }
+    },
+  });
 }
 
 const cancelReasonId = ref(1);
@@ -951,18 +970,6 @@ function formatNumber(num) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
-}
-
-function cleanPriceText(val) {
-  if (val === null || val === undefined) return '';
-  let str = String(val).trim();
-  if (!str) return '';
-  // Fix duplicated currency code patterns like "AED 2,210.00 AED" -> "AED 2,210.00"
-  const match = str.match(/^([A-Za-z]{3})\s+(.+?)\s+\1$/i);
-  if (match) {
-    return `${match[1].toUpperCase()} ${match[2]}`;
-  }
-  return str;
 }
 
 function statusLabel(status) {

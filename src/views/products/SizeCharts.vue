@@ -396,6 +396,30 @@
                 />
               </div>
 
+              <!-- Gender Control -->
+              <div class="flex flex-col gap-1.5">
+                <label
+                  class="text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+                  >Gender <span class="text-destructive">*</span></label
+                >
+                <div class="flex items-center gap-2">
+                  <button
+                    v-for="g in genderOptions"
+                    :key="g.id"
+                    type="button"
+                    @click="newChart.gender = g.id"
+                    class="px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer"
+                    :class="
+                      newChart.gender === g.id
+                        ? 'bg-black text-white border-black shadow-sm'
+                        : 'bg-white text-muted-foreground border-border hover:border-black/30'
+                    "
+                  >
+                    {{ g.label }}
+                  </button>
+                </div>
+              </div>
+
               <!-- Category -->
               <div class="flex flex-col gap-1.5">
                 <label
@@ -522,9 +546,7 @@
                       >
                         <th class="py-2.5 px-4 w-28">Size</th>
                         <th
-                          v-for="col in newChart.columns.filter(
-                            (c) => c.code !== 'size',
-                          )"
+                          v-for="col in measurementColumns"
                           :key="col.id"
                           class="py-2.5 px-4"
                         >
@@ -539,9 +561,7 @@
                           {{ row.label }}
                         </td>
                         <td
-                          v-for="col in newChart.columns.filter(
-                            (c) => c.code !== 'size',
-                          )"
+                          v-for="col in measurementColumns"
                           :key="col.id"
                           class="py-2.5 px-4"
                         >
@@ -563,7 +583,7 @@
                       </tr>
                       <tr v-if="!newChart.rows.length">
                         <td
-                          :colspan="newChart.columns.length + 2"
+                          :colspan="measurementColumns.length + 2"
                           class="py-8 text-center text-muted-foreground text-xs"
                         >
                           Click size pills above to add measurement rows.
@@ -742,7 +762,31 @@ const FALLBACK_SIZE_SYSTEMS = [
   { id: 35, code: "one_size", label: "One Size / Free Size" },
 ];
 
+const genderOptions = [
+  { id: 1, label: "Women" },
+  { id: 2, label: "Men" },
+  { id: 3, label: "Unisex" },
+  { id: 4, label: "Kids" },
+];
+
+const fetchedMeasurementSystems = ref([]);
+
+async function loadMeasurementSystems() {
+  try {
+    const res = await get("/supplier/catalog/size-guides/measurement-systems");
+    const items = res?.data || res?.items || res || [];
+    if (Array.isArray(items) && items.length) {
+      fetchedMeasurementSystems.value = items;
+    }
+  } catch (e) {
+    console.error("Error fetching measurement systems:", e);
+  }
+}
+
 const sizeTypeChips = computed(() => {
+  if (fetchedMeasurementSystems.value.length) {
+    return fetchedMeasurementSystems.value;
+  }
   if (lookupStore.sizeSystems && lookupStore.sizeSystems.length) {
     return lookupStore.sizeSystems;
   }
@@ -771,9 +815,35 @@ const newChart = reactive({
   name: "",
   category: "",
   measurementSystemId: null,
+  gender: 1,
   unit: "cm",
   rows: [],
   columns: [],
+});
+
+function isSizeCol(c) {
+  if (!c) return false;
+  if (typeof c === "string") {
+    const s = c.toLowerCase();
+    return s === "size" || s === "size label" || s.includes("size");
+  }
+  const code = (c.code || c.key || "").toLowerCase();
+  const lbl = (c.label || c.name || "").toLowerCase();
+  return (
+    code === "size" ||
+    code === "size_label" ||
+    code === "size_name" ||
+    code === "label" ||
+    code.includes("size") ||
+    lbl === "size" ||
+    lbl === "size label" ||
+    lbl === "size (us)" ||
+    lbl.includes("size")
+  );
+}
+
+const measurementColumns = computed(() => {
+  return newChart.columns.filter((c) => !isSizeCol(c));
 });
 
 const currentCols = computed(() => {
@@ -806,9 +876,27 @@ function sortNewChartRows() {
   });
 }
 
+function inferGender(chip) {
+  const lbl = (chip?.label || chip?.name || chip?.code || "").toLowerCase();
+  if (lbl.includes("women") || lbl.includes("dresses") || lbl.includes("lingerie") || lbl.includes("bras")) {
+    return 1;
+  }
+  if (lbl.includes("men") || lbl.includes("collar") || lbl.includes("shirts")) {
+    return 2;
+  }
+  if (lbl.includes("kids") || lbl.includes("baby") || lbl.includes("child")) {
+    return 4;
+  }
+  if (lbl.includes("unisex")) {
+    return 3;
+  }
+  return newChart.gender || 1;
+}
+
 // Watch size system selection to dynamically query columns from backend
 async function onSizeTypeSelected(chip) {
   newChart.measurementSystemId = chip.id;
+  newChart.gender = inferGender(chip);
   newChart.columns = [];
   newChart.rows = [];
 
@@ -816,8 +904,9 @@ async function onSizeTypeSelected(chip) {
     const res = await get(
       `/supplier/catalog/size-guides/measurement-systems/${chip.id}/columns`,
     );
-    if (res && res.data) {
-      newChart.columns = res.data;
+    const cols = res?.data || res?.items || res || [];
+    if (Array.isArray(cols)) {
+      newChart.columns = cols;
 
       // Populate default sizes (XS, S, M)
       ["XS", "S", "M"].forEach((s) => {
@@ -903,7 +992,9 @@ async function fetchCharts() {
         uploadedBy: chart.uploadedBy || "Reem Aboughattas",
         uploadedDate: chart.createdAtDisplay || "Jan 1, 2026",
         isMaster: chart.isMaster || false,
-        cols: chart.columns ? chart.columns.map((c) => c.label) : [],
+        cols: chart.columns
+          ? chart.columns.filter((c) => !isSizeCol(c)).map((c) => c.label)
+          : [],
         rows: chart.rows
           ? chart.rows.map((r) => {
               const values = {};
@@ -972,6 +1063,7 @@ async function startEdit(chart) {
     categoriesList.value,
   );
   newChart.measurementSystemId = chart.raw?.measurementSystemId;
+  newChart.gender = chart.raw?.gender || inferGender({ label: chart.type }) || 1;
   newChart.unit = chart.raw?.unit || "cm";
 
   // Fetch columns and cells
@@ -980,13 +1072,14 @@ async function startEdit(chart) {
       const res = await get(
         `/supplier/catalog/size-guides/measurement-systems/${chart.raw.measurementSystemId}/columns`,
       );
-      if (res && res.data) {
-        newChart.columns = res.data;
-        newChart.rows = chart.raw.rows.map((row) => {
+      const cols = res?.data || res?.items || res || [];
+      if (Array.isArray(cols)) {
+        newChart.columns = cols;
+        newChart.rows = (chart.raw.rows || []).map((row) => {
           const cells = {};
           newChart.columns.forEach((col) => {
             const cell = row.cells?.find(
-              (c) => c.measurementColumnId === col.id,
+              (c) => String(c.measurementColumnId) === String(col.id),
             );
             cells[col.id] = cell ? cell.value : "";
           });
@@ -1009,20 +1102,56 @@ async function saveChart() {
       categoriesList.value,
     );
 
-    // Construct the payload structure exactly matching backend body specifications
+    if (!newChart.measurementSystemId) {
+      toast("Please select a size type / measurement system.", "error");
+      return;
+    }
+
+    const rowsPayload = newChart.rows
+      .map((r, ri) => {
+        const cellsPayload = [];
+
+        newChart.columns.forEach((col) => {
+          let val = "";
+          const code = (col.code || "").toLowerCase();
+          const lbl = (col.label || col.name || "").toLowerCase();
+          const isSizeColumn =
+            code === "size" ||
+            code === "size_label" ||
+            code === "label" ||
+            code.includes("size") ||
+            lbl === "size" ||
+            lbl === "size label" ||
+            lbl.includes("size");
+
+          if (isSizeColumn) {
+            val = r.label;
+          } else {
+            val = r.cells[col.id];
+          }
+
+          if (val !== undefined && val !== null && String(val).trim() !== "") {
+            cellsPayload.push({
+              measurementColumnId: col.id,
+              value: String(val).trim(),
+            });
+          }
+        });
+
+        return {
+          sortOrder: ri,
+          cells: cellsPayload,
+        };
+      })
+      .filter((row) => row.cells.length > 0);
+
     const payload = {
+      gender: Number(newChart.gender || 1),
       measurementSystemId: newChart.measurementSystemId,
-      categoryId: categoryId || newChart.category,
-      brandId: currentBrandDbId.value,
+      categoryId: categoryId || newChart.category || undefined,
+      brandId: currentBrandDbId.value || undefined,
       translations: [{ localeId: 1, name: newChart.name }],
-      rows: newChart.rows.map((r, ri) => ({
-        sortOrder: ri,
-        label: r.label,
-        cells: Object.keys(r.cells).map((colId) => ({
-          measurementColumnId: Number(colId),
-          value: String(r.cells[colId] || ""),
-        })),
-      })),
+      rows: rowsPayload,
     };
 
     if (isEdit.value) {
@@ -1038,6 +1167,7 @@ async function saveChart() {
     await fetchCharts();
   } catch (e) {
     console.error(e);
+    toast(e?.message || "Failed to save size chart", "error");
   }
 }
 
@@ -1102,6 +1232,7 @@ function resetForm() {
   newChart.name = "";
   newChart.category = "";
   newChart.measurementSystemId = null;
+  newChart.gender = 1;
   newChart.unit = "cm";
   newChart.rows = [];
   newChart.columns = [];
@@ -1114,6 +1245,7 @@ function downloadTemplateMock() {
 onMounted(async () => {
   await Promise.all([
     fetchCharts(),
+    loadMeasurementSystems(),
     lookupStore.fetchSizeSystems(),
     lookupStore.fetchCategories(),
   ]);

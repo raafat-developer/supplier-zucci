@@ -23,7 +23,7 @@
       <div
         v-if="open"
         ref="dropRef"
-        class="fixed z-[999] rounded-lg border border-border bg-background shadow-lg overflow-hidden"
+        class="fixed z-[1050] rounded-lg border border-border bg-background shadow-lg overflow-hidden"
         :style="dropStyle"
       >
         <!-- Search -->

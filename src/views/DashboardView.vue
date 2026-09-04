@@ -45,23 +45,23 @@
           class="flex flex-col flex-1 mb-4"
         >
           <p v-if="!c.hideTotal" class="text-xl font-bold tracking-tight mb-3">{{ c.value }}</p>
-          <div class="flex flex-col flex-1 gap-2.5 py-1">
+          <div class="flex flex-col flex-1" :class="c.hideTotal ? 'justify-between py-0.5' : 'gap-3.5'">
             <div
               v-for="m in c.markets"
               :key="m.code"
-              class="flex items-center justify-between text-xs py-1 hover:bg-muted/10 rounded px-1 -mx-1 transition-colors"
+              class="flex items-center justify-between text-xs"
             >
-              <span class="text-muted-foreground flex items-center gap-2">
+              <span class="text-muted-foreground flex items-center gap-1.5">
                 <img
                   v-if="m.flagUrl"
                   :src="m.flagUrl"
                   :alt="m.code"
                   class="size-4 rounded-full object-cover shrink-0"
                 />
-                <span v-else class="text-sm leading-none">{{ m.flag }}</span>
-                <span class="font-medium">{{ m.name }}</span>
+                <span v-else>{{ m.flag }}</span>
+                <span>{{ m.name }}</span>
               </span>
-              <span class="font-semibold font-mono text-foreground text-right">{{ m.value }}</span>
+              <span class="font-semibold text-foreground" style="text-align: justify;">{{ m.value }}</span>
             </div>
           </div>
         </div>
@@ -256,7 +256,7 @@
               @click="$router.push('/app/orders/' + o.id)"
               class="cursor-pointer hover:bg-muted/40 transition-colors"
             >
-              <td class="font-mono text-xs font-semibold">{{ o.id }}</td>
+              <td class="font-mono text-xs font-semibold">{{ o.id ? '#' + o.id : 'N/A' }}</td>
               <td class="text-xs text-muted-foreground">{{ o.date }}</td>
               <td>
                 <div class="flex items-center gap-1.5">
@@ -995,7 +995,7 @@ const recentOrdersDisplay = computed(() => {
       const mcode = o.market || "AE";
       const flag = marketFlag(mcode) || flagMap[mcode] || mcode;
       return {
-        id: o.number || o.id,
+        id: o.id,
         date:
           o.orderedAtDisplay ||
           (o.orderedAt

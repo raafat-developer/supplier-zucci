@@ -1,13 +1,13 @@
 <template>
-  <div class="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 p-3.5 px-4 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md text-card-foreground shadow-2xs w-full sm:w-auto">
+  <div class="flex items-center gap-4 p-3.5 px-4 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-md text-card-foreground shadow-2xs">
     <img
       :src="manager.avatarUrl || manager.avatar || 'https://i.pravatar.cc/150?img=38'"
       class="size-11 rounded-full object-cover shrink-0 border border-border/40"
       :alt="manager.name || 'Account Manager'"
     />
-    <div class="flex-1 min-w-0 pr-1 sm:pr-2">
-      <p class="font-bold text-xs sm:text-sm text-foreground tracking-tight truncate">{{ manager.name || 'Sara Medhat' }}</p>
-      <p class="text-[11px] sm:text-xs text-muted-foreground font-normal mt-0.5 truncate">
+    <div class="flex-1 min-w-0 pr-2">
+      <p class="font-bold text-sm text-foreground tracking-tight">{{ manager.name || 'Sara Medhat' }}</p>
+      <p class="text-xs text-muted-foreground font-normal mt-0.5 truncate">
         {{ manager.title || 'Senior Partnership Manager' }}
       </p>
     </div>

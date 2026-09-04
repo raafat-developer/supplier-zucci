@@ -671,7 +671,7 @@ const submitRequest = async () => {
             </button>
             <button
               type="button"
-              :disabled="isSubmittingRequest"
+              :disabled="isSubmittingRequest || !requestValueItems.some(i => i.label && i.label.trim())"
               @click="submitRequest"
               class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
             >

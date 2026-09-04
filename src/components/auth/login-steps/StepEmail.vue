@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <form @submit.prevent="$emit('next')">
     <h1 class="text-2xl font-bold tracking-tight mb-1">Welcome back</h1>
     <p class="text-sm text-muted-foreground mb-6">Enter your email to continue</p>
     <div class="flex flex-col gap-3.5">
@@ -18,11 +18,10 @@
           class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring"
           :class="{ '!border-red-500': !!loginError }"
           :style="loginError ? 'border-color: #ef4444 !important;' : ''"
-          @keydown.enter="$emit('next')"
         />
       </div>
       <button
-        @click="$emit('next')"
+        type="submit"
         class="w-full rounded-md py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity mt-1 cursor-pointer"
         style="background: rgba(255, 255, 255, 0.95); color: #111"
       >
@@ -33,7 +32,7 @@
         <router-link to="/register" class="text-primary font-medium hover:underline">Register here</router-link>
       </p>
     </div>
-  </div>
+  </form>
 </template>
 
 <script setup>

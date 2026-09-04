@@ -35,8 +35,13 @@ export const useBrandStore = defineStore('brand', () => {
         authStore.setBrands(apiBrands.value)
       }
       
-      if (!currentBrandId.value && apiBrands.value.length) {
-        switchBrand(apiBrands.value[0].id)
+      if (apiBrands.value.length) {
+        const found = apiBrands.value.find(
+          (b) => String(b.id) === String(currentBrandId.value) || String(b.slug) === String(currentBrandId.value)
+        )
+        if (!currentBrandId.value || !found) {
+          switchBrand(apiBrands.value[0].id || apiBrands.value[0].slug || '')
+        }
       }
       return apiBrands.value
     } catch (e) {
@@ -87,9 +92,17 @@ export const useBrandStore = defineStore('brand', () => {
     localStorage.setItem('zsc-current-brand-id', id)
   }
 
-  // Set initial brand if not set
-  if (!currentBrandId.value && brands.value.length) {
-    currentBrandId.value = brands.value[0].id || brands.value[0].slug || ''
+  // Set initial brand if not set or invalid
+  if (brands.value.length) {
+    const found = brands.value.find(
+      (b) => String(b.id) === String(currentBrandId.value) || String(b.slug) === String(currentBrandId.value)
+    )
+    if (!currentBrandId.value || !found) {
+      const firstId = brands.value[0].id || brands.value[0].slug || ''
+      if (firstId) {
+        switchBrand(firstId)
+      }
+    }
   }
 
   return {

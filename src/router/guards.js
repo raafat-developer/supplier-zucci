@@ -24,6 +24,18 @@ export function setupGuards(router) {
 
     // 3. Authenticated users accessing protected routes OR /pending -> check onboarding status
     if (isAuthenticated && (requiresAuth || isPendingPage)) {
+      const currentBrandId = localStorage.getItem('zsc-current-brand-id')
+      const userBrands = authStore.brands || []
+      const exists = userBrands.some(
+        (b) => String(b.id || b.slug) === String(currentBrandId) || String(b.slug || b.id) === String(currentBrandId)
+      )
+      if ((!currentBrandId || !exists) && userBrands.length > 0) {
+        const firstBrandId = userBrands[0].id || userBrands[0].slug || ''
+        if (firstBrandId) {
+          localStorage.setItem('zsc-current-brand-id', firstBrandId)
+        }
+      }
+
       try {
         const res = await authStore.getOnboardingStatus()
         const status = res?.status || res?.onboarding_status || res?.entity?.status || ''

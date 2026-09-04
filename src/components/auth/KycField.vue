@@ -636,19 +636,6 @@ onMounted(async () => {
         label: c.code,
         code: c.code,
       }));
-
-      // Auto-set EGP or first currency UUID if missing
-      if (props.modelValue && !props.modelValue["currency_id"]) {
-        const defaultEg =
-          currItems.find((c) => c.code === "EGP") || currItems[0];
-        if (defaultEg) {
-          props.modelValue["currency_id"] = defaultEg.id;
-          emit("update:modelValue", {
-            ...props.modelValue,
-            currency_id: defaultEg.id,
-          });
-        }
-      }
     }
   } catch (e) {
     console.error("Error fetching reference currencies in KycField:", e);

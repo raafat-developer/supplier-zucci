@@ -16,6 +16,11 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    const currentBrandId = localStorage.getItem('zsc-current-brand-id')
+    if (currentBrandId) {
+      config.headers['X-Brand-Id'] = currentBrandId
+      config.headers['Brand-Id'] = currentBrandId
+    }
     return config
   },
   (error) => Promise.reject(error)

@@ -103,13 +103,19 @@
         <div class="order-card__toolbar">
           <div class="order-card__tabs">
             <button
-              v-for="t in tabs"
-              :key="t"
+              v-for="t in tabsList"
+              :key="typeof t === 'object' ? t.code || t.tab : t"
               @click="handleTabChange(t)"
-              class="order-card__tab"
-              :class="{ 'order-card__tab--active': activeTab === t }"
+              class="order-card__tab flex items-center gap-1.5"
+              :class="{ 'order-card__tab--active': activeTab === (typeof t === 'object' ? t.tab || t.code : t) }"
             >
-              {{ t === "all" ? "All" : t }}
+              <span>{{ typeof t === 'object' ? t.label || t.code : (t === 'all' ? 'All' : t) }}</span>
+              <span
+                v-if="typeof t === 'object' && t.count !== undefined && t.count !== null"
+                class="px-1.5 py-0.5 text-[10px] font-bold rounded-full border border-border/30 bg-muted/50 text-muted-foreground"
+              >
+                {{ t.count }}
+              </span>
             </button>
           </div>
 
@@ -340,7 +346,18 @@ const showBankAccountsModal = ref(false);
 
 const dateRange = ref({ preset: "30d" });
 const activeTab = ref("all");
-const tabs = ["all", "pending", "late", "fulfilled", "returns", "cancelled"];
+const tabsList = computed(() => {
+  if (financeStore.tabs && financeStore.tabs.length) {
+    return financeStore.tabs;
+  }
+  return [
+    { code: "all", label: "All", tab: "all" },
+    { code: "pending", label: "Pending", tab: "pending" },
+    { code: "processed", label: "Sent", tab: "processed" },
+    { code: "onHold", label: "On hold", tab: "on_hold" },
+    { code: "failed", label: "Failed", tab: "failed" },
+  ];
+});
 
 const currentPage = ref(1);
 const perPage = ref(25);
@@ -486,8 +503,9 @@ watch(
   },
 );
 
-function handleTabChange(tab) {
-  activeTab.value = tab;
+function handleTabChange(t) {
+  const tabVal = typeof t === "object" ? t.tab || t.code : t;
+  activeTab.value = tabVal;
   currentPage.value = 1;
   loadPayouts();
 }

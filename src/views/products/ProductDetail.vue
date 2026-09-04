@@ -63,21 +63,13 @@
                 product.syncedAt ? "· " + formatSyncTime(product?.syncedAt) : ""
               }}
             </span>
-            <!-- Dynamic Status Badge -->
+            <!-- Single Combined Status Badge -->
             <span
               v-if="product.status"
               class="inline-flex items-center px-2 py-0.5 rounded-full border font-semibold text-[10px]"
               :class="getProductStatusBadge(product.status).class"
             >
               {{ getProductStatusBadge(product.status).label }}
-            </span>
-            <!-- Product Status Badge -->
-            <span
-              v-if="product.approvalStatus"
-              class="inline-flex items-center px-2 py-0.5 rounded-full border font-semibold text-[10px]"
-              :class="getProductStatusBadge(product.approvalStatus).class"
-            >
-              {{ getProductStatusBadge(product.approvalStatus).label }}
             </span>
           </div>
 
@@ -103,7 +95,7 @@
       <div class="flex items-center gap-2">
         <AppSelect 
         v-if="product.approvalStatus === 'approved'"
-          v-model="product.status"
+          v-model="product.productStatus"
           :options="statusOptions"
           label="label"
           value="code"
@@ -405,7 +397,7 @@
               </div>
               <div class="py-3 flex items-center justify-between">
                 <span class="text-muted-foreground font-medium">Shipping Weight</span>
-                <span class="font-mono text-foreground font-semibold">{{ product.weight ? product.weight + " " + weightUnit : "—" }}</span>
+                <span class="font-mono text-foreground font-semibold">{{ product.weight ? product.weight + " " + weightUnitLabel : "—" }}</span>
               </div>
               <div class="py-3 flex items-center justify-between">
                 <span class="text-muted-foreground font-medium">Synced Category</span>
@@ -979,10 +971,10 @@
                 class="flex items-center justify-between text-xs font-bold text-foreground"
               >
                 <span>Page Title</span>
-                <span class="text-muted-foreground font-normal">0 / 70</span>
+                <span class="text-muted-foreground font-normal">{{ product.seoTitle?.length || 0 }} / 70</span>
               </div>
               <input
-                v-model="product.name"
+                v-model="product.seoTitle"
                 placeholder="SEO page title"
                 class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30"
               />
@@ -992,10 +984,10 @@
                 class="flex items-center justify-between text-xs font-bold text-foreground"
               >
                 <span>Meta Description</span>
-                <span class="text-muted-foreground font-normal">0 / 320</span>
+                <span class="text-muted-foreground font-normal">{{ product.seoDescription?.length || 0 }} / 320</span>
               </div>
               <textarea
-                v-model="product.description"
+                v-model="product.seoDescription"
                 placeholder="SEO meta description"
                 class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs min-h-[80px] focus:outline-none focus:ring-1 focus:ring-black/30"
               />
@@ -1014,12 +1006,12 @@
                 class="flex items-center justify-between text-xs font-bold text-foreground"
                 dir="rtl"
               >
-                <span>Page Title</span>
-                <span class="text-muted-foreground font-normal">0 / 70</span>
+                <span>عنوان الصفحة</span>
+                <span class="text-muted-foreground font-normal">{{ product.seoTitleAr?.length || 0 }} / 70</span>
               </div>
               <input
-                v-model="product.nameAr"
-                placeholder="SEO page title"
+                v-model="product.seoTitleAr"
+                placeholder="SEO عنوان الصفحة"
                 dir="rtl"
                 class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-black/30 text-right"
               />
@@ -1029,12 +1021,12 @@
                 class="flex items-center justify-between text-xs font-bold text-foreground"
                 dir="rtl"
               >
-                <span>Meta Description</span>
-                <span class="text-muted-foreground font-normal">0 / 320</span>
+                <span>وصف ميتا</span>
+                <span class="text-muted-foreground font-normal">{{ product.seoDescriptionAr?.length || 0 }} / 320</span>
               </div>
               <textarea
-                v-model="product.descriptionAr"
-                placeholder="SEO meta description"
+                v-model="product.seoDescriptionAr"
+                placeholder="وصف ميتا"
                 dir="rtl"
                 class="rounded-lg border border-input bg-white-10 px-3 py-2 text-xs min-h-[80px] focus:outline-none focus:ring-1 focus:ring-black/30 text-right"
               />
@@ -1255,7 +1247,7 @@
                 size="sm"
                 type="button"
                 @click="submitProposeAttr"
-                :disabled="!newAttrForm.nameEn || !newAttrForm.valueEn"
+                :disabled="!newAttrForm.nameEn?.trim() || !(newAttrForm.valueEn?.trim() || newAttrForm.values?.some(v => v.valueEn?.trim()))"
                 >Submit Proposal</AppButton
               >
             </div>
@@ -1266,7 +1258,7 @@
   </div>
 </template>
 <script setup>
-import { ref, computed, reactive, onMounted, watch } from "vue";
+import { ref, computed, reactive, onMounted, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   ChevronLeft,
@@ -1313,6 +1305,10 @@ const product = reactive({
   id: "",
   name: "",
   nameAr: "",
+  seoTitle: "",
+  seoDescription: "",
+  seoTitleAr: "",
+  seoDescriptionAr: "",
   sku: "",
   category: "",
   price: 0,
@@ -1333,6 +1329,7 @@ const product = reactive({
   sizeGuideId: null,
   completenessScore: 0,
   approvalStatus: "",
+  productStatus: '',
   marketPrices: {},
   hsCode: "",
   returnPolicyId: 1,
@@ -1347,6 +1344,7 @@ const syncedImages = ref([]);
 const allAttributesList = ref([]);
 const attributeValueRequestsList = ref([]);
 const selectedValuesMap = ref({});
+const initialSnapshot = ref(null);
 
 const showProposeAttr = ref(false);
 const newAttrForm = reactive({
@@ -1379,6 +1377,26 @@ const weightUnits = ref([
   { id: "lb", label: "lb" },
   { id: "oz", label: "oz" },
 ]);
+
+const weightUnitLabel = computed(() => {
+  if (!weightUnit.value) return "";
+  const found = (weightUnits.value || []).find(
+    (u) =>
+      u.id === weightUnit.value ||
+      String(u.id) === String(weightUnit.value) ||
+      u.code === weightUnit.value,
+  );
+  if (found) {
+    return (
+      found.label ||
+      found.code ||
+      found.name ||
+      found.symbol ||
+      String(found.id)
+    );
+  }
+  return String(weightUnit.value);
+});
 
 const careInstructionOptions = computed(() => {
   const list = lookupStore.careInstructions || [];
@@ -1569,6 +1587,13 @@ watch(
   },
 );
 
+const descEditor = ref(null);
+const descEditorAr = ref(null);
+const previewFile = ref(null);
+const loading = ref(true);
+const saving = ref(false);
+const submitting = ref(false);
+
 watch(
   () => product.description,
   (newVal) => {
@@ -1587,12 +1612,20 @@ watch(
   },
 );
 
-const descEditor = ref(null);
-const descEditorAr = ref(null);
-const previewFile = ref(null);
-const loading = ref(true);
-const saving = ref(false);
-const submitting = ref(false);
+watch(
+  loading,
+  async (isLoading) => {
+    if (!isLoading) {
+      await nextTick();
+      if (descEditor.value) {
+        descEditor.value.innerHTML = product.description || "";
+      }
+      if (descEditorAr.value) {
+        descEditorAr.value.innerHTML = product.descriptionAr || "";
+      }
+    }
+  },
+);
 const activityLog = ref([]);
 const activityLogKey = ref(0);
 const productActivityLog = ref([]);
@@ -1637,13 +1670,18 @@ const careInstructionsLookup = computed(() => lookupStore.careInstructions);
 
 const statusOptions = computed(() => {
   if (lookupStore.lifecycleStatuses?.length) {
-    return lookupStore.lifecycleStatuses;
+    return lookupStore.lifecycleStatuses.map((s) => {
+      const code = String(s.code || s.value || s.id || s.name || "").toLowerCase();
+      const label = s.label || s.name || s.title || code;
+      return { code, label };
+    });
   }
   return [
     { code: "active", label: "Active" },
     { code: "draft", label: "Draft" },
-    { code: "pending", label: "Pending Review" },
-    { code: "rejected", label: "Rejected" },
+    { code: "out_of_stock", label: "Out of Stock" },
+    { code: "suspended", label: "Suspended" },
+    { code: "archived", label: "Archived" },
   ];
 });
 
@@ -2420,23 +2458,62 @@ async function fetchProductDetails(overrideId) {
   try {
     const res = await get(`/supplier/catalog/products/${productId}`);
     if (res && res.data) {
-
       const data = res.data;
-      console.log(data)
+      const transEn =
+        (data.translations || []).find(
+          (t) => t.localeId === 1 || t.localeId === "1" || t.locale === "en",
+        ) || data.translations?.[0];
+      const transAr =
+        (data.translations || []).find(
+          (t) => t.localeId === 2 || t.localeId === "2" || t.locale === "ar",
+        ) || data.translations?.[1];
+
       product.id = data.id;
       product.sku = data.sku;
-      product.name = data.translations?.[0]?.name || data.name || "";
+      product.name = transEn?.name || data.name || "";
       product.description =
-        data.translations?.[0]?.description || data.description || "";
-      product.nameAr = data.translations?.[1]?.name || "";
-      product.descriptionAr = data.translations?.[1]?.description || "";
+        transEn?.description || data.description || "";
+      product.nameAr = transAr?.name || "";
+      product.descriptionAr = transAr?.description || "";
+      product.seoTitle = transEn?.seoTitle || "";
+      product.seoDescription = transEn?.seoDescription || "";
+      product.seoTitleAr = transAr?.seoTitle || "";
+      product.seoDescriptionAr = transAr?.seoDescription || "";
       product.weight = data.shippingWeight || data.weight || 0;
-      weightUnit.value = data.shippingWeightUnit || data.weightUnit || "kg";
+      const rawUnit =
+        data.shippingWeightUnit ||
+        data.shippingWeightUnitId ||
+        data.weightUnit ||
+        "kg";
+      const unitCodeOrId =
+        typeof rawUnit === "object" ? rawUnit.id || rawUnit.code : rawUnit;
+      const matchedUnit = (weightUnits.value || []).find(
+        (u) =>
+          u.id === unitCodeOrId ||
+          String(u.id) === String(unitCodeOrId) ||
+          u.code === unitCodeOrId ||
+          u.value === unitCodeOrId ||
+          u.label === unitCodeOrId,
+      );
+      weightUnit.value = matchedUnit ? matchedUnit.id : unitCodeOrId;
       product.isVariable = !!(
         data.isVariable ||
         (data.variants &&
           data.variants.some((v) => v.attributes && v.attributes.length > 0))
       );
+
+      const rawPresentationStatus = data.status || data.productStatus || data.product_status || "draft";
+      product.status = (typeof rawPresentationStatus === "object" ? rawPresentationStatus.code || rawPresentationStatus.id || rawPresentationStatus.value : String(rawPresentationStatus)).toLowerCase();
+
+      const rawLifecycle = data.productStatus || data.product_status || data.lifecycleStatus || product.status;
+      product.productStatus = (typeof rawLifecycle === "object" ? rawLifecycle.code || rawLifecycle.id || rawLifecycle.value : String(rawLifecycle)).toLowerCase();
+
+      const rawApproval = data.approvalStatus || data.approval_status || "not_submitted";
+      product.approvalStatus = (typeof rawApproval === "object" ? rawApproval.code || rawApproval.id || rawApproval.value : String(rawApproval)).toLowerCase();
+
+      product.rejectionReason = data.rejectionReason || data.rejection_reason || data.rejectionNote || null;
+      product.rejectionNote = data.rejectionNote || data.rejection_note || null;
+
       product.price = data.variants?.[0]?.prices?.[0]?.price ?? data.price ?? 0;
       product.comparePrice =
         data.variants?.[0]?.prices?.[0]?.compareAtPrice ??
@@ -2486,14 +2563,12 @@ async function fetchProductDetails(overrideId) {
       if (data.activityLog && Array.isArray(data.activityLog)) {
         productActivityLog.value = data.activityLog;
       }
-      product.status = (data.status || data.productStatus || "draft").toLowerCase();
       if (descEditor.value) {
         descEditor.value.innerHTML = product.description;
       }
       if (descEditorAr.value) {
         descEditorAr.value.innerHTML = product.descriptionAr;
       }
-      product.productStatus = data.productStatus ;
       const catId =
         data.primaryCategory?.id || data.categories?.[0]?.category?.id;
       product.category = catId
@@ -2799,6 +2874,7 @@ async function fetchProductDetails(overrideId) {
           selectedValuesMap.value[a.code] = vals;
         }
       });
+      takeProductSnapshot();
     }
   } catch (e) {
     // handled
@@ -2818,54 +2894,51 @@ async function reSyncProduct() {
   }
 }
 
-async function saveChanges(shouldRedirect = true) {
-  saving.value = true;
-  try {
-    const categoryId = resolveCategoryId(
-      product.category,
-      categoriesList.value,
-    );
+function buildCurrentPayloads() {
+  const categoryId = resolveCategoryId(
+    product.category,
+    categoriesList.value,
+  );
 
-    const basicPayload = {
-      shippingWeight: Number(product.weight) || 0,
-      shippingWeightUnit: weightUnit.value,
-      categoryId: categoryId || product.category,
-      translations: [
-        {
-          localeId: 1,
-          name: product.name,
-          description: product.description,
-        },
-        {
-          localeId: 2,
-          name: product.nameAr || product.name,
-          description: product.descriptionAr || "",
-        },
-      ],
-      careInstructionId: product.careInstructionId || null,
-      careInstructions: careInstructions.value.map((label) => {
-        const instr = careInstructionsLookup.value.find(
-          (c) => c.label.toLowerCase() === label.toLowerCase(),
-        );
-        return instr ? instr.id : label;
-      }),
-      careCustom: careCustom.value,
-      sizeGuideId: product.sizeGuideId || null,
-      hsCode: product.hsCode || null,
-      countryOfOrigin: product.countryOfOrigin || null,
-      returnPolicyId: product.returnPolicyId,
-      fulfillmentModeId: product.fulfillmentModeId,
-    };
+  const basicPayload = {
+    shippingWeight: Number(product.weight) || 0,
+    shippingUnitId: typeof weightUnit.value === "number" ? weightUnit.value : (weightUnits.value.find((u) => u.id === weightUnit.value || u.code === weightUnit.value)?.id || 1),
+    categoryId: categoryId || product.category,
+    translations: [
+      {
+        localeId: 1,
+        name: product.name,
+        description: product.description,
+        seoTitle: product.seoTitle || null,
+        seoDescription: product.seoDescription || null,
+      },
+      {
+        localeId: 2,
+        name: product.nameAr || product.name,
+        description: product.descriptionAr || "",
+        seoTitle: product.seoTitleAr || null,
+        seoDescription: product.seoDescriptionAr || null,
+      },
+    ],
+    careInstructionId: product.careInstructionId || null,
+    sizeGuideId: product.sizeGuideId || null,
+    hsCode: product.hsCode || null,
+    countryOfOriginId: product.countryOfOrigin || null,
+    returnPolicyId: product.returnPolicyId,
+    fulfillmentModeId: product.fulfillmentModeId,
+    productStatus: (product.productStatus || "draft").toLowerCase(),
+  };
 
-    await patch(`/supplier/catalog/products/${product.id}`, basicPayload);
-
-    // 2. Save Variants (variable & simple)
-    let items = [];
-    if (product.isVariable) {
-      items = product.variants.map((v, idx) => ({
+  let items = [];
+  if (product.isVariable) {
+    items = product.variants.map((v, idx) => {
+      const item = {
         id: v.id,
+        sku: v.sku,
+        barcode: v.barcode || null,
         sortOrder: idx,
         isActive: true,
+        commissionPct: 15,
         stock: product.markets.reduce(
           (sum, code) =>
             sum + (Number(v.marketStocks?.[code] ?? v.inventory) || 0),
@@ -2873,6 +2946,17 @@ async function saveChanges(shouldRedirect = true) {
         ),
         prices: product.markets.map((code) => {
           const m = marketsLookup.value.find((market) => market.code === code);
+          const marketObj = lookupStore.markets?.find(
+            (lk) => lk.id === m?.id || lk.code === code,
+          );
+          const currencyId =
+            m?.currencyId ||
+            m?.currency_id ||
+            m?.currency?.id ||
+            marketObj?.currencyId ||
+            marketObj?.currency_id ||
+            marketObj?.currency?.id ||
+            "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3d0001";
           const priceVal =
             v.marketPrices && v.marketPrices[code] !== undefined
               ? v.marketPrices[code]
@@ -2882,8 +2966,8 @@ async function saveChanges(shouldRedirect = true) {
               ? v.marketStocks[code]
               : v.inventory;
           return {
-            marketId: m?.id || code,
-            currencyId: m?.currencyId || 1,
+            marketId: m?.id || (typeof code === "number" ? code : 1),
+            currencyId,
             price: Number(priceVal) || 0,
             compareAtPrice: product.comparePrice
               ? Number(product.comparePrice)
@@ -2891,75 +2975,143 @@ async function saveChanges(shouldRedirect = true) {
             stock: Number(stockVal) || 0,
           };
         }),
-        sku: v.sku,
-        barcode: v.barcode || null,
-        warehouseId: null,
-        attributes:
-          v.attributes ||
-          [
-            colorAttrId.value && colorValueIdMap.value[v.color?.toLowerCase()]
-              ? {
-                  attributeId: colorAttrId.value,
-                  attributeValueId:
-                    colorValueIdMap.value[v.color.toLowerCase()],
-                }
-              : null,
-            sizeAttrId.value && sizeValueIdMap.value[v.size?.toLowerCase()]
-              ? {
-                  attributeId: sizeAttrId.value,
-                  attributeValueId: sizeValueIdMap.value[v.size.toLowerCase()],
-                }
-              : null,
-          ].filter(Boolean),
-      }));
-    } else {
-      const defaultVar = product.variants?.[0] || {};
-      const totalStock = (product.markets || []).reduce((sum, code) => {
-        const mp = product.marketPrices?.[code] || {};
-        return sum + (Number(mp.inventory) || Number(product.inventory) || 0);
-      }, 0);
-
-      const simpleVariantItem = {
-        id: defaultVar.id || undefined,
-        sku: product.sku || defaultVar.sku || "",
-        barcode: product.barcode || defaultVar.barcode || null,
-        isActive: true,
-        prices: (product.markets || []).map((code) => {
-          const m = marketsLookup.value.find((market) => market.code === code);
-          const mp = product.marketPrices?.[code] || {};
-          return {
-            marketId: m?.id || code,
-            currencyId: m?.currencyId || 1,
-            price: Number(mp.price ?? product.price) || 0,
-            compareAtPrice: (mp.comparePrice || product.comparePrice)
-              ? Number(mp.comparePrice || product.comparePrice)
-              : null,
-          };
-        }),
-        stock: totalStock,
-        warehouseId: null,
       };
+      if (v.warehouseId || product.warehouseId) {
+        item.warehouseId = v.warehouseId || product.warehouseId;
+      }
+      return item;
+    });
+  } else {
+    const defaultVar = product.variants?.[0] || {};
+    const totalStock = (product.markets || []).reduce((sum, code) => {
+      const mp = product.marketPrices?.[code] || {};
+      return sum + (Number(mp.inventory) || Number(product.inventory) || 0);
+    }, 0);
 
-      if (!simpleVariantItem.id) delete simpleVariantItem.id;
-      items = [simpleVariantItem];
+    const simpleVariantItem = {
+      id: defaultVar.id || undefined,
+      sku: product.sku || defaultVar.sku || "",
+      barcode: product.barcode || defaultVar.barcode || null,
+      sortOrder: 0,
+      isActive: true,
+      commissionPct: 15,
+      stock: totalStock,
+      prices: (product.markets || []).map((code) => {
+        const m = marketsLookup.value.find((market) => market.code === code);
+        const marketObj = lookupStore.markets?.find(
+          (lk) => lk.id === m?.id || lk.code === code,
+        );
+        const currencyId =
+          m?.currencyId ||
+          m?.currency_id ||
+          m?.currency?.id ||
+          marketObj?.currencyId ||
+          marketObj?.currency_id ||
+          marketObj?.currency?.id ||
+          "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3d0001";
+        const mp = product.marketPrices?.[code] || {};
+        return {
+          marketId: m?.id || (typeof code === "number" ? code : 1),
+          currencyId,
+          price: Number(mp.price ?? product.price) || 0,
+          compareAtPrice: (mp.comparePrice || product.comparePrice)
+            ? Number(mp.comparePrice || product.comparePrice)
+            : null,
+          stock: Number(mp.inventory) || 0,
+        };
+      }),
+    };
+
+    if (defaultVar.warehouseId || product.warehouseId) {
+      simpleVariantItem.warehouseId = defaultVar.warehouseId || product.warehouseId;
+    }
+    if (!simpleVariantItem.id) delete simpleVariantItem.id;
+    items = [simpleVariantItem];
+  }
+
+  const mediaPayload = product.images
+    .map((img, i) => ({
+      fileId: img.fileId,
+      sortOrder: i,
+      isPrimary: i === 0,
+    }))
+    .filter((m) => m.fileId);
+
+  return { basicPayload, items, mediaPayload };
+}
+
+function takeProductSnapshot() {
+  const { basicPayload, items, mediaPayload } = buildCurrentPayloads();
+  initialSnapshot.value = JSON.parse(
+    JSON.stringify({ basicPayload, items, mediaPayload }),
+  );
+}
+
+async function saveChanges(shouldRedirect = true) {
+  saving.value = true;
+  try {
+    const { basicPayload, items, mediaPayload } = buildCurrentPayloads();
+
+    let basicDiff = basicPayload;
+    let variantsChanged = true;
+    let mediaChanged = true;
+
+    if (initialSnapshot.value) {
+      const snapBasic = initialSnapshot.value.basicPayload || {};
+      basicDiff = {};
+      Object.keys(basicPayload).forEach((key) => {
+        if (
+          JSON.stringify(basicPayload[key]) !== JSON.stringify(snapBasic[key])
+        ) {
+          basicDiff[key] = basicPayload[key];
+        }
+      });
+
+      variantsChanged =
+        JSON.stringify(items) !==
+        JSON.stringify(initialSnapshot.value.items);
+
+      mediaChanged =
+        JSON.stringify(mediaPayload) !==
+        JSON.stringify(initialSnapshot.value.mediaPayload);
     }
 
-    await patch(`/supplier/catalog/products/${product.id}/variants`, {
-      items,
-    });
+    const basicHasChanges = Object.keys(basicDiff).length > 0;
 
-    // 3. Save Media
-    const mediaPayload = product.images
-      .map((img, i) => ({
-        fileId: img.fileId,
-        sortOrder: i,
-        isPrimary: i === 0,
-      }))
-      .filter((m) => m.fileId);
+    // If nothing changed across all sections, skip API calls
+    if (!basicHasChanges && !variantsChanged && !mediaChanged) {
+      toast("No changes to save.");
+      if (shouldRedirect) {
+        router.push({ name: "products" });
+      }
+      return;
+    }
 
-    await put(`/supplier/catalog/products/${product.id}/media`, {
-      media: mediaPayload,
-    });
+    // 1. Save Basic Payload if changed
+    if (basicHasChanges) {
+      await patch(`/supplier/catalog/products/${product.id}`, basicDiff);
+    }
+
+    // 2. Save Variants (variable & simple) if changed
+    if (variantsChanged) {
+      await patch(`/supplier/catalog/products/${product.id}/variants`, {
+        items,
+      });
+    }
+
+    // 3. Save Media if changed
+    if (mediaChanged) {
+      await put(`/supplier/catalog/products/${product.id}/media`, {
+        media: mediaPayload,
+      });
+    }
+
+    takeProductSnapshot();
+
+    const productId = route.params.id || product.id;
+    if (productId && !shouldRedirect) {
+      await fetchProductDetails(productId);
+    }
 
     toast("Product updated successfully!");
     if (shouldRedirect) {
@@ -3024,7 +3176,11 @@ async function loadLookups() {
           fulfillmentModes.value = enumsRes.enums.fulfillment_mode;
         }
         if (enumsRes.enums.weight_unit?.length) {
-          weightUnits.value = enumsRes.enums.weight_unit;
+          weightUnits.value = enumsRes.enums.weight_unit.map((u) => ({
+            ...u,
+            id: u.id ?? u.code,
+            label: u.label || u.code || u.name || u.symbol || String(u.id),
+          }));
         }
         const rejEnums =
           enumsRes.enums.rejection_reason ||
@@ -3072,6 +3228,7 @@ async function loadLookups() {
     // fallback
   }
 }
+
 
 onMounted(async () => {
   const productId = route.params.id;

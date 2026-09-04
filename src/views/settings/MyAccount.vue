@@ -49,8 +49,6 @@
         <InfoRow
           label="Language"
           :value="user.language === 'ar' ? 'Arabic (AR) — العربية' : 'English (EN)'"
-          editable
-          @edit="showLangPicker = true"
         />
         <InfoRow
           label="Timezone"
@@ -204,40 +202,46 @@
             style="width: 90vw; max-width: 420px"
           >
             <h3 class="text-base font-semibold mb-4">Change Password</h3>
-            <div class="flex flex-col gap-3">
-              <input
-                type="password"
-                v-model="currentPassword"
-                placeholder="Current password"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-              <input
-                type="password"
-                v-model="password"
-                placeholder="New password"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-              <input
-                type="password"
-                v-model="passwordConfirmation"
-                placeholder="Confirm new password"
-                class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-            <div class="flex items-center justify-end gap-2 mt-4">
-              <button
-                @click="showChangePw = false"
-                class="rounded-lg border bg-white-10 px-4 py-2 text-sm hover:bg-accent transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                @click="updatePassword"
-                class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
-              >
-                Update Password
-              </button>
-            </div>
+            <form @submit.prevent="updatePassword" autocomplete="off">
+              <div class="flex flex-col gap-3">
+                <input
+                  type="password"
+                  v-model="currentPassword"
+                  placeholder="Current password"
+                  autocomplete="new-password"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  type="password"
+                  v-model="password"
+                  placeholder="New password"
+                  autocomplete="new-password"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+                <input
+                  type="password"
+                  v-model="passwordConfirmation"
+                  placeholder="Confirm new password"
+                  autocomplete="new-password"
+                  class="rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div class="flex items-center justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  @click="showChangePw = false"
+                  class="rounded-lg border bg-white-10 px-4 py-2 text-sm hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  Update Password
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </Transition>
@@ -245,7 +249,7 @@
   </div>
 </template>
 <script setup>
-import { ref, reactive, onMounted, watch } from "vue";
+import { ref, reactive, onMounted, watch, nextTick } from "vue";
 import { useAppStore } from "@/stores/app";
 import { useAuthStore } from "@/stores/auth";
 import Section from "@/components/settings/SettingsSection.vue";
@@ -296,11 +300,20 @@ function openPasswordModal() {
   showChangePw.value = true;
 }
 
-watch(showChangePw, (open) => {
+watch(showChangePw, async (open) => {
   if (open) {
     currentPassword.value = "";
     password.value = "";
     passwordConfirmation.value = "";
+    await nextTick();
+    currentPassword.value = "";
+    password.value = "";
+    passwordConfirmation.value = "";
+    setTimeout(() => {
+      currentPassword.value = "";
+      password.value = "";
+      passwordConfirmation.value = "";
+    }, 50);
   }
 });
 

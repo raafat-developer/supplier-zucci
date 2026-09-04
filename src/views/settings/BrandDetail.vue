@@ -374,12 +374,12 @@
               class="flex-1 overflow-auto bg-muted/20 flex items-center justify-center p-4"
             >
               <img
-                v-if="previewFileType.startsWith('image/')"
+                v-if="previewFileType.startsWith('image/') || previewFileUrl.match(/\.(png|jpg|jpeg|svg|webp)/i)"
                 :src="previewFileUrl"
                 class="max-w-full max-h-full object-contain rounded border shadow-sm"
               />
               <iframe
-                v-else-if="previewFileType === 'application/pdf'"
+                v-else-if="previewFileType === 'application/pdf' || previewFileUrl.match(/\.pdf/i)"
                 :src="previewFileUrl"
                 class="w-full h-full border-0 rounded"
               ></iframe>
@@ -391,13 +391,39 @@
                 <p class="text-sm font-semibold">
                   Preview not available for this file type.
                 </p>
-                <button
-                  @click="downloadAsset(previewFileId, previewFileName)"
-                  class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold hover:bg-primary/90 transition-colors"
-                >
-                  Download Asset
-                </button>
+                <div class="flex items-center gap-2">
+                  <a
+                    :href="previewFileUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="rounded-lg bg-secondary text-secondary-foreground px-4 py-2 text-xs font-semibold hover:bg-secondary/80 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <ExternalLink class="size-3.5" /> Open in New Tab
+                  </a>
+                  <button
+                    @click="downloadAsset(previewFileId, previewFileName)"
+                    class="rounded-lg bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Download class="size-3.5" /> Download Asset
+                  </button>
+                </div>
               </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-border shrink-0 bg-muted/10">
+              <a
+                :href="previewFileUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium hover:bg-accent transition-colors text-foreground"
+              >
+                <ExternalLink class="size-3.5" /> Open in new tab
+              </a>
+              <button
+                @click="downloadAsset(previewFileId, previewFileName)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+              >
+                <Download class="size-3.5" /> Download
+              </button>
             </div>
           </div>
         </div>
@@ -617,58 +643,6 @@
         </div>
       </Transition>
     </Teleport>
-
-    <!-- File Preview Lightbox Modal -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div
-          v-if="previewFileUrl"
-          class="fixed inset-0 z-[600] flex items-center justify-center"
-          @click.self="closePreview"
-        >
-          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div
-            class="relative bg-background rounded-xl border border-border shadow-2xl overflow-hidden flex flex-col max-w-4xl max-h-[90vh] w-full m-4"
-          >
-            <div
-              class="flex items-center justify-between px-5 py-3 border-b border-border"
-            >
-              <span class="text-sm font-bold truncate">{{ previewFileName }}</span>
-              <button
-                @click="closePreview"
-                class="size-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground"
-              >
-                <X class="size-4" />
-              </button>
-            </div>
-            <div class="p-4 flex items-center justify-center overflow-auto max-h-[75vh]">
-              <img
-                v-if="
-                  previewFileType.includes('image') ||
-                  previewFileUrl.match(/\.(png|jpg|jpeg|svg|webp)/i)
-                "
-                :src="previewFileUrl"
-                class="max-w-full max-h-[70vh] object-contain rounded-lg"
-              />
-              <iframe
-                v-else-if="
-                  previewFileType.includes('pdf') || previewFileUrl.match(/\.pdf/i)
-                "
-                :src="previewFileUrl"
-                class="w-full h-[70vh] rounded-lg"
-              ></iframe>
-              <a
-                v-else
-                :href="previewFileUrl"
-                target="_blank"
-                class="text-primary hover:underline text-sm font-semibold"
-                >Open File Link</a
-              >
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -689,6 +663,7 @@ import {
   X,
   Pencil,
   Check,
+  ExternalLink,
 } from "lucide-vue-next";
 import { useBrandStore } from "@/stores/brand";
 import { useAppStore } from "@/stores/app";
@@ -1114,13 +1089,17 @@ function extractFileDetails(res) {
 
 function getProxyUrl(url) {
   if (!url) return url;
+  if (typeof url !== "string") return url;
+  if (url.startsWith("/s3-uploads")) return url;
   if (
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1"
   ) {
     try {
-      const urlObj = new URL(url);
-      return "/s3-uploads" + urlObj.pathname + urlObj.search;
+      const urlObj = new URL(url, window.location.origin);
+      if (urlObj.hostname.includes("amazonaws.com")) {
+        return "/s3-uploads" + urlObj.pathname + urlObj.search;
+      }
     } catch (err) {
       console.error("Failed to parse S3 URL:", err);
     }
@@ -1136,24 +1115,17 @@ async function previewAsset(fileId, name) {
     const { url, filename, mimeType } = extractFileDetails(res);
 
     if (url) {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Direct fetch failed");
-        const arrayBuf = await response.arrayBuffer();
-        const cleanType = mimeType || response.headers.get("content-type") || "image/png";
-        const inlineBlob = new Blob([arrayBuf], { type: cleanType });
-        previewFileUrl.value = window.URL.createObjectURL(inlineBlob);
-        previewFileName.value = filename || name || `File-${fileId}`;
-        previewFileType.value = cleanType;
-        previewFileId.value = fileId;
-        return;
-      } catch (_) {
-        previewFileUrl.value = getProxyUrl(url);
-        previewFileName.value = filename || name || `File-${fileId}`;
-        previewFileType.value = mimeType || "image/png";
-        previewFileId.value = fileId;
-        return;
+      previewFileUrl.value = url;
+      previewFileName.value = filename || name || `File-${fileId}`;
+      let cleanType = mimeType || "";
+      if (!cleanType) {
+        if (url.match(/\.(png|jpg|jpeg|gif|webp|svg)/i)) cleanType = "image/png";
+        else if (url.match(/\.pdf/i)) cleanType = "application/pdf";
+        else cleanType = "application/octet-stream";
       }
+      previewFileType.value = cleanType;
+      previewFileId.value = fileId;
+      return;
     }
 
     // Fallback if binary stream endpoint
@@ -1181,6 +1153,90 @@ function closePreview() {
   previewFileId.value = "";
 }
 
+async function triggerBrowserDownload(url, fileName) {
+  if (!url) return;
+
+  const targetUrl = getProxyUrl(url);
+
+  try {
+    const response = await fetch(targetUrl);
+    if (response.ok) {
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+      return;
+    }
+  } catch (e) {
+    console.warn("Direct blob download failed through proxy, trying raw fetch:", e);
+  }
+
+  try {
+    const response = await fetch(url);
+    if (response.ok) {
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = fileName || "download";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+      return;
+    }
+  } catch (e) {
+    console.warn("Direct raw fetch failed:", e);
+  }
+
+  if (/\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(url) || (url && url.includes("image"))) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = targetUrl;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = fileName || "download";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => window.URL.revokeObjectURL(blobUrl), 2000);
+        }
+      });
+      return;
+    } catch (e) {
+      console.warn("Canvas image download failed:", e);
+    }
+  }
+
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = targetUrl;
+  document.body.appendChild(iframe);
+  setTimeout(() => {
+    try {
+      document.body.removeChild(iframe);
+    } catch (_) {}
+  }, 60000);
+}
+
 async function downloadAsset(fileId, name) {
   if (!fileId) return;
   try {
@@ -1201,45 +1257,10 @@ async function downloadAsset(fileId, name) {
     }
 
     if (url) {
-      // Force file blob download (never open in new tab)
-      let blob;
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("Direct fetch failed");
-        blob = await response.blob();
-      } catch (_) {
-        const proxyUrl = getProxyUrl(url);
-        const response = await fetch(proxyUrl);
-        blob = await response.blob();
-      }
-
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = targetName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-      return;
+      triggerBrowserDownload(url, targetName);
+    } else {
+      toast("Document URL not found.", "error");
     }
-
-    // Fallback if binary stream endpoint
-    const blobRes = await api.get(
-      `/supplier/files/${fileId}`,
-      { responseType: "blob" },
-    );
-    const cType =
-      blobRes.headers["content-type"] || "application/octet-stream";
-    const blob = new Blob([blobRes.data], { type: cType });
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.download = targetName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
   } catch (e) {
     console.error("Failed to download document:", e);
     toast("Failed to download document.", "error");
