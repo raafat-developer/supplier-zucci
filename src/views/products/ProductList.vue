@@ -713,10 +713,11 @@ async function fetchProducts() {
 
       pagedProducts.value = res.data.map((p) => {
         const productMarkets = [];
-        if (p.markets) {
-          p.markets.forEach((mId) => {
+        if (p.markets && Array.isArray(p.markets)) {
+          p.markets.forEach((mItem) => {
+            const mId = typeof mItem === "object" ? mItem.marketId || mItem.id || mItem.code : mItem;
             const mObj = computedMarkets.value.find(
-              (m) => m.id === mId || String(m.id) === String(mId),
+              (m) => m.id === mId || String(m.id) === String(mId) || m.code === mId,
             );
             const fallbackMarketCodes = {
               1: "AE",
@@ -736,10 +737,10 @@ async function fetchProducts() {
                 flagUrl: info.flagUrl,
               });
             } else {
-              const code = fallbackMarketCodes[mId] || String(mId);
+              const code = (typeof mItem === "object" ? mItem.code || mItem.name : fallbackMarketCodes[mId]) || String(mId);
               const info = marketInfo(code);
               productMarkets.push({
-                id: mId,
+                id: typeof mItem === "object" ? mItem.id || mItem.marketId : mId,
                 code: code,
                 flag: info.flag,
                 flagUrl: info.flagUrl,
@@ -747,17 +748,24 @@ async function fetchProducts() {
             }
           });
         }
+
+        const rawStatus = p.status || p.productStatus || p.product_status || "draft";
+        const normalizedStatus = (typeof rawStatus === "object" ? rawStatus.code || rawStatus.id || rawStatus.value : String(rawStatus)).toLowerCase();
+        const priceVal = p.price ?? p.variants?.[0]?.prices?.[0]?.price ?? p.variants?.[0]?.price ?? "—";
+        const rawMedia = p.thumbUrl || p.media?.[0]?.url || p.media?.[0]?.src || (p.images && p.images[0]) || "";
+        const imgUrl = typeof rawMedia === "string" ? rawMedia : (rawMedia.url || rawMedia.src || "");
+
         return {
           id: p.id,
           name: p.name,
           sku: p.sku,
-          status: p.status || p.productStatus,
-          inventory: p.inventoryTotal,
-          category: p.primaryCategory?.name || p.category || "—",
+          status: normalizedStatus,
+          inventory: p.inventoryTotal ?? p.inventory ?? p.stock ?? 0,
+          category: p.primaryCategory?.name || p.categories?.[0]?.name || p.category || "—",
           markets: productMarkets,
-          images: [p.thumbUrl || p.media?.[0]?.url || ""],
+          images: [imgUrl],
           brand: p.brand?.name || p.brand || "—",
-          price: p.price ?? p.variants?.[0]?.price ?? "—",
+          price: priceVal,
           updated: p.updatedAt ? formatTimeAgo(p.updatedAt) : p.updated || "—",
           sync: p.sync || "manual",
           rejectionReason: p.rejectionReason || p.rejection_reason || "",

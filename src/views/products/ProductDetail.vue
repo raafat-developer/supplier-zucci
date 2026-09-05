@@ -1255,6 +1255,86 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Custom Confirm Modal for Variant -> Simple Collapse (US9) -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showCollapseConfirmModal"
+          class="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+          @click.self="cancelCollapseToSimple"
+        >
+          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div
+            class="relative w-full max-w-md rounded-2xl border border-border/80 bg-background p-6 shadow-2xl flex flex-col gap-5 overflow-hidden"
+          >
+            <!-- Close Button -->
+            <button
+              type="button"
+              @click="cancelCollapseToSimple"
+              class="absolute top-4 right-4 size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            >
+              <X class="size-4" />
+            </button>
+
+            <!-- Icon & Header -->
+            <div class="flex items-start gap-4">
+              <div
+                class="size-11 rounded-xl bg-amber-500/15 text-amber-600 dark:bg-amber-500/20 flex items-center justify-center border border-amber-500/30 shrink-0"
+              >
+                <AlertTriangle class="size-5" />
+              </div>
+              <div class="flex flex-col gap-1 pr-6">
+                <h3 class="text-sm font-bold text-foreground">
+                  Convert to Simple Product?
+                </h3>
+                <p class="text-xs text-muted-foreground leading-relaxed">
+                  This action will collapse all size and color variant combinations into a single product listing.
+                </p>
+              </div>
+            </div>
+
+            <!-- Warning Card -->
+            <div
+              class="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 flex flex-col gap-2 text-xs"
+            >
+              <div class="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
+                <span class="size-1.5 rounded-full bg-amber-500"></span>
+                What will happen:
+              </div>
+              <ul class="text-[11px] text-muted-foreground list-disc pl-4 space-y-1">
+                <li>
+                  All <strong class="text-foreground">{{ product.variants?.length || 0 }} variant combinations</strong> will be permanently removed.
+                </li>
+                <li>
+                  Base product details, images, and enabled markets will be preserved.
+                </li>
+              </ul>
+            </div>
+
+            <!-- Modal Footer Actions -->
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-border/40">
+              <button
+                type="button"
+                @click="cancelCollapseToSimple"
+                class="px-4 py-2 text-xs font-semibold rounded-xl border border-border/80 bg-white-10 hover:bg-muted text-foreground transition-colors shrink-0 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                @click="confirmCollapseToSimple"
+                :disabled="collapsingInProcess"
+                class="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Loader2 v-if="collapsingInProcess" class="size-3.5 animate-spin" />
+                {{ collapsingInProcess ? "Collapsing..." : "Convert & Collapse" }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 <script setup>
@@ -1272,6 +1352,8 @@ import {
   Trash2,
   Eye,
   Lock,
+  AlertTriangle,
+  Loader2,
 } from "lucide-vue-next";
 import { statusLabel, TEAM_MEMBERS } from "@/data/mock";
 import { SIZE_VALUES } from "@/data/sizeCharts";
@@ -1371,27 +1453,35 @@ const returnPolicies = ref([]);
 const fulfillmentModes = ref([]);
 const rejectionReasonsList = ref([]);
 const weightUnit = ref("kg");
-const weightUnits = ref([
-  { id: "kg", label: "kg" },
-  { id: "g", label: "g" },
-  { id: "lb", label: "lb" },
-  { id: "oz", label: "oz" },
-]);
+const weightUnits = ref([]);
+
 
 const weightUnitLabel = computed(() => {
-  if (!weightUnit.value) return "";
-  const found = (weightUnits.value || []).find(
-    (u) =>
-      u.id === weightUnit.value ||
-      String(u.id) === String(weightUnit.value) ||
-      u.code === weightUnit.value,
-  );
+  if (weightUnit.value === null || weightUnit.value === undefined || weightUnit.value === "") return "";
+  const valStr = String(weightUnit.value).trim().toLowerCase();
+  const found = (weightUnits.value || []).find((u) => {
+    if (!u) return false;
+    const uId = u.id !== undefined && u.id !== null ? String(u.id).trim().toLowerCase() : "";
+    const uCode = u.code !== undefined && u.code !== null ? String(u.code).trim().toLowerCase() : "";
+    const uValue = u.value !== undefined && u.value !== null ? String(u.value).trim().toLowerCase() : "";
+    const uSymbol = u.symbol !== undefined && u.symbol !== null ? String(u.symbol).trim().toLowerCase() : "";
+    const uLabel = u.label !== undefined && u.label !== null ? String(u.label).trim().toLowerCase() : "";
+    const uName = u.name !== undefined && u.name !== null ? String(u.name).trim().toLowerCase() : "";
+    return (
+      uId === valStr ||
+      uCode === valStr ||
+      uValue === valStr ||
+      uSymbol === valStr ||
+      uLabel === valStr ||
+      uName === valStr
+    );
+  });
   if (found) {
     return (
+      found.symbol ||
       found.label ||
       found.code ||
       found.name ||
-      found.symbol ||
       String(found.id)
     );
   }
@@ -1423,32 +1513,73 @@ const fulfillmentModeOptions = computed(() => {
 const cap = (str) =>
   str ? str.charAt(0).toUpperCase() + str.slice(1).replace(/[-_]/g, " ") : "";
 
+const showCollapseConfirmModal = ref(false);
+const collapsingInProcess = ref(false);
+
 const isVariable = computed({
   get: () => product.isVariable,
-  set: async (val) => {
-    product.isVariable = val;
-    if (val) {
-      const hasRealVariants = product.variants.some(
-        (v) => v.attributes && v.attributes.length > 0 && v.color !== "Default",
-      );
-      if (!hasRealVariants) {
-        product.variants = [];
-      }
+  set: (val) => {
+    if (val === product.isVariable) return;
+    if (!val) {
+      // Trigger custom confirm modal
+      showCollapseConfirmModal.value = true;
+      return;
+    }
+
+    product.isVariable = true;
+    const hasRealVariants = product.variants.some(
+      (v) => v.attributes && v.attributes.length > 0 && v.color !== "Default",
+    );
+    if (!hasRealVariants) {
+      product.variants = [];
     }
 
     if (product.id) {
-      try {
-        await patch(`/supplier/catalog/products/${product.id}`, {
-          isVariable: val,
+      patch(`/supplier/catalog/products/${product.id}`, {
+        isVariable: true,
+      })
+        .then(() => {
+          toast("Product structure updated to Variable Product");
+        })
+        .catch((e) => {
+          product.isVariable = false;
+          console.error("Failed to update isVariable setting:", e);
+          toast("Failed to update variable setting", "error");
         });
-        toast(`Product structure updated to ${val ? "Variable" : "Simple"}`);
-      } catch (e) {
-        console.error("Failed to update isVariable setting:", e);
-        toast("Failed to update variable setting", "error");
-      }
     }
   },
 });
+
+function cancelCollapseToSimple() {
+  showCollapseConfirmModal.value = false;
+}
+
+async function confirmCollapseToSimple() {
+  showCollapseConfirmModal.value = false;
+  collapsingInProcess.value = true;
+  product.isVariable = false;
+
+  if (product.id) {
+    try {
+      const { items } = buildCurrentPayloads();
+      await patch(`/supplier/catalog/products/${product.id}`, {
+        isVariable: false,
+        configuredAttributes: [],
+      });
+      await patch(`/supplier/catalog/products/${product.id}/variants`, {
+        items,
+      });
+      await fetchProductDetails(product.id);
+      toast("Product structure collapsed to Simple Product");
+    } catch (e) {
+      product.isVariable = true;
+      console.error("Failed to collapse product:", e);
+      toast("Failed to update variable setting", "error");
+    } finally {
+      collapsingInProcess.value = false;
+    }
+  }
+}
 
 const activeMarketPriceObj = computed(() => {
   const code = activePriceMarket.value || "AE";
@@ -1459,7 +1590,7 @@ const activeMarketPriceObj = computed(() => {
     product.marketPrices[code] = {
       price: product.price || 0,
       comparePrice: product.comparePrice || null,
-      inventory: product.inventory || 0,
+      inventory: 0,
     };
   }
   return product.marketPrices[code];
@@ -2088,6 +2219,13 @@ function buildVariantSku(variant, idx) {
   const brandCode = product.brand
     ? String(product.brand).slice(0, 3).toUpperCase()
     : "BRD";
+  // Product master SKU keeps generated codes unique across the catalog.
+  const productKey = String(product.sku || product.id || "")
+    .replace(/[^a-zA-Z0-9]+/g, "")
+    .slice(0, 10)
+    .toUpperCase();
+  const uniq =
+    productKey || Math.random().toString(36).slice(2, 6).toUpperCase();
   const parts = [];
 
   Object.entries(variant || {}).forEach(([key, value]) => {
@@ -2121,7 +2259,7 @@ function buildVariantSku(variant, idx) {
 
   const attrSlug = parts.join("-").slice(0, 24);
   const suffix = String(idx + 1).padStart(2, "0");
-  return `${catCode}-${brandCode}-SC25-${attrSlug}-${suffix}`
+  return `${catCode}-${brandCode}-${uniq}-${attrSlug}-${suffix}`
     .replace(/-+/g, "-")
     .toUpperCase();
 }
@@ -2205,35 +2343,41 @@ async function generateVariants() {
           const pObj = v.prices?.find(
             (p) => p.marketId === m?.id || p.marketCode === code,
           );
-          marketPrices[code] = pObj
+          const defaultMarketPrice = product.marketPrices?.[code]?.price ?? product.price ?? 0;
+          const defaultMarketStock = product.marketPrices?.[code]?.inventory ?? product.inventory ?? 0;
+
+          marketPrices[code] = pObj && Number(pObj.price) > 0
             ? pObj.price
-            : (v.prices?.[0]?.price ?? v.price ?? 289);
-          marketStocks[code] = pObj
+            : (v.prices?.[0]?.price ?? (Number(defaultMarketPrice) || 0));
+          marketStocks[code] = pObj && pObj.stock !== undefined
             ? (pObj.stock ?? pObj.inventory ?? 0)
-            : (v.stock ?? v.inventory ?? 0);
+            : Number(defaultMarketStock) || 0;
         });
 
         return {
           ...v,
-          sku: buildVariantSku(
-            {
-              color:
-                v.color ||
-                v.attributes?.find((a) => a.code === "color")?.label ||
-                "Default",
-              size:
-                v.size ||
-                v.attributes?.find((a) => a.code === "size")?.label ||
-                "One Size",
-              ...Object.fromEntries(
-                (v.attributes || []).map((a) => [
-                  a.code || a.attributeCode,
-                  a.label || a.value || a.attributeValueLabel,
-                ]),
-              ),
-            },
-            idx,
-          ),
+          // Prefer API-generated SKUs (masterSku + attrs). Only synthesize when missing.
+          sku:
+            v.sku ||
+            buildVariantSku(
+              {
+                color:
+                  v.color ||
+                  v.attributes?.find((a) => a.code === "color")?.label ||
+                  "Default",
+                size:
+                  v.size ||
+                  v.attributes?.find((a) => a.code === "size")?.label ||
+                  "One Size",
+                ...Object.fromEntries(
+                  (v.attributes || []).map((a) => [
+                    a.code || a.attributeCode,
+                    a.label || a.value || a.attributeValueLabel,
+                  ]),
+                ),
+              },
+              idx,
+            ),
           marketPrices,
           marketStocks,
         };
@@ -2249,8 +2393,29 @@ async function generateVariants() {
 
 function toggleMarket(code) {
   const idx = product.markets.indexOf(code);
-  if (idx >= 0) product.markets.splice(idx, 1);
-  else product.markets.push(code);
+  if (idx >= 0) {
+    product.markets.splice(idx, 1);
+  } else {
+    product.markets.push(code);
+
+    if (!product.marketPrices) product.marketPrices = {};
+    if (!product.marketPrices[code]) {
+      product.marketPrices[code] = {
+        price: product.price || 0,
+        comparePrice: product.comparePrice || null,
+        inventory: 0,
+      };
+    }
+
+    if (product.variants?.length) {
+      product.variants.forEach((v) => {
+        if (!v.marketPrices) v.marketPrices = {};
+        if (!v.marketStocks) v.marketStocks = {};
+        if (v.marketPrices[code] === undefined) v.marketPrices[code] = Number(v.price) || 0;
+        if (v.marketStocks[code] === undefined) v.marketStocks[code] = 0;
+      });
+    }
+  }
 }
 
 function toggleCare(tpl) {
@@ -2481,21 +2646,37 @@ async function fetchProductDetails(overrideId) {
       product.seoDescriptionAr = transAr?.seoDescription || "";
       product.weight = data.shippingWeight || data.weight || 0;
       const rawUnit =
-        data.shippingWeightUnit ||
-        data.shippingWeightUnitId ||
-        data.weightUnit ||
-        "kg";
+        data.shippingUnitId ??
+        data.shippingWeightUnit ??
+        data.shippingWeightUnitId ??
+        data.weightUnit ??
+        data.weight_unit ??
+        "";
       const unitCodeOrId =
-        typeof rawUnit === "object" ? rawUnit.id || rawUnit.code : rawUnit;
-      const matchedUnit = (weightUnits.value || []).find(
-        (u) =>
-          u.id === unitCodeOrId ||
-          String(u.id) === String(unitCodeOrId) ||
-          u.code === unitCodeOrId ||
-          u.value === unitCodeOrId ||
-          u.label === unitCodeOrId,
-      );
-      weightUnit.value = matchedUnit ? matchedUnit.id : unitCodeOrId;
+        typeof rawUnit === "object" ? rawUnit.id || rawUnit.code || rawUnit.value || rawUnit.name : rawUnit;
+      if (unitCodeOrId !== undefined && unitCodeOrId !== null && unitCodeOrId !== "") {
+        const valStr = String(unitCodeOrId).trim().toLowerCase();
+        const matchedUnit = (weightUnits.value || []).find((u) => {
+          if (!u) return false;
+          const uId = u.id !== undefined && u.id !== null ? String(u.id).trim().toLowerCase() : "";
+          const uCode = u.code !== undefined && u.code !== null ? String(u.code).trim().toLowerCase() : "";
+          const uValue = u.value !== undefined && u.value !== null ? String(u.value).trim().toLowerCase() : "";
+          const uSymbol = u.symbol !== undefined && u.symbol !== null ? String(u.symbol).trim().toLowerCase() : "";
+          const uLabel = u.label !== undefined && u.label !== null ? String(u.label).trim().toLowerCase() : "";
+          const uName = u.name !== undefined && u.name !== null ? String(u.name).trim().toLowerCase() : "";
+          return (
+            uId === valStr ||
+            uCode === valStr ||
+            uValue === valStr ||
+            uSymbol === valStr ||
+            uLabel === valStr ||
+            uName === valStr
+          );
+        });
+        weightUnit.value = matchedUnit ? matchedUnit.id : unitCodeOrId;
+      } else if (weightUnits.value?.length) {
+        weightUnit.value = weightUnits.value[0].id;
+      }
       product.isVariable = !!(
         data.isVariable ||
         (data.variants &&
@@ -2541,13 +2722,11 @@ async function fetchProductDetails(overrideId) {
             : (defaultVar.comparePrice ?? data.comparePrice ?? ""),
           inventory: pObj
             ? (pObj.stock ?? pObj.inventory ?? 0)
-            : (defaultVar.stock ?? defaultVar.inventory ?? data.inventory ?? 0),
+            : 0,
         };
       });
 
       product.sizeGuideId = data.sizeGuideId || null;
-      product.completenessScore = data.completenessScore || 88;
-      product.approvalStatus = data.approvalStatus || "not_submitted";
       product.hsCode = data.hsCode || "";
       product.countryOfOrigin =
         data.countryOfOrigin || data.country_of_origin || "EG";
@@ -2639,9 +2818,7 @@ async function fetchProductDetails(overrideId) {
         product.variants = [];
       } else {
         product.variants = data.variants
-          ? data.variants
-              .filter((v) => v.attributes && v.attributes.length > 0)
-              .map((v) => {
+          ? data.variants.map((v) => {
                 const colorAttr = v.attributes?.find(
                   (a) => a.attributeCode === "color" || a.code === "color",
                 );
@@ -2672,10 +2849,10 @@ async function fetchProductDetails(overrideId) {
                   );
                   marketPrices[code] = pObj
                     ? pObj.price
-                    : (v.prices?.[0]?.price ?? v.price ?? 289);
+                    : (v.prices?.[0]?.price ?? v.price ?? data.price ?? 0);
                   marketStocks[code] = pObj
                     ? (pObj.stock ?? pObj.inventory ?? 0)
-                    : (v.stock ?? v.inventory ?? 0);
+                    : 0;
                 });
 
                 return {
@@ -2695,7 +2872,7 @@ async function fetchProductDetails(overrideId) {
                       }
                     : null,
                   sku: v.sku,
-                  price: v.prices?.[0]?.price ?? 0,
+                  price: v.prices?.[0]?.price ?? v.price ?? 0,
                   inventory: v.stock ?? v.inventory ?? 0,
                   attributes: v.attributes || [],
                   marketPrices,
@@ -2900,7 +3077,20 @@ function buildCurrentPayloads() {
     categoriesList.value,
   );
 
+  const marketIds = (product.markets || [])
+    .map((code) => marketsLookup.value.find((m) => m.code === code)?.id)
+    .filter((id) => id != null);
+
+  const countryObj = lookupStore.countries?.find(
+    (c) => c.id === product.countryOfOrigin || c.code === product.countryOfOrigin || c.iso2 === product.countryOfOrigin,
+  );
+  const countryOfOriginId = countryObj?.id || (product.countryOfOrigin && product.countryOfOrigin.length > 10 ? product.countryOfOrigin : null);
+
   const basicPayload = {
+    sku: product.sku,
+    isVariable: product.isVariable,
+    tags: product.tags || [],
+    markets: marketIds,
     shippingWeight: Number(product.weight) || 0,
     shippingUnitId: typeof weightUnit.value === "number" ? weightUnit.value : (weightUnits.value.find((u) => u.id === weightUnit.value || u.code === weightUnit.value)?.id || 1),
     categoryId: categoryId || product.category,
@@ -2923,7 +3113,7 @@ function buildCurrentPayloads() {
     careInstructionId: product.careInstructionId || null,
     sizeGuideId: product.sizeGuideId || null,
     hsCode: product.hsCode || null,
-    countryOfOriginId: product.countryOfOrigin || null,
+    countryOfOriginId,
     returnPolicyId: product.returnPolicyId,
     fulfillmentModeId: product.fulfillmentModeId,
     productStatus: (product.productStatus || "draft").toLowerCase(),
@@ -2933,18 +3123,22 @@ function buildCurrentPayloads() {
   if (product.isVariable) {
     items = product.variants.map((v, idx) => {
       const item = {
-        id: v.id,
+        id: v.id && !String(v.id).startsWith("tmp-") ? v.id : undefined,
         sku: v.sku,
         barcode: v.barcode || null,
         sortOrder: idx,
         isActive: true,
         commissionPct: 15,
-        stock: product.markets.reduce(
+        stock: (product.markets || []).reduce(
           (sum, code) =>
-            sum + (Number(v.marketStocks?.[code] ?? v.inventory) || 0),
+            sum + (Number(v.marketStocks?.[code]) || 0),
           0,
         ),
-        prices: product.markets.map((code) => {
+        attributes: (v.attributes || []).map((a) => ({
+          attributeId: a.attributeId || a.id,
+          attributeValueId: a.attributeValueId || a.valueId || a.id,
+        })).filter((a) => a.attributeId && a.attributeValueId),
+        prices: (product.markets || []).map((code) => {
           const m = marketsLookup.value.find((market) => market.code === code);
           const marketObj = lookupStore.markets?.find(
             (lk) => lk.id === m?.id || lk.code === code,
@@ -2961,21 +3155,20 @@ function buildCurrentPayloads() {
             v.marketPrices && v.marketPrices[code] !== undefined
               ? v.marketPrices[code]
               : v.price;
-          const stockVal =
-            v.marketStocks && v.marketStocks[code] !== undefined
-              ? v.marketStocks[code]
-              : v.inventory;
+          const stockVal = v.marketStocks?.[code] ?? 0;
           return {
             marketId: m?.id || (typeof code === "number" ? code : 1),
             currencyId,
             price: Number(priceVal) || 0,
-            compareAtPrice: product.comparePrice
-              ? Number(product.comparePrice)
+            costPrice: v.costPrice ? Number(v.costPrice) : null,
+            compareAtPrice: (v.comparePrice || product.comparePrice)
+              ? Number(v.comparePrice || product.comparePrice)
               : null,
             stock: Number(stockVal) || 0,
           };
         }),
       };
+      if (!item.id) delete item.id;
       if (v.warehouseId || product.warehouseId) {
         item.warehouseId = v.warehouseId || product.warehouseId;
       }
@@ -2985,17 +3178,18 @@ function buildCurrentPayloads() {
     const defaultVar = product.variants?.[0] || {};
     const totalStock = (product.markets || []).reduce((sum, code) => {
       const mp = product.marketPrices?.[code] || {};
-      return sum + (Number(mp.inventory) || Number(product.inventory) || 0);
+      return sum + (Number(mp.inventory) || 0);
     }, 0);
 
     const simpleVariantItem = {
-      id: defaultVar.id || undefined,
+      id: defaultVar.id && !String(defaultVar.id).startsWith("tmp-") ? defaultVar.id : undefined,
       sku: product.sku || defaultVar.sku || "",
       barcode: product.barcode || defaultVar.barcode || null,
       sortOrder: 0,
       isActive: true,
       commissionPct: 15,
       stock: totalStock,
+      attributes: [],
       prices: (product.markets || []).map((code) => {
         const m = marketsLookup.value.find((market) => market.code === code);
         const marketObj = lookupStore.markets?.find(
@@ -3178,8 +3372,10 @@ async function loadLookups() {
         if (enumsRes.enums.weight_unit?.length) {
           weightUnits.value = enumsRes.enums.weight_unit.map((u) => ({
             ...u,
-            id: u.id ?? u.code,
-            label: u.label || u.code || u.name || u.symbol || String(u.id),
+            id: u.id ?? u.code ?? u.value,
+            code: u.code || u.value || u.symbol || String(u.id),
+            label: u.label || u.symbol || u.code || u.name || String(u.id),
+            symbol: u.symbol || u.label || u.code || String(u.id),
           }));
         }
         const rejEnums =

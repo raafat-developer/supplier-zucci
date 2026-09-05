@@ -1258,17 +1258,21 @@ const canEnableVariants = computed(() => {
 function handleVariantToggle(val) {
   const hasMarket = markets.value.some((m) => m.enabled);
   const hasCategory = !!form.category;
-  if (!hasMarket && !hasCategory) {
-    toast("Please select a market and category first", "error");
-    return;
-  }
-  if (!hasMarket) {
-    toast("Please select at least one market first", "error");
-    return;
-  }
-  if (!hasCategory) {
-    toast("Please select a category first", "error");
-    return;
+  if (val) {
+    if (!hasMarket && !hasCategory) {
+      toast("Please select a market and category first", "error");
+      return;
+    }
+    if (!hasMarket) {
+      toast("Please select at least one market first", "error");
+      return;
+    }
+    if (!hasCategory) {
+      toast("Please select a category first", "error");
+      return;
+    }
+  } else {
+    form.variants = [];
   }
   form.isVariable = val;
 }
@@ -1761,6 +1765,13 @@ function buildVariantSku(variant, idx) {
   const brandCode = form.brand
     ? String(form.brand).slice(0, 3).toUpperCase()
     : "BRD";
+  // Product master SKU keeps generated codes unique across the catalog.
+  const productKey = String(form.sku || "")
+    .replace(/[^a-zA-Z0-9]+/g, "")
+    .slice(0, 10)
+    .toUpperCase();
+  const uniq =
+    productKey || Math.random().toString(36).slice(2, 6).toUpperCase();
   const parts = [];
 
   Object.entries(variant || {}).forEach(([key, value]) => {
@@ -1794,7 +1805,7 @@ function buildVariantSku(variant, idx) {
 
   const attrSlug = parts.join("-").slice(0, 24);
   const suffix = String(idx + 1).padStart(2, "0");
-  return `${catCode}-${brandCode}-SC25-${attrSlug}-${suffix}`
+  return `${catCode}-${brandCode}-${uniq}-${attrSlug}-${suffix}`
     .replace(/-+/g, "-")
     .toUpperCase();
 }
@@ -1866,13 +1877,17 @@ function generateVariants() {
       size: sizeLabel,
       sku: buildVariantSku(skuVariant, idx),
       prices: Object.fromEntries(
-        enabledMarketsList.value.map((m) => [
-          m.code,
-          {
-            price: Number(form.price) || 0,
-            comparePrice: form.comparePrice ? Number(form.comparePrice) : null,
-          },
-        ]),
+        enabledMarketsList.value.map((m) => {
+          const mp = form.marketPrices?.[m.code] || {};
+          return [
+            m.code,
+            {
+              price: Number(mp.price || form.price) || 0,
+              comparePrice: mp.comparePrice ? Number(mp.comparePrice) : (form.comparePrice ? Number(form.comparePrice) : null),
+              inventory: Number(mp.inventory || form.inventory) || 0,
+            },
+          ];
+        }),
       ),
       inventory: 0,
       barcode: "",
@@ -2154,7 +2169,12 @@ function buildPayload() {
     categoryId: categoryIds.length ? categoryIds[categoryIds.length - 1] : null,
     sizeGuideId: form.sizeGuideId || null,
     hsCode: form.hsCode || null,
-    countryOfOriginId: form.countryOfOrigin || null,
+    countryOfOriginId: (function() {
+      const countryObj = lookupStore.countries?.find(
+        (c) => c.id === form.countryOfOrigin || c.code === form.countryOfOrigin || c.iso2 === form.countryOfOrigin,
+      );
+      return countryObj?.id || (form.countryOfOrigin && form.countryOfOrigin.length > 10 ? form.countryOfOrigin : null);
+    })(),
     careInstructionId: form.careInstructionId || null,
     returnPolicyId: form.returnPolicyId || null,
     fulfillmentModeId: form.fulfillmentModeId || null,
